@@ -1,0 +1,17 @@
+<svg width="768" height="960" viewBox="0 0 768 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="768" height="960" fill="#081019"/>
+  <rect x="48" y="48" width="672" height="864" rx="40" fill="url(#bg)"/>
+  <rect x="150" y="128" width="468" height="704" rx="32" fill="#111D2B"/>
+  <path d="M384 176C410 176 430 196 430 222V240H338V222C338 196 358 176 384 176Z" fill="#D6B28B"/>
+  <path d="M250 298L324 250H444L518 298L474 744H294L250 298Z" fill="#0F766E"/>
+  <path d="M324 250L290 336H218L250 298L324 250Z" fill="#115E59"/>
+  <path d="M444 250L478 336H550L518 298L444 250Z" fill="#115E59"/>
+  <rect x="228" y="760" width="312" height="84" rx="24" fill="#0E1726" fill-opacity="0.68"/>
+  <text x="384" y="810" fill="#E6F1FF" font-family="Arial, sans-serif" font-size="36" font-weight="700" text-anchor="middle">CLOTHING</text>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="96" x2="672" y2="864" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#132231"/>
+      <stop offset="1" stop-color="#0C1623"/>
+    </linearGradient>
+  </defs>
+</svg>

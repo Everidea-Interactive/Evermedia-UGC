@@ -1,0 +1,17 @@
+<svg width="768" height="960" viewBox="0 0 768 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="768" height="960" fill="#081019"/>
+  <rect x="48" y="48" width="672" height="864" rx="40" fill="url(#bg)"/>
+  <ellipse cx="384" cy="762" rx="164" ry="42" fill="#102336"/>
+  <rect x="312" y="204" width="144" height="468" rx="72" fill="#14B8A6"/>
+  <rect x="332" y="150" width="104" height="90" rx="28" fill="#E7D5C0"/>
+  <rect x="286" y="352" width="196" height="176" rx="30" fill="#F5F5F4" fill-opacity="0.92"/>
+  <text x="384" y="430" fill="#0F172A" font-family="Arial, sans-serif" font-size="38" font-weight="700" text-anchor="middle">SERUM</text>
+  <rect x="228" y="760" width="312" height="84" rx="24" fill="#0E1726" fill-opacity="0.68"/>
+  <text x="384" y="810" fill="#E6F1FF" font-family="Arial, sans-serif" font-size="36" font-weight="700" text-anchor="middle">PRODUCT 1</text>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="96" x2="672" y2="864" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#163143"/>
+      <stop offset="1" stop-color="#0D1723"/>
+    </linearGradient>
+  </defs>
+</svg>
