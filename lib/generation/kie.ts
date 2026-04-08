@@ -50,12 +50,15 @@ const kieCreditSources: Array<{
 
 type ParsedGenerationRequest = {
   activeModel: ImageModelOption | VideoModelOption
-  assetDescriptors: Array<SubmittedAssetDescriptor & { file: File }>
+  assetDescriptors: Array<
+    SubmittedAssetDescriptor & { file: File | null; persistedAssetId?: string }
+  >
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
   creativeStyle: CreativeStyle
   imageModel: ImageModelOption
   outputQuality: OutputQuality
+  projectId: string
   productCategory: ProductCategory
   subjectMode: SubjectMode
   textPrompt: string
@@ -63,6 +66,8 @@ type ParsedGenerationRequest = {
   videoModel: VideoModelOption
   workspace: WorkspaceTab
 }
+
+type ResolvedAssetDescriptor = SubmittedAssetDescriptor & { file: File }
 
 function getKieApiKey() {
   const apiKey = process.env.KIE_API_KEY
@@ -318,7 +323,7 @@ function getGrokDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '6'
 }
 
-function createRunId() {
+export function createRunId() {
   if (
     typeof globalThis.crypto !== 'undefined' &&
     typeof globalThis.crypto.randomUUID === 'function'
@@ -357,6 +362,34 @@ export async function getKieStatus(): Promise<KieStatusResponse> {
   return createKieStatusError(lastError)
 }
 
+function createPromptAssets(
+  assetDescriptors: ParsedGenerationRequest['assetDescriptors'],
+): UploadedAssetDescriptor[] {
+  return assetDescriptors.map((assetDescriptor) => {
+    const { file, ...descriptor } = assetDescriptor
+    void file
+
+    return {
+      ...descriptor,
+      remoteUrl: '',
+    }
+  })
+}
+
+export function buildPromptSnapshot(input: ParsedGenerationRequest) {
+  return compileGenerationPrompt({
+    assets: createPromptAssets(input.assetDescriptors),
+    cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
+    creativeStyle: input.creativeStyle,
+    outputQuality: input.outputQuality,
+    productCategory: input.productCategory,
+    subjectMode: input.subjectMode,
+    textPrompt: input.textPrompt,
+    videoDuration: input.videoDuration,
+    workspace: input.workspace,
+  })
+}
+
 function buildMarketImagePayload(input: {
   assets: UploadedAssetDescriptor[]
   imageModel: ImageModelOption
@@ -373,12 +406,12 @@ function buildMarketImagePayload(input: {
         modelName: 'google/nano-banana-edit',
         provider: 'market' as const,
         requestBody: {
-        model: 'google/nano-banana-edit',
-        input: {
-          prompt: input.prompt,
-          image_urls: [primaryReference.remoteUrl],
-          output_format: 'png',
-          image_size: aspectRatio,
+          model: 'google/nano-banana-edit',
+          input: {
+            prompt: input.prompt,
+            image_urls: [primaryReference.remoteUrl],
+            output_format: 'png',
+            image_size: aspectRatio,
           },
         },
       }
@@ -551,6 +584,7 @@ async function uploadFileToKie(
 }
 
 export function parseGenerationFormData(formData: FormData): ParsedGenerationRequest {
+  const projectId = readString(formData, 'projectId')
   const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
   const batchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
@@ -596,7 +630,16 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       throw new Error('Asset manifest entry is missing required fields.')
     }
 
-    if (!(file instanceof File) || file.size === 0) {
+    const persistedAssetId =
+      typeof record.persistedAssetId === 'string' && record.persistedAssetId.length > 0
+        ? record.persistedAssetId
+        : undefined
+
+    if (!(file instanceof File) && !persistedAssetId) {
+      throw new Error(`Missing uploaded file or persisted asset for ${label}.`)
+    }
+
+    if (file instanceof File && file.size === 0 && !persistedAssetId) {
       throw new Error(`Missing uploaded file for ${label}.`)
     }
 
@@ -607,10 +650,11 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
 
     return {
       fieldName,
-      file,
+      file: file instanceof File ? file : null,
       kind: kind as 'named' | 'product',
       label,
       order: Number(order) || index,
+      ...(persistedAssetId ? { persistedAssetId } : null),
       ...(parsedKey ? { key: parsedKey } : null),
       ...(typeof record.productId === 'string'
         ? { productId: record.productId }
@@ -638,6 +682,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       'outputQuality',
       ['720p', '1080p', '4k'] as const,
     ),
+    projectId,
     productCategory: readEnum(
       formData,
       'productCategory',
@@ -696,6 +741,35 @@ async function submitProviderTask(
   return taskId
 }
 
+async function resolveAssetDescriptors(
+  input: ParsedGenerationRequest,
+  options: {
+    resolvePersistedAssetFile?: (assetId: string) => Promise<File>
+  },
+) {
+  const descriptors = await Promise.all(
+    input.assetDescriptors.map(async (descriptor) => {
+      if (descriptor.file) {
+        return {
+          ...descriptor,
+          file: descriptor.file,
+        }
+      }
+
+      if (descriptor.persistedAssetId && options.resolvePersistedAssetFile) {
+        return {
+          ...descriptor,
+          file: await options.resolvePersistedAssetFile(descriptor.persistedAssetId),
+        }
+      }
+
+      throw new Error(`Unable to resolve file input for ${descriptor.label}.`)
+    }),
+  )
+
+  return descriptors satisfies ResolvedAssetDescriptor[]
+}
+
 function resolveSubmission(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
@@ -728,26 +802,22 @@ function resolveSubmission(input: {
 
 export async function submitGenerationRequest(
   input: ParsedGenerationRequest,
+  options: {
+    basePrompt?: string
+    resolvePersistedAssetFile?: (assetId: string) => Promise<File>
+    runId?: string
+  } = {},
 ): Promise<RunSubmissionResponse> {
   const apiKey = getKieApiKey()
-  const runId = createRunId()
+  const runId = options.runId ?? createRunId()
+  const resolvedAssets = await resolveAssetDescriptors(input, options)
   const uploadedAssets = await Promise.all(
-    input.assetDescriptors.map(async (descriptor) => ({
+    resolvedAssets.map(async (descriptor) => ({
       ...descriptor,
       remoteUrl: await uploadFileToKie(apiKey, descriptor.file, input.workspace),
     })),
   )
-  const basePrompt = compileGenerationPrompt({
-    assets: uploadedAssets,
-    cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
-    creativeStyle: input.creativeStyle,
-    outputQuality: input.outputQuality,
-    productCategory: input.productCategory,
-    subjectMode: input.subjectMode,
-    textPrompt: input.textPrompt,
-    videoDuration: input.videoDuration,
-    workspace: input.workspace,
-  })
+  const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)
   const promptSet = buildVariantPromptSet({
     basePrompt,
     batchSize: input.batchSize as GenerationVariantIndex,

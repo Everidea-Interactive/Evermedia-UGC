@@ -31,11 +31,18 @@ function getPrimaryReference(snapshot: GenerationSnapshot) {
   const face1 = snapshot.assets.face1
   const primaryProduct = snapshot.products[0] ?? null
 
-  if (snapshot.subjectMode === 'lifestyle' && face1.file) {
+  if (
+    snapshot.subjectMode === 'lifestyle' &&
+    (face1.file || face1.persistedAssetId)
+  ) {
     return face1
   }
 
-  return primaryProduct?.file ? primaryProduct : face1.file ? face1 : null
+  return primaryProduct?.file || primaryProduct?.persistedAssetId
+    ? primaryProduct
+    : face1.file || face1.persistedAssetId
+      ? face1
+      : null
 }
 
 export function getAssetPreviewUrl(slot: AssetSlot) {
@@ -89,35 +96,53 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   for (const [order, key] of namedAssetKeys.entries()) {
     const slot = snapshot.assets[key]
 
-    if (!slot.file) {
+    if (!slot.file && !slot.persistedAssetId) {
       continue
     }
 
     const fieldName = `asset_${key}`
-    assetManifest.push({
+    const assetDescriptor: SubmittedAssetDescriptor = {
       fieldName,
       kind: 'named',
       key,
       label: slot.label,
       order,
-    })
-    formData.append(fieldName, slot.file)
+    }
+
+    if (slot.persistedAssetId) {
+      assetDescriptor.persistedAssetId = slot.persistedAssetId
+    }
+
+    assetManifest.push(assetDescriptor)
+
+    if (slot.file) {
+      formData.append(fieldName, slot.file)
+    }
   }
 
   snapshot.products.forEach((product, index) => {
-    if (!product.file) {
+    if (!product.file && !product.persistedAssetId) {
       return
     }
 
     const fieldName = `product_${product.id}`
-    assetManifest.push({
+    const assetDescriptor: SubmittedAssetDescriptor = {
       fieldName,
       kind: 'product',
       label: product.label,
       order: 100 + index,
       productId: product.id,
-    })
-    formData.append(fieldName, product.file)
+    }
+
+    if (product.persistedAssetId) {
+      assetDescriptor.persistedAssetId = product.persistedAssetId
+    }
+
+    assetManifest.push(assetDescriptor)
+
+    if (product.file) {
+      formData.append(fieldName, product.file)
+    }
   })
 
   formData.append('assetManifest', JSON.stringify(assetManifest))

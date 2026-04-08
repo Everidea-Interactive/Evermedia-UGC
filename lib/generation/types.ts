@@ -59,6 +59,7 @@ export type AssetSlot = {
   id: string
   label: string
   file: File | null
+  persistedAssetId: string | null
   previewUrl: string | null
   remoteUrl: string | null
   mimeType: string | null
@@ -127,6 +128,7 @@ export type SubmittedAssetDescriptor = {
   kind: 'named' | 'product'
   label: string
   order: number
+  persistedAssetId?: string
   key?: NamedAssetKey
   productId?: string
 }

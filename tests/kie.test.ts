@@ -12,6 +12,7 @@ function buildBaseFormData(batchSize: string) {
   const formData = new FormData()
 
   formData.append('workspace', 'image')
+  formData.append('projectId', 'project-1')
   formData.append('imageModel', 'nano-banana')
   formData.append('videoModel', 'veo-3.1')
   formData.append('productCategory', 'cosmetics')

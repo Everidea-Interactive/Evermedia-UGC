@@ -22,6 +22,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 
 type GenerationStateShape = {
   activeTab: WorkspaceTab
@@ -42,9 +43,13 @@ type GenerationStateShape = {
 }
 
 type AssetPatch = Partial<
-  Omit<AssetSlot, 'id' | 'label' | 'file' | 'previewUrl' | 'remoteUrl'>
+  Omit<
+    AssetSlot,
+    'id' | 'label' | 'file' | 'persistedAssetId' | 'previewUrl' | 'remoteUrl'
+  >
 > & {
   file?: File | null
+  persistedAssetId?: string | null
   previewUrl?: string | null
   remoteUrl?: string | null
 }
@@ -66,6 +71,13 @@ type GenerationStore = GenerationStateShape & {
     slot: NamedAssetKey,
     patch: Pick<AssetSlot, 'remoteUrl' | 'uploadStatus' | 'error'>,
   ) => void
+  setNamedAssetStoredState: (
+    slot: NamedAssetKey,
+    patch: Pick<
+      AssetSlot,
+      'persistedAssetId' | 'previewUrl' | 'mimeType' | 'size'
+    >,
+  ) => void
   clearNamedAsset: (slot: NamedAssetKey) => void
   addProductSlot: () => void
   removeProductSlot: (id: string) => void
@@ -74,8 +86,16 @@ type GenerationStore = GenerationStateShape & {
     id: string,
     patch: Pick<AssetSlot, 'remoteUrl' | 'uploadStatus' | 'error'>,
   ) => void
+  setProductSlotStoredState: (
+    id: string,
+    patch: Pick<
+      AssetSlot,
+      'persistedAssetId' | 'previewUrl' | 'mimeType' | 'size'
+    >,
+  ) => void
   clearProductSlot: (id: string) => void
   clearUploadMetadata: () => void
+  hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
   updateGenerationRun: (patch: Partial<GenerationRun>) => void
   setGenerationRunStatus: (
     status: GenerationRunStatus,
@@ -132,6 +152,7 @@ function createSlot(id: string, label: string): AssetSlot {
     id,
     label,
     file: null,
+    persistedAssetId: null,
     previewUrl: null,
     remoteUrl: null,
     mimeType: null,
@@ -219,6 +240,12 @@ function mergeAssetPatch(slot: AssetSlot, patch: AssetPatch): AssetSlot {
   const nextPreviewUrl = Object.prototype.hasOwnProperty.call(patch, 'previewUrl')
     ? (patch.previewUrl ?? null)
     : slot.previewUrl
+  const nextPersistedAssetId = Object.prototype.hasOwnProperty.call(
+    patch,
+    'persistedAssetId',
+  )
+    ? (patch.persistedAssetId ?? null)
+    : slot.persistedAssetId
 
   const incomingPreviewUrl =
     nextFile !== slot.file
@@ -233,6 +260,8 @@ function mergeAssetPatch(slot: AssetSlot, patch: AssetPatch): AssetSlot {
     ...slot,
     ...patch,
     file: nextFile,
+    persistedAssetId:
+      nextFile !== slot.file ? null : nextPersistedAssetId,
     previewUrl: incomingPreviewUrl,
     remoteUrl:
       nextFile !== slot.file
@@ -406,10 +435,21 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       assets: updateNamedAsset(state.assets, slot, patch),
     })),
+  setNamedAssetStoredState: (slot, patch) =>
+    set((state) => ({
+      assets: updateNamedAsset(state.assets, slot, {
+        error: null,
+        file: null,
+        remoteUrl: null,
+        uploadStatus: 'idle',
+        ...patch,
+      }),
+    })),
   clearNamedAsset: (slot) =>
     set((state) => ({
       assets: updateNamedAsset(state.assets, slot, {
         file: null,
+        persistedAssetId: null,
         previewUrl: null,
         remoteUrl: null,
         mimeType: null,
@@ -457,10 +497,21 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       products: updateProductAsset(state.products, id, patch),
     })),
+  setProductSlotStoredState: (id, patch) =>
+    set((state) => ({
+      products: updateProductAsset(state.products, id, {
+        error: null,
+        file: null,
+        remoteUrl: null,
+        uploadStatus: 'idle',
+        ...patch,
+      }),
+    })),
   clearProductSlot: (id) =>
     set((state) => ({
       products: updateProductAsset(state.products, id, {
         file: null,
+        persistedAssetId: null,
         previewUrl: null,
         remoteUrl: null,
         mimeType: null,
@@ -477,7 +528,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
           {
             ...slot,
             remoteUrl: null,
-            uploadStatus: slot.file ? ('staged' satisfies AssetUploadStatus) : 'idle',
+            uploadStatus:
+              slot.file || slot.persistedAssetId
+                ? ('staged' satisfies AssetUploadStatus)
+                : 'idle',
             error: null,
           },
         ]),
@@ -485,10 +539,34 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       products: state.products.map((slot) => ({
         ...slot,
         remoteUrl: null,
-        uploadStatus: slot.file ? ('staged' satisfies AssetUploadStatus) : 'idle',
+        uploadStatus:
+          slot.file || slot.persistedAssetId
+            ? ('staged' satisfies AssetUploadStatus)
+            : 'idle',
         error: null,
       })),
     })),
+  hydrateProjectConfig: (configSnapshot) =>
+    set((state) => {
+      releaseSlots(Object.values(state.assets))
+      releaseSlots(state.products)
+
+      return {
+        ...createInitialState(),
+        activeTab: configSnapshot.activeTab,
+        batchSize: configSnapshot.batchSize,
+        cameraMovement: configSnapshot.cameraMovement,
+        creativeStyle: configSnapshot.creativeStyle,
+        imageModel: configSnapshot.imageModel,
+        outputQuality: configSnapshot.outputQuality,
+        productCategory: configSnapshot.productCategory,
+        sessionStats: state.sessionStats,
+        subjectMode: configSnapshot.subjectMode,
+        textPrompt: configSnapshot.textPrompt,
+        videoDuration: configSnapshot.videoDuration,
+        videoModel: configSnapshot.videoModel,
+      }
+    }),
   updateGenerationRun: (patch) =>
     set((state) => ({
       generationRun: {

@@ -31,6 +31,7 @@ import {
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useOptionalStudioProjectContext } from '@/components/dashboard/studio-project-context'
 import { Select } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -429,6 +430,7 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
     (state) => state.setProductSlotFile,
   )
   const clearProductSlot = useGenerationStore((state) => state.clearProductSlot)
+  const projectContext = useOptionalStudioProjectContext()
   const productSlots = products.slice(0, 2)
 
   return (
@@ -440,7 +442,18 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
             title="Build the input set"
             description="Stage every visual input here first. The board stays fixed so the user can scan people, styling, and products without hunting for slots."
           />
-          <Button onClick={resetGenerationState} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              if (projectContext) {
+                void projectContext.resetProjectBoard()
+                return
+              }
+
+              resetGenerationState()
+            }}
+            size="sm"
+            variant="ghost"
+          >
             Reset
           </Button>
         </div>
@@ -481,8 +494,22 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
                   icon={asset.icon}
                   inputId={`asset-${asset.key}`}
                   slot={assets[asset.key]}
-                  onClear={() => clearNamedAsset(asset.key)}
-                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
+                  onClear={() => {
+                    if (projectContext) {
+                      void projectContext.clearNamedAsset(asset.key)
+                      return
+                    }
+
+                    clearNamedAsset(asset.key)
+                  }}
+                  onSelect={(file) => {
+                    if (projectContext) {
+                      void projectContext.stageNamedAsset(asset.key, file)
+                      return
+                    }
+
+                    setNamedAssetFile(asset.key, file)
+                  }}
                 />
               ))}
             </ReferenceCardGroup>
@@ -494,8 +521,22 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
                   icon={asset.icon}
                   inputId={`asset-${asset.key}`}
                   slot={assets[asset.key]}
-                  onClear={() => clearNamedAsset(asset.key)}
-                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
+                  onClear={() => {
+                    if (projectContext) {
+                      void projectContext.clearNamedAsset(asset.key)
+                      return
+                    }
+
+                    clearNamedAsset(asset.key)
+                  }}
+                  onSelect={(file) => {
+                    if (projectContext) {
+                      void projectContext.stageNamedAsset(asset.key, file)
+                      return
+                    }
+
+                    setNamedAssetFile(asset.key, file)
+                  }}
                 />
               ))}
             </ReferenceCardGroup>
@@ -508,8 +549,22 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
                 icon={Package2}
                 inputId={`product-${product.id}`}
                 slot={product}
-                onClear={() => clearProductSlot(product.id)}
-                onSelect={(file) => setProductSlotFile(product.id, file)}
+                onClear={() => {
+                  if (projectContext) {
+                    void projectContext.clearProductAsset(product.id)
+                    return
+                  }
+
+                  clearProductSlot(product.id)
+                }}
+                onSelect={(file) => {
+                  if (projectContext) {
+                    void projectContext.stageProductAsset(product.id, file)
+                    return
+                  }
+
+                  setProductSlotFile(product.id, file)
+                }}
               />
             ))}
           </ReferenceCardGroup>
@@ -708,6 +763,7 @@ function MotionControlsSection({ className }: { className?: string }) {
   const endFrame = useGenerationStore((state) => state.assets.endFrame)
   const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
+  const projectContext = useOptionalStudioProjectContext()
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -812,8 +868,22 @@ function MotionControlsSection({ className }: { className?: string }) {
               icon={ScanLine}
               inputId="asset-end-frame"
               slot={endFrame}
-              onClear={() => clearNamedAsset('endFrame')}
-              onSelect={(file) => setNamedAssetFile('endFrame', file)}
+              onClear={() => {
+                if (projectContext) {
+                  void projectContext.clearNamedAsset('endFrame')
+                  return
+                }
+
+                clearNamedAsset('endFrame')
+              }}
+              onSelect={(file) => {
+                if (projectContext) {
+                  void projectContext.stageNamedAsset('endFrame', file)
+                  return
+                }
+
+                setNamedAssetFile('endFrame', file)
+              }}
             />
           </ControlGroup>
         </div>
@@ -1489,6 +1559,7 @@ function SectionHeader({
 }
 
 function useGenerationController() {
+  const projectContext = useOptionalStudioProjectContext()
   const activeTab = useGenerationStore((state) => state.activeTab)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const videoModel = useGenerationStore((state) => state.videoModel)
@@ -1607,7 +1678,7 @@ function useGenerationController() {
         const pollResults = await Promise.allSettled(
           activeVariants.map(async (variant) => {
             const response = await fetch(
-              `/api/generation/tasks/${encodeURIComponent(variant.taskId ?? '')}?provider=${encodeURIComponent(provider)}&workspace=${encodeURIComponent(workspace)}&model=${encodeURIComponent(model)}`,
+              `/api/generation/tasks/${encodeURIComponent(variant.taskId ?? '')}?provider=${encodeURIComponent(provider)}&workspace=${encodeURIComponent(workspace)}&model=${encodeURIComponent(model)}&runId=${encodeURIComponent(run.runId ?? '')}`,
               {
                 cache: 'no-store',
               },
@@ -1731,8 +1802,31 @@ function useGenerationController() {
     }
 
     const { assetManifest, formData } = buildGenerationFormData(state)
+    let projectId: string | null = null
     const currentModel =
       state.activeTab === 'image' ? state.imageModel : state.videoModel
+
+    if (projectContext) {
+      try {
+        projectId = await projectContext.ensureProjectId()
+      } catch (error) {
+        state.setGenerationError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to create or load the active project.',
+        )
+        return
+      }
+
+      if (!projectId) {
+        state.setGenerationError('Unable to create or load the active project.')
+        return
+      }
+    }
+
+    if (projectId) {
+      formData.append('projectId', projectId)
+    }
 
     state.clearUploadMetadata()
     state.updateGenerationRun({
