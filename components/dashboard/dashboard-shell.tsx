@@ -267,7 +267,10 @@ export function DashboardShell() {
                       className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
                     >
                       <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                        <Icon className="size-5 shrink-0" />
+                        <Icon
+                          suppressHydrationWarning
+                          className="size-5 shrink-0"
+                        />
                         <span className="flex min-w-0 flex-col">
                           <span className="text-base font-semibold">
                             {tab.label}
@@ -340,7 +343,7 @@ function TopBar({ disabledReason }: { disabledReason: string | null }) {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(16rem,0.75fr)] xl:items-start">
         <div className="flex items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background text-foreground">
-            <Clapperboard className="size-5" />
+            <Clapperboard suppressHydrationWarning className="size-5" />
           </div>
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold">Evermedia UGC</p>
@@ -710,7 +713,7 @@ function RefineRenderSection({ className }: { className?: string }) {
                     value={category.value}
                     className="w-full justify-start gap-2"
                   >
-                    <Icon className="size-4" />
+                    <Icon suppressHydrationWarning className="size-4" />
                     {category.label}
                   </ToggleGroupItem>
                 )
@@ -958,7 +961,7 @@ function ReferenceCard({
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2.5 px-3 text-center">
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-secondary/80 text-muted-foreground">
-              <Icon className="size-4.5" />
+              <Icon suppressHydrationWarning className="size-4.5" />
             </div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/88">
               {slot.label}
@@ -984,7 +987,7 @@ function ReferenceCard({
           variant="secondary"
           className="absolute right-2.5 top-2.5 z-10 size-7 rounded-full border border-border/80 bg-background/92 shadow-sm backdrop-blur hover:bg-background"
         >
-          <X className="size-3.5" />
+          <X suppressHydrationWarning className="size-3.5" />
         </Button>
       ) : (
         <div className="absolute inset-x-2.5 bottom-2.5 flex justify-center">
@@ -1000,7 +1003,7 @@ function ReferenceCard({
               tabIndex={0}
               onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
             >
-              <Upload data-icon="inline-start" />
+              <Upload suppressHydrationWarning data-icon="inline-start" />
               Upload
             </label>
           </Button>
@@ -1010,7 +1013,10 @@ function ReferenceCard({
       {isUploading ? (
         <div className="absolute inset-0 z-[1] flex items-center justify-center bg-background/78 backdrop-blur-sm">
           <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm">
-            <LoaderCircle className="size-3.5 animate-spin" />
+            <LoaderCircle
+              suppressHydrationWarning
+              className="size-3.5 animate-spin"
+            />
             Uploading
           </div>
         </div>
@@ -1206,11 +1212,15 @@ function PreviewCanvas({
               >
                 {isBusy ? (
                   <LoaderCircle
+                    suppressHydrationWarning
                     data-icon="inline-start"
                     className="animate-spin"
                   />
                 ) : (
-                  <WandSparkles data-icon="inline-start" />
+                  <WandSparkles
+                    suppressHydrationWarning
+                    data-icon="inline-start"
+                  />
                 )}
                 {getGenerateButtonLabel(generationRun, batchSize)}
               </Button>
@@ -1252,7 +1262,12 @@ function PreviewStage({
     return (
       <PreviewStateCallout
         body={getRunBodyCopy(runState)}
-        icon={<LoaderCircle className="size-8 animate-spin" />}
+        icon={
+          <LoaderCircle
+            suppressHydrationWarning
+            className="size-8 animate-spin"
+          />
+        }
         title={getRunHeadline(runState)}
       />
     )
@@ -1342,9 +1357,15 @@ function PreviewStage({
               body={getRunBodyCopy(runState)}
               icon={
                 runState.status === 'error' ? (
-                  <AlertTriangle className="size-8" />
+                  <AlertTriangle
+                    suppressHydrationWarning
+                    className="size-8"
+                  />
                 ) : (
-                  <LoaderCircle className="size-8 animate-spin" />
+                  <LoaderCircle
+                    suppressHydrationWarning
+                    className="size-8 animate-spin"
+                  />
                 )
               }
               tone={runState.status === 'error' ? 'destructive' : 'default'}
@@ -1414,7 +1435,7 @@ function PreviewStage({
     return (
       <PreviewStateCallout
         body={runState.error ?? 'The provider rejected this request.'}
-        icon={<AlertTriangle className="size-8" />}
+        icon={<AlertTriangle suppressHydrationWarning className="size-8" />}
         tone="destructive"
         title="Generation stopped before completion"
       />
@@ -1425,9 +1446,9 @@ function PreviewStage({
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="flex size-16 items-center justify-center rounded-xl border border-border bg-secondary text-foreground">
         {activeTab === 'video' ? (
-          <Film className="size-8" />
+          <Film suppressHydrationWarning className="size-8" />
         ) : (
-          <ImageIcon className="size-8" />
+          <ImageIcon suppressHydrationWarning className="size-8" />
         )}
       </div>
 

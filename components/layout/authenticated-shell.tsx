@@ -47,7 +47,7 @@ export function AuthenticatedShell({
                   {user.email ?? 'Signed in'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Supabase magic-link session
+                  Supabase authenticated session
                 </p>
               </div>
               <form action="/api/auth/sign-out" method="post">

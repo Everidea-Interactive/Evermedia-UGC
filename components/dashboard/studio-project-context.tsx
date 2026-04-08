@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useRouter } from 'next/navigation'
+import { useShallow } from 'zustand/react/shallow'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -268,19 +269,9 @@ export function StudioProjectProvider({
   const [autosaveState, setAutosaveState] = useState<StudioAutosaveState>('idle')
   const hydrationProjectIdRef = useRef<string | null>(null)
 
-  const configSnapshot = useGenerationStore((state) => ({
-    activeTab: state.activeTab,
-    batchSize: state.batchSize,
-    cameraMovement: state.cameraMovement,
-    creativeStyle: state.creativeStyle,
-    imageModel: state.imageModel,
-    outputQuality: state.outputQuality,
-    productCategory: state.productCategory,
-    subjectMode: state.subjectMode,
-    textPrompt: state.textPrompt,
-    videoDuration: state.videoDuration,
-    videoModel: state.videoModel,
-  }))
+  const configSnapshot = useGenerationStore(
+    useShallow(createProjectConfigSnapshot),
+  )
 
   useHydrateProjectState(currentProject)
 

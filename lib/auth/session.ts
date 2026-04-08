@@ -1,12 +1,9 @@
 import { redirect } from 'next/navigation'
 
+import { buildSignInPath } from '@/lib/auth/navigation'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 import type { AuthenticatedUserSummary } from '@/lib/persistence/types'
-
-function buildSignInRedirect(nextPath: string) {
-  return `/sign-in?next=${encodeURIComponent(nextPath)}`
-}
 
 function normalizeUser(user: { email?: string | null; id: string }) {
   const normalizedUser: AuthenticatedUserSummary = {
@@ -34,7 +31,11 @@ export async function requireAuthenticatedUser(nextPath: string) {
   const user = await getOptionalAuthenticatedUser()
 
   if (!user) {
-    redirect(buildSignInRedirect(nextPath))
+    redirect(
+      buildSignInPath({
+        next: nextPath,
+      }),
+    )
   }
 
   return user

@@ -6,6 +6,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "auth:seed-user": "node --env-file=.env scripts/seed-auth-user.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

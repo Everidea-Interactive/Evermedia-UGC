@@ -22,7 +22,10 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
-import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
+import type {
+  ProductSlotKey,
+  ProjectConfigSnapshot,
+} from '@/lib/persistence/types'
 
 type GenerationStateShape = {
   activeTab: WorkspaceTab
@@ -120,15 +123,8 @@ function buildProductLabel(position: number) {
   return `Product ${position}`
 }
 
-function createSlotId() {
-  if (
-    typeof globalThis.crypto !== 'undefined' &&
-    typeof globalThis.crypto.randomUUID === 'function'
-  ) {
-    return globalThis.crypto.randomUUID()
-  }
-
-  return `slot-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+function getProductSlotId(position: number): ProductSlotKey {
+  return `product-${position}` as ProductSlotKey
 }
 
 function revokePreviewUrl(previewUrl: string | null) {
@@ -163,7 +159,7 @@ function createSlot(id: string, label: string): AssetSlot {
 }
 
 function createProductSlot(position: number): AssetSlot {
-  return createSlot(createSlotId(), buildProductLabel(position))
+  return createSlot(getProductSlotId(position), buildProductLabel(position))
 }
 
 function createProductSlots() {
