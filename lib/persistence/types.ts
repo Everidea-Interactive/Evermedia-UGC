@@ -1,14 +1,22 @@
 import type {
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationProvider,
+  GenerationReviewStatus,
   GenerationRunStatus,
   GenerationVariantStatus,
   ImageModelOption,
   NamedAssetKey,
   OutputQuality,
   ProductCategory,
+  ShotEnvironment,
+  SubmittedAssetDescriptor,
   SubjectMode,
+  UploadedAssetDescriptor,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -27,10 +35,15 @@ export type ProjectConfigSnapshot = {
   activeTab: WorkspaceTab
   batchSize: 1 | 2 | 3 | 4
   cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
+  shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
@@ -66,25 +79,37 @@ export type GenerationVariantRecord = {
   createdAt: string
   error: string | null
   id: string
+  isHero: boolean
   profile: string
   prompt: string
+  reviewNotes: string | null
+  reviewStatus: GenerationReviewStatus
   resultAssetId: string | null
   runId: string
+  selectedForDelivery: boolean
   status: GenerationVariantStatus
   taskId: string | null
   variantIndex: 1 | 2 | 3 | 4
 }
 
 export type GenerationRunRecord = {
+  assetManifest: SubmittedAssetDescriptor[]
+  attemptCount: number
+  cancelRequestedAt: string | null
   completedAt: string | null
   configSnapshot: ProjectConfigSnapshot
   createdAt: string
   id: string
+  lastHeartbeatAt: string | null
+  leaseExpiresAt: string | null
+  leaseOwner: string | null
   model: string
+  parentRunId: string | null
   projectId: string
   promptSnapshot: string
   provider: GenerationProvider
   status: GenerationRunStatus
+  uploadedAssets: UploadedAssetDescriptor[]
   userId: string
   variants: GenerationVariantRecord[]
   workspace: WorkspaceTab
@@ -97,6 +122,8 @@ export type ProjectLibraryRecord = {
 }
 
 export type StudioProjectRecord = {
+  outputAssets: ProjectAssetRecord[]
   project: ProjectRecord
   referenceAssets: ProjectAssetRecord[]
+  runs: GenerationRunRecord[]
 }

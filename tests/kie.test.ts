@@ -5,8 +5,10 @@ vi.mock('server-only', () => ({}))
 import {
   getKieStatus,
   parseGenerationFormData,
+  resolveSubmission,
   submitGenerationRequest,
 } from '../lib/generation/kie'
+import type { UploadedAssetDescriptor } from '../lib/generation/types'
 
 function buildBaseFormData(batchSize: string) {
   const formData = new FormData()
@@ -18,6 +20,11 @@ function buildBaseFormData(batchSize: string) {
   formData.append('productCategory', 'cosmetics')
   formData.append('creativeStyle', 'ugc-lifestyle')
   formData.append('subjectMode', 'lifestyle')
+  formData.append('shotEnvironment', 'indoor')
+  formData.append('characterGender', 'any')
+  formData.append('characterAgeGroup', 'any')
+  formData.append('characterEthnicity', 'any')
+  formData.append('figureArtDirection', 'none')
   formData.append('batchSize', batchSize)
   formData.append('textPrompt', 'Create a polished hero campaign image.')
   formData.append('videoDuration', 'base')
@@ -25,6 +32,20 @@ function buildBaseFormData(batchSize: string) {
   formData.append('cameraMovement', '')
 
   return formData
+}
+
+function makeUploadedAsset(
+  overrides: Partial<UploadedAssetDescriptor>,
+): UploadedAssetDescriptor {
+  return {
+    fieldName: 'asset_face1',
+    kind: 'named',
+    key: 'face1',
+    label: 'Face 1',
+    order: 0,
+    remoteUrl: 'https://files.example.com/face-1.png',
+    ...overrides,
+  }
 }
 
 describe('KIE batch submission', () => {
@@ -44,6 +65,38 @@ describe('KIE batch submission', () => {
 
     expect(() => parseGenerationFormData(formData)).toThrow(
       'Batch size must be between 1 and 4.',
+    )
+  })
+
+  it('parses the expanded preset fields', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('productCategory', 'miscellaneous')
+    formData.set('creativeStyle', 'elite-product-commercial')
+    formData.set('shotEnvironment', 'outdoor')
+    formData.set('characterGender', 'female')
+    formData.set('characterAgeGroup', 'young-adult')
+    formData.set('characterEthnicity', 'south-asian')
+    formData.set('figureArtDirection', 'curvaceous-editorial')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.productCategory).toBe('miscellaneous')
+    expect(parsed.creativeStyle).toBe('elite-product-commercial')
+    expect(parsed.shotEnvironment).toBe('outdoor')
+    expect(parsed.characterGender).toBe('female')
+    expect(parsed.characterAgeGroup).toBe('young-adult')
+    expect(parsed.characterEthnicity).toBe('south-asian')
+    expect(parsed.figureArtDirection).toBe('curvaceous-editorial')
+  })
+
+  it('rejects invalid environment values during form parsing', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('shotEnvironment', 'space')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Invalid value for shotEnvironment.',
     )
   })
 
@@ -108,6 +161,231 @@ describe('KIE batch submission', () => {
         String(url).includes('/api/v1/jobs/createTask'),
       ),
     ).toHaveLength(3)
+
+    const taskRequests = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes('/api/v1/jobs/createTask'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
+
+    expect(taskRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          model: 'nano-banana-2',
+          input: expect.objectContaining({
+            aspect_ratio: '2:3',
+            google_search: false,
+            image_input: ['https://files.example.com/face-1.png'],
+            output_format: 'png',
+            resolution: '1K',
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('uses Nano Banana 2 image inputs for uploaded supporting references', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_location',
+          key: 'location',
+          label: 'Location',
+          order: 3,
+          remoteUrl: 'https://files.example.com/location.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.modelName).toBe('nano-banana-2')
+    expect(submission.requestBody).toMatchObject({
+      model: 'nano-banana-2',
+      input: {
+        prompt: expect.stringContaining(
+          'Image 1 (Clothing) Use it only for wardrobe and styling cues. Ignore any face in this image.',
+        ),
+        aspect_ratio: '2:3',
+        google_search: false,
+        image_input: [
+          'https://files.example.com/clothing.png',
+          'https://files.example.com/location.png',
+        ],
+        output_format: 'png',
+        resolution: '1K',
+      },
+    })
+  })
+
+  it('prioritizes identity and product references for nano-banana and caps to three images', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset(),
+        makeUploadedAsset({
+          fieldName: 'asset_face2',
+          key: 'face2',
+          label: 'Face 2',
+          order: 1,
+          remoteUrl: 'https://files.example.com/face-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_location',
+          key: 'location',
+          label: 'Location',
+          order: 3,
+          remoteUrl: 'https://files.example.com/location.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'nano-banana-2',
+      input: {
+        prompt: expect.stringContaining(
+          'Image 1 (Face 1) This is the identity anchor. Preserve the same person and facial likeness.',
+        ),
+        image_input: [
+          'https://files.example.com/face-1.png',
+          'https://files.example.com/product.png',
+          'https://files.example.com/clothing.png',
+        ],
+      },
+    })
+  })
+
+  it('treats face2 as the identity anchor when it is the only face reference for nano-banana', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_face2',
+          key: 'face2',
+          label: 'Face 2',
+          order: 1,
+          remoteUrl: 'https://files.example.com/face-2.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'nano-banana-2',
+      input: {
+        prompt: expect.stringContaining(
+          'Image 1 (Face 2) This is the identity anchor. Preserve the same person and facial likeness.',
+        ),
+        image_input: ['https://files.example.com/face-2.png'],
+      },
+    })
+  })
+
+  it('uses Nano Banana 2 for text-only image generation without switching models', () => {
+    const submission = resolveSubmission({
+      assets: [],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '4k',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.modelName).toBe('nano-banana-2')
+    expect(submission.requestBody).toMatchObject({
+      model: 'nano-banana-2',
+      input: {
+        prompt: 'Create a polished hero campaign image.',
+        image_input: [],
+        aspect_ratio: '1:1',
+        resolution: '2K',
+        output_format: 'png',
+        google_search: false,
+      },
+    })
+  })
+
+  it('uses the first available uploaded reference for grok image edits and tags the prompt', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'grok-imagine',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.modelName).toBe('grok-imagine/image-to-image')
+    expect(submission.requestBody).toMatchObject({
+      model: 'grok-imagine/image-to-image',
+      input: {
+        prompt: '@image1 Create a polished hero campaign image.',
+        image_urls: ['https://files.example.com/clothing.png'],
+      },
+    })
   })
 })
 

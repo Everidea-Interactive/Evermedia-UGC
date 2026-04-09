@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { getProductSlotKey } from '@/lib/persistence/serialization'
+import { createGenerationRunState } from '@/lib/persistence/serialization'
 import type {
   ProjectConfigSnapshot,
   ProjectAssetRecord,
@@ -33,6 +34,7 @@ type StudioProjectContextValue = {
   ensureProjectId: () => Promise<string | null>
   isProjectPending: boolean
   projects: ProjectRecord[]
+  refreshProject: (projectId?: string | null) => Promise<StudioProjectRecord | null>
   renameProject: (name: string) => Promise<void>
   resetProjectBoard: () => Promise<void>
   selectProject: (projectId: string) => void
@@ -57,10 +59,15 @@ function createProjectConfigSnapshot(
     activeTab: state.activeTab,
     batchSize: state.batchSize,
     cameraMovement: state.cameraMovement,
+    characterAgeGroup: state.characterAgeGroup,
+    characterEthnicity: state.characterEthnicity,
+    characterGender: state.characterGender,
     creativeStyle: state.creativeStyle,
+    figureArtDirection: state.figureArtDirection,
     imageModel: state.imageModel,
     outputQuality: state.outputQuality,
     productCategory: state.productCategory,
+    shotEnvironment: state.shotEnvironment,
     subjectMode: state.subjectMode,
     textPrompt: state.textPrompt,
     videoDuration: state.videoDuration,
@@ -84,6 +91,9 @@ function useHydrateProjectState(project: StudioProjectRecord | null) {
   )
   const setProductSlotStoredState = useGenerationStore(
     (state) => state.setProductSlotStoredState,
+  )
+  const hydrateGenerationRun = useGenerationStore(
+    (state) => state.hydrateGenerationRun,
   )
   const resetGenerationState = useGenerationStore(
     (state) => state.resetGenerationState,
@@ -124,7 +134,12 @@ function useHydrateProjectState(project: StudioProjectRecord | null) {
 
       setNamedAssetStoredState(asset.slotKey, patch)
     }
+
+    hydrateGenerationRun(
+      createGenerationRunState(project.runs[0] ?? null, project.outputAssets),
+    )
   }, [
+    hydrateGenerationRun,
     hydrateProjectConfig,
     project,
     resetGenerationState,
@@ -357,7 +372,9 @@ export function StudioProjectProvider({
     setProjects((current) => [payload.project!, ...current])
     setCurrentProject({
       project: payload.project,
+      outputAssets: [],
       referenceAssets: [],
+      runs: [],
     })
     startTransition(() => {
       router.replace(`/?project=${payload.project!.id}`)
@@ -413,6 +430,31 @@ export function StudioProjectProvider({
           }
         : current,
     )
+  }
+
+  const refreshProject = async (projectId?: string | null) => {
+    const targetProjectId = projectId ?? currentProject?.project.id ?? null
+
+    if (!targetProjectId) {
+      return null
+    }
+
+    const response = await fetch(`/api/projects/${targetProjectId}`, {
+      cache: 'no-store',
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: string } & Partial<StudioProjectRecord>
+      | null
+
+    if (!response.ok || !payload?.project) {
+      throw new Error(payload?.error ?? 'Unable to refresh the active project.')
+    }
+
+    const refreshedProject = payload as StudioProjectRecord
+
+    setCurrentProject(refreshedProject)
+
+    return refreshedProject
   }
 
   const upsertCurrentProjectAsset = (
@@ -665,7 +707,9 @@ export function StudioProjectProvider({
         current
           ? {
               ...current,
+              outputAssets: current.outputAssets,
               referenceAssets: [],
+              runs: current.runs,
             }
           : current,
       )
@@ -690,6 +734,7 @@ export function StudioProjectProvider({
     ensureProjectId,
     isProjectPending: isPending,
     projects,
+    refreshProject,
     renameProject,
     resetProjectBoard,
     selectProject,

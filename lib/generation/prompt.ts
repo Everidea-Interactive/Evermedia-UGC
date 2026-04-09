@@ -1,9 +1,14 @@
 import type {
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationVariantIndex,
   OutputQuality,
   ProductCategory,
+  ShotEnvironment,
   SubjectMode,
   UploadedAssetDescriptor,
   VideoDuration,
@@ -16,18 +21,32 @@ const categoryPhrases: Record<ProductCategory, string> = {
   cosmetics: 'beauty and cosmetics',
   electronics: 'consumer electronics',
   clothing: 'fashion apparel',
+  miscellaneous: 'miscellaneous product',
 }
 
 const stylePhrases: Record<CreativeStyle, string> = {
   'ugc-lifestyle': 'UGC lifestyle direction with believable real-world polish',
-  cinematic: 'cinematic direction with premium lighting and composed framing',
+  cinematic: 'Hollywood cinematic direction with premium lighting and composed framing',
   'tv-commercial': 'TV commercial direction with polished brand-forward clarity',
+  'elite-product-commercial':
+    'elite product commercial direction with high-end luxury polish and crisp material detail',
 }
 
 const subjectPhrases: Record<SubjectMode, string> = {
   'product-only': 'Keep the product as the sole hero subject with no visible person.',
   lifestyle:
     'Stage a lifestyle composition that naturally includes a person interacting with the product.',
+}
+
+const environmentPhrases: Record<ShotEnvironment, string> = {
+  indoor: 'Shot environment: curated indoor setting with studio-grade control.',
+  outdoor: 'Shot environment: outdoor location with natural environmental context.',
+}
+
+const figureArtDirectionPhrases: Record<FigureArtDirection, string> = {
+  none: '',
+  'curvaceous-editorial':
+    'Figure art direction: curvaceous editorial with full-figure styling, dramatic curves, and fashion-forward composition language.',
 }
 
 const movementPhrases: Record<CameraMovement, string> = {
@@ -62,28 +81,38 @@ function humanizeLabel(value: string) {
   return value.replace(/-/g, ' ')
 }
 
-export function choosePrimaryReference(
-  subjectMode: SubjectMode,
-  assets: UploadedAssetDescriptor[],
-) {
-  const named = new Map(
+function getNamedReferenceMap(assets: UploadedAssetDescriptor[]) {
+  return new Map(
     assets
       .filter((asset) => asset.kind === 'named' && asset.key)
       .map((asset) => [asset.key, asset]),
   )
-  const products = assets
+}
+
+function getOrderedProductReferences(assets: UploadedAssetDescriptor[]) {
+  return assets
     .filter((asset) => asset.kind === 'product')
     .slice()
     .sort((left, right) => left.order - right.order)
+}
+
+export function choosePrimaryReference(
+  subjectMode: SubjectMode,
+  assets: UploadedAssetDescriptor[],
+) {
+  const named = getNamedReferenceMap(assets)
+  const products = getOrderedProductReferences(assets)
 
   const face1 = named.get('face1')
+  const face2 = named.get('face2')
+  const identityReference = face1 ?? face2
   const fallbackProduct = products[0]
 
-  if (subjectMode === 'lifestyle' && face1) {
-    return face1
+  if (subjectMode === 'lifestyle' && identityReference) {
+    return identityReference
   }
 
-  return fallbackProduct ?? face1 ?? null
+  return fallbackProduct ?? identityReference ?? null
 }
 
 export function chooseEndFrameReference(assets: UploadedAssetDescriptor[]) {
@@ -97,19 +126,41 @@ export function chooseEndFrameReference(assets: UploadedAssetDescriptor[]) {
 export function compileGenerationPrompt(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
   outputQuality: OutputQuality
   productCategory: ProductCategory
+  shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
   workspace: WorkspaceTab
 }) {
-  const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
   const endFrame = chooseEndFrameReference(input.assets)
+  const named = getNamedReferenceMap(input.assets)
+  const products = getOrderedProductReferences(input.assets)
+  const face1 = named.get('face1')
+  const face2 = named.get('face2')
+  const identityReference =
+    input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
+  const productReference = products[0] ?? null
+  const clothingReference = named.get('clothing') ?? null
+  const locationReference = named.get('location') ?? null
+  const explicitlyDescribedFieldNames = new Set(
+    [
+      identityReference?.fieldName,
+      face1 && face2 ? face2.fieldName : null,
+      productReference?.fieldName,
+      clothingReference?.fieldName,
+      locationReference?.fieldName,
+      endFrame?.fieldName,
+    ].filter((value): value is string => Boolean(value)),
+  )
   const supportingReferenceLabels = input.assets
-    .filter((asset) => asset.fieldName !== primaryReference?.fieldName)
-    .filter((asset) => asset.fieldName !== endFrame?.fieldName)
+    .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
     .map((asset) => asset.label)
     .slice()
     .sort()
@@ -118,7 +169,28 @@ export function compileGenerationPrompt(input: {
     `Create a ${input.workspace === 'video' ? 'video' : 'high-quality image'} for a ${categoryPhrases[input.productCategory]} campaign.`,
     `Art direction: ${stylePhrases[input.creativeStyle]}.`,
     subjectPhrases[input.subjectMode],
+    environmentPhrases[input.shotEnvironment],
   ]
+
+  if (input.subjectMode === 'lifestyle') {
+    const demographicSelections = [
+      input.characterGender,
+      input.characterAgeGroup,
+      input.characterEthnicity,
+    ].filter((value) => value !== 'any')
+
+    if (demographicSelections.length > 0) {
+      promptParts.push(
+        `Character demographics: ${demographicSelections
+          .map((value) => humanizeLabel(value))
+          .join(', ')}.`,
+      )
+    }
+
+    if (input.figureArtDirection !== 'none') {
+      promptParts.push(figureArtDirectionPhrases[input.figureArtDirection])
+    }
+  }
 
   if (input.workspace === 'video') {
     promptParts.push(
@@ -133,15 +205,39 @@ export function compileGenerationPrompt(input: {
     promptParts.push(movementPhrases[input.cameraMovement])
   }
 
-  if (primaryReference) {
+  if (identityReference) {
     promptParts.push(
-      `Primary visual reference: ${primaryReference.label}.`,
+      `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
+    )
+  }
+
+  if (face1 && face2) {
+    promptParts.push(
+      `Additional face reference: ${face2.label}. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.`,
+    )
+  }
+
+  if (productReference) {
+    promptParts.push(
+      `Product reference: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
+    )
+  }
+
+  if (clothingReference) {
+    promptParts.push(
+      `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
+    )
+  }
+
+  if (locationReference) {
+    promptParts.push(
+      `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
     )
   }
 
   if (supportingReferenceLabels.length > 0) {
     promptParts.push(
-      `Supporting references available: ${supportingReferenceLabels.join(', ')}.`,
+      `Additional supporting references available: ${supportingReferenceLabels.join(', ')}.`,
     )
   }
 

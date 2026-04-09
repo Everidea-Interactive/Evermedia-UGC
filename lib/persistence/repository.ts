@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm'
 
 import { getDatabase } from '@/lib/db/client'
 import {
@@ -17,6 +17,7 @@ import {
 import {
   defaultProjectConfigSnapshot,
   getProductSlotKey,
+  normalizeProjectConfigSnapshot,
 } from '@/lib/persistence/serialization'
 import type {
   GenerationRunRecord,
@@ -29,6 +30,14 @@ import type {
   ProjectSlotKey,
   StudioProjectRecord,
 } from '@/lib/persistence/types'
+import type {
+  GenerationReviewStatus,
+  GenerationRunStatus,
+  GenerationVariantIndex,
+  GenerationVariantStatus,
+  SubmittedAssetDescriptor,
+  UploadedAssetDescriptor,
+} from '@/lib/generation/types'
 
 function createRecordId(prefix: string) {
   if (
@@ -41,17 +50,40 @@ function createRecordId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function normalizeConfigSnapshot(
-  value: unknown,
-): ProjectConfigSnapshot {
+function normalizeConfigSnapshot(value: unknown): ProjectConfigSnapshot {
   if (!value || typeof value !== 'object') {
     return defaultProjectConfigSnapshot
   }
 
-  return {
+  return normalizeProjectConfigSnapshot({
     ...defaultProjectConfigSnapshot,
     ...(value as Partial<ProjectConfigSnapshot>),
+  })
+}
+
+function normalizeAssetManifest(value: unknown): SubmittedAssetDescriptor[] {
+  if (!Array.isArray(value)) {
+    return []
   }
+
+  return value.filter(
+    (entry): entry is SubmittedAssetDescriptor =>
+      Boolean(entry) && typeof entry === 'object' && 'fieldName' in entry,
+  )
+}
+
+function normalizeUploadedAssets(value: unknown): UploadedAssetDescriptor[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter(
+    (entry): entry is UploadedAssetDescriptor =>
+      Boolean(entry) &&
+      typeof entry === 'object' &&
+      'fieldName' in entry &&
+      'remoteUrl' in entry,
+  )
 }
 
 function mapProject(row: typeof projects.$inferSelect): ProjectRecord {
@@ -90,13 +122,17 @@ function mapVariant(
     createdAt: row.createdAt.toISOString(),
     error: row.error,
     id: row.id,
+    isHero: row.isHero,
     profile: row.profile,
     prompt: row.prompt,
+    reviewNotes: row.reviewNotes,
+    reviewStatus: row.reviewStatus as GenerationReviewStatus,
     resultAssetId: row.resultAssetId,
     runId: row.runId,
-    status: row.status as GenerationVariantRecord['status'],
+    selectedForDelivery: row.selectedForDelivery,
+    status: row.status as GenerationVariantStatus,
     taskId: row.taskId,
-    variantIndex: row.variantIndex as GenerationVariantRecord['variantIndex'],
+    variantIndex: row.variantIndex as GenerationVariantIndex,
   }
 }
 
@@ -105,15 +141,27 @@ function mapRun(
   variants: GenerationVariantRecord[],
 ): GenerationRunRecord {
   return {
+    assetManifest: normalizeAssetManifest(row.assetManifest),
+    attemptCount: row.attemptCount,
+    cancelRequestedAt: row.cancelRequestedAt
+      ? row.cancelRequestedAt.toISOString()
+      : null,
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     configSnapshot: normalizeConfigSnapshot(row.configSnapshot),
     createdAt: row.createdAt.toISOString(),
     id: row.id,
+    lastHeartbeatAt: row.lastHeartbeatAt
+      ? row.lastHeartbeatAt.toISOString()
+      : null,
+    leaseExpiresAt: row.leaseExpiresAt ? row.leaseExpiresAt.toISOString() : null,
+    leaseOwner: row.leaseOwner,
     model: row.model,
+    parentRunId: row.parentRunId,
     projectId: row.projectId,
     promptSnapshot: row.promptSnapshot,
     provider: row.provider as GenerationRunRecord['provider'],
-    status: row.status as GenerationRunRecord['status'],
+    status: row.status as GenerationRunStatus,
+    uploadedAssets: normalizeUploadedAssets(row.uploadedAssets),
     userId: row.userId,
     variants,
     workspace: row.workspace as GenerationRunRecord['workspace'],
@@ -128,6 +176,26 @@ async function getProjectRowsForUser(userId: string) {
     .from(projects)
     .where(eq(projects.userId, userId))
     .orderBy(desc(projects.lastOpenedAt), desc(projects.updatedAt))
+}
+
+async function getVariantRowsForRun(runId: string) {
+  const db = getDatabase()
+
+  return db
+    .select()
+    .from(generationVariants)
+    .where(eq(generationVariants.runId, runId))
+    .orderBy(generationVariants.variantIndex)
+}
+
+async function getRunRowsForProject(userId: string, projectId: string) {
+  const db = getDatabase()
+
+  return db
+    .select()
+    .from(generationRuns)
+    .where(and(eq(generationRuns.userId, userId), eq(generationRuns.projectId, projectId)))
+    .orderBy(desc(generationRuns.createdAt))
 }
 
 export async function listProjectsForUser(userId: string) {
@@ -338,9 +406,7 @@ async function removeExistingReferenceAsset(input: {
     return null
   }
 
-  await db
-    .delete(projectAssets)
-    .where(eq(projectAssets.id, existingAsset.id))
+  await db.delete(projectAssets).where(eq(projectAssets.id, existingAsset.id))
 
   return mapAsset(existingAsset)
 }
@@ -489,6 +555,7 @@ export async function saveGeneratedOutputForVariant(input: {
     .update(generationVariants)
     .set({
       completedAt: new Date(),
+      error: null,
       resultAssetId: assetRow.id,
       status: 'success',
     })
@@ -505,13 +572,16 @@ export async function saveGeneratedOutputForVariant(input: {
 }
 
 export async function createGenerationRunForUser(input: {
+  assetManifest: SubmittedAssetDescriptor[]
   configSnapshot: ProjectConfigSnapshot
   model: string
+  parentRunId?: string | null
   projectId: string
   promptSnapshot: string
   provider: GenerationRunRecord['provider']
   runId: string
   status: GenerationRunRecord['status']
+  uploadedAssets?: UploadedAssetDescriptor[]
   userId: string
   workspace: GenerationRunRecord['workspace']
 }) {
@@ -519,13 +589,16 @@ export async function createGenerationRunForUser(input: {
   const [row] = await db
     .insert(generationRuns)
     .values({
+      assetManifest: input.assetManifest,
       configSnapshot: input.configSnapshot,
       id: input.runId,
       model: input.model,
+      parentRunId: input.parentRunId ?? null,
       projectId: input.projectId,
       promptSnapshot: input.promptSnapshot,
       provider: input.provider,
       status: input.status,
+      uploadedAssets: input.uploadedAssets ?? [],
       userId: input.userId,
       workspace: input.workspace,
     })
@@ -560,15 +633,15 @@ export async function createGenerationVariantsForRun(
         id: variant.id,
         profile: variant.profile,
         prompt: variant.prompt,
+        reviewStatus: 'pending',
         runId,
+        selectedForDelivery: false,
         status: variant.status,
         taskId: variant.taskId,
         variantIndex: variant.variantIndex,
       })),
     )
     .returning()
-
-  await syncGenerationRunStatus(runId)
 
   return rows.map(mapVariant)
 }
@@ -585,13 +658,36 @@ export async function getGenerationRunForUser(userId: string, runId: string) {
     return null
   }
 
-  const variantRows = await db
-    .select()
-    .from(generationVariants)
-    .where(eq(generationVariants.runId, runId))
-    .orderBy(generationVariants.variantIndex)
+  const variantRows = await getVariantRowsForRun(runId)
 
   return mapRun(runRow, variantRows.map(mapVariant))
+}
+
+export async function getProjectGenerationRunForUser(input: {
+  projectId: string
+  runId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .select()
+    .from(generationRuns)
+    .where(
+      and(
+        eq(generationRuns.userId, input.userId),
+        eq(generationRuns.projectId, input.projectId),
+        eq(generationRuns.id, input.runId),
+      ),
+    )
+    .limit(1)
+
+  if (!row) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(row.id)
+
+  return mapRun(row, variantRows.map(mapVariant))
 }
 
 export async function getGenerationVariantForTask(input: {
@@ -641,15 +737,6 @@ export async function markGenerationRunError(input: {
     })
     .where(and(eq(generationRuns.userId, input.userId), eq(generationRuns.id, input.runId)))
 
-  const rows = await db
-    .select()
-    .from(generationVariants)
-    .where(eq(generationVariants.runId, input.runId))
-
-  if (rows.length === 0) {
-    return
-  }
-
   await db
     .update(generationVariants)
     .set({
@@ -660,12 +747,73 @@ export async function markGenerationRunError(input: {
     .where(
       and(
         eq(generationVariants.runId, input.runId),
-        inArray(
-          generationVariants.status,
-          ['submitting', 'rendering'],
-        ),
+        inArray(generationVariants.status, [
+          'queued',
+          'submitting',
+          'rendering',
+        ]),
       ),
     )
+}
+
+export async function updateGenerationRunLifecycle(input: {
+  runId: string
+  status: Exclude<GenerationRunStatus, 'idle' | 'partial-success' | 'success' | 'error' | 'cancelled'>
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      completedAt: null,
+      lastHeartbeatAt: new Date(),
+      status: input.status,
+    })
+    .where(eq(generationRuns.id, input.runId))
+    .returning()
+
+  return row ? mapRun(row, []) : null
+}
+
+export async function updateGenerationRunUploadedAssets(input: {
+  runId: string
+  uploadedAssets: UploadedAssetDescriptor[]
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      lastHeartbeatAt: new Date(),
+      uploadedAssets: input.uploadedAssets,
+    })
+    .where(eq(generationRuns.id, input.runId))
+    .returning()
+
+  return row ? mapRun(row, []) : null
+}
+
+export async function assignGenerationVariantTask(input: {
+  runId: string
+  taskId: string
+  userId: string
+  variantId: string
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .update(generationVariants)
+    .set({
+      error: null,
+      status: 'rendering',
+      taskId: input.taskId,
+    })
+    .where(
+      and(
+        eq(generationVariants.id, input.variantId),
+        eq(generationVariants.runId, input.runId),
+      ),
+    )
+    .returning()
+
+  return row ? mapVariant(row) : null
 }
 
 export async function updateGenerationVariantStatus(input: {
@@ -682,7 +830,9 @@ export async function updateGenerationVariantStatus(input: {
     .update(generationVariants)
     .set({
       completedAt:
-        input.status === 'success' || input.status === 'error'
+        input.status === 'success' ||
+        input.status === 'error' ||
+        input.status === 'cancelled'
           ? new Date()
           : null,
       error: input.error,
@@ -702,13 +852,404 @@ export async function updateGenerationVariantStatus(input: {
   await syncGenerationRunStatus(input.runId)
 }
 
+export async function updateGenerationVariantById(input: {
+  completedAt?: Date | null
+  error?: string | null
+  resultAssetId?: string | null
+  runId: string
+  status?: GenerationVariantStatus
+  variantId: string
+}) {
+  const db = getDatabase()
+
+  await db
+    .update(generationVariants)
+    .set({
+      completedAt:
+        typeof input.completedAt === 'undefined' ? undefined : input.completedAt,
+      error: typeof input.error === 'undefined' ? undefined : input.error,
+      resultAssetId:
+        typeof input.resultAssetId === 'undefined'
+          ? undefined
+          : input.resultAssetId,
+      status: input.status,
+    })
+    .where(
+      and(
+        eq(generationVariants.id, input.variantId),
+        eq(generationVariants.runId, input.runId),
+      ),
+    )
+
+  await syncGenerationRunStatus(input.runId)
+}
+
+export async function claimNextGenerationRun(workerId: string, leaseMs: number) {
+  const db = getDatabase()
+  const now = new Date()
+  const [candidate] = await db
+    .select()
+    .from(generationRuns)
+    .where(
+      and(
+        inArray(generationRuns.status, [
+          'queued',
+          'uploading',
+          'submitting',
+          'rendering',
+        ]),
+        or(isNull(generationRuns.leaseExpiresAt), lte(generationRuns.leaseExpiresAt, now)),
+      ),
+    )
+    .orderBy(asc(generationRuns.createdAt))
+    .limit(1)
+
+  if (!candidate) {
+    return null
+  }
+
+  const leaseExpiresAt = new Date(now.getTime() + leaseMs)
+  const [claimed] = await db
+    .update(generationRuns)
+    .set({
+      attemptCount: candidate.attemptCount + 1,
+      lastHeartbeatAt: now,
+      leaseExpiresAt,
+      leaseOwner: workerId,
+    })
+    .where(
+      and(
+        eq(generationRuns.id, candidate.id),
+        or(isNull(generationRuns.leaseExpiresAt), lte(generationRuns.leaseExpiresAt, now)),
+      ),
+    )
+    .returning()
+
+  if (!claimed) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(claimed.id)
+
+  return mapRun(claimed, variantRows.map(mapVariant))
+}
+
+export async function claimGenerationRunById(input: {
+  leaseMs: number
+  runId: string
+  workerId: string
+}) {
+  const db = getDatabase()
+  const now = new Date()
+  const [candidate] = await db
+    .select()
+    .from(generationRuns)
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        inArray(generationRuns.status, [
+          'queued',
+          'uploading',
+          'submitting',
+          'rendering',
+        ]),
+        or(isNull(generationRuns.leaseExpiresAt), lte(generationRuns.leaseExpiresAt, now)),
+      ),
+    )
+    .limit(1)
+
+  if (!candidate) {
+    return null
+  }
+
+  const leaseExpiresAt = new Date(now.getTime() + input.leaseMs)
+  const [claimed] = await db
+    .update(generationRuns)
+    .set({
+      attemptCount: candidate.attemptCount + 1,
+      lastHeartbeatAt: now,
+      leaseExpiresAt,
+      leaseOwner: input.workerId,
+    })
+    .where(
+      and(
+        eq(generationRuns.id, candidate.id),
+        inArray(generationRuns.status, [
+          'queued',
+          'uploading',
+          'submitting',
+          'rendering',
+        ]),
+        or(isNull(generationRuns.leaseExpiresAt), lte(generationRuns.leaseExpiresAt, now)),
+      ),
+    )
+    .returning()
+
+  if (!claimed) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(claimed.id)
+
+  return mapRun(claimed, variantRows.map(mapVariant))
+}
+
+export async function heartbeatGenerationRunLease(input: {
+  leaseMs: number
+  runId: string
+  workerId: string
+}) {
+  const db = getDatabase()
+  const now = new Date()
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      lastHeartbeatAt: now,
+      leaseExpiresAt: new Date(now.getTime() + input.leaseMs),
+    })
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.leaseOwner, input.workerId),
+      ),
+    )
+    .returning()
+
+  return row ? mapRun(row, []) : null
+}
+
+export async function releaseGenerationRunLease(input: {
+  runId: string
+  workerId: string
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      leaseExpiresAt: null,
+      leaseOwner: null,
+    })
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.leaseOwner, input.workerId),
+      ),
+    )
+    .returning()
+
+  return row ? mapRun(row, []) : null
+}
+
+export async function getClaimedGenerationRun(input: {
+  runId: string
+  workerId: string
+}) {
+  const db = getDatabase()
+  const [runRow] = await db
+    .select()
+    .from(generationRuns)
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.leaseOwner, input.workerId),
+      ),
+    )
+    .limit(1)
+
+  if (!runRow) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(runRow.id)
+
+  return mapRun(runRow, variantRows.map(mapVariant))
+}
+
+export async function requestGenerationRunCancellation(input: {
+  projectId: string
+  runId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  const now = new Date()
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      cancelRequestedAt: now,
+    })
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.projectId, input.projectId),
+        eq(generationRuns.userId, input.userId),
+      ),
+    )
+    .returning()
+
+  if (!row) {
+    return null
+  }
+
+  const run = mapRun(row, [])
+
+  if (run.status === 'queued') {
+    await markGenerationRunCancelled({
+      runId: run.id,
+      userId: input.userId,
+    })
+
+    return getProjectGenerationRunForUser(input)
+  }
+
+  return run
+}
+
+export async function markGenerationRunCancelled(input: {
+  runId: string
+  userId?: string
+}) {
+  const db = getDatabase()
+  const whereClause = input.userId
+    ? and(eq(generationRuns.id, input.runId), eq(generationRuns.userId, input.userId))
+    : eq(generationRuns.id, input.runId)
+
+  await db
+    .update(generationVariants)
+    .set({
+      completedAt: new Date(),
+      error: 'Run cancelled.',
+      status: 'cancelled',
+    })
+    .where(
+      and(
+        eq(generationVariants.runId, input.runId),
+        inArray(generationVariants.status, [
+          'queued',
+          'submitting',
+          'rendering',
+        ]),
+      ),
+    )
+
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      cancelRequestedAt: new Date(),
+      completedAt: new Date(),
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      status: 'cancelled',
+    })
+    .where(whereClause)
+    .returning()
+
+  if (!row) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(row.id)
+
+  return mapRun(row, variantRows.map(mapVariant))
+}
+
+export async function updateGenerationVariantReview(input: {
+  projectId: string
+  reviewNotes?: string | null
+  reviewStatus?: GenerationReviewStatus
+  runId: string
+  selectedForDelivery?: boolean
+  setHero?: boolean
+  userId: string
+  variantId: string
+}) {
+  const db = getDatabase()
+  const [matchedVariant] = await db
+    .select({
+      run: generationRuns,
+      variant: generationVariants,
+    })
+    .from(generationVariants)
+    .innerJoin(generationRuns, eq(generationVariants.runId, generationRuns.id))
+    .where(
+      and(
+        eq(generationRuns.userId, input.userId),
+        eq(generationRuns.projectId, input.projectId),
+        eq(generationRuns.id, input.runId),
+        eq(generationVariants.id, input.variantId),
+      ),
+    )
+    .limit(1)
+
+  if (!matchedVariant) {
+    return null
+  }
+
+  if (input.setHero) {
+    await db
+      .update(generationVariants)
+      .set({
+        isHero: false,
+      })
+      .where(eq(generationVariants.runId, input.runId))
+  }
+
+  const nextReviewStatus =
+    input.reviewStatus ??
+    (input.setHero || input.selectedForDelivery ? 'approved' : undefined)
+
+  const nextDelivery =
+    typeof input.selectedForDelivery === 'boolean'
+      ? input.selectedForDelivery
+      : input.setHero
+        ? true
+        : undefined
+
+  await db
+    .update(generationVariants)
+    .set({
+      isHero: input.setHero ?? undefined,
+      reviewNotes:
+        typeof input.reviewNotes === 'undefined'
+          ? undefined
+          : input.reviewNotes,
+      reviewStatus: nextReviewStatus,
+      selectedForDelivery: nextDelivery,
+    })
+    .where(
+      and(
+        eq(generationVariants.id, input.variantId),
+        eq(generationVariants.runId, input.runId),
+      ),
+    )
+
+  if (nextReviewStatus === 'rejected') {
+    await db
+      .update(generationVariants)
+      .set({
+        isHero: false,
+        selectedForDelivery: false,
+      })
+      .where(
+        and(
+          eq(generationVariants.id, input.variantId),
+          eq(generationVariants.runId, input.runId),
+        ),
+      )
+  }
+
+  return getProjectGenerationRunForUser({
+    projectId: input.projectId,
+    runId: input.runId,
+    userId: input.userId,
+  })
+}
+
 export async function getLibraryRecordForUser(
   userId: string,
   projectId: string | null,
 ) {
   const userProjects = await listProjectsForUser(userId)
-  const selectedProjectId =
-    projectId ?? userProjects[0]?.id ?? null
+  const selectedProjectId = projectId ?? userProjects[0]?.id ?? null
 
   if (!selectedProjectId) {
     return {
@@ -741,30 +1282,31 @@ export async function getProjectLibraryRecordForUser(
 
   const [assetRows, runRows, variantRows] = await Promise.all([
     listProjectAssetsForUser(userId, projectId),
+    getRunRowsForProject(userId, projectId),
     getDatabase()
-      .select()
-      .from(generationRuns)
-      .where(
-        and(eq(generationRuns.userId, userId), eq(generationRuns.projectId, projectId)),
-      )
-      .orderBy(desc(generationRuns.createdAt)),
-    getDatabase()
-      .select()
+      .select({
+        runId: generationRuns.id,
+        variant: generationVariants,
+      })
       .from(generationVariants)
       .innerJoin(generationRuns, eq(generationVariants.runId, generationRuns.id))
       .where(
         and(eq(generationRuns.userId, userId), eq(generationRuns.projectId, projectId)),
-      ),
+      )
+      .orderBy(desc(generationVariants.createdAt)),
   ])
 
-  const mappedVariants = variantRows.map(({ generation_variants: variant }) =>
-    mapVariant(variant),
-  )
+  const mappedVariants = variantRows.map((row) => ({
+    runId: row.runId,
+    variant: mapVariant(row.variant),
+  }))
 
   const runs = runRows.map((runRow) =>
     mapRun(
       runRow,
-      mappedVariants.filter((variant) => variant.runId === runRow.id),
+      mappedVariants
+        .filter((variant) => variant.runId === runRow.id)
+        .map((variant) => variant.variant),
     ),
   )
 
@@ -785,11 +1327,40 @@ export async function getStudioProjectForUser(
     return null
   }
 
-  const assets = await listProjectAssetsForUser(userId, projectId)
+  const [assets, runRows, variantRows] = await Promise.all([
+    listProjectAssetsForUser(userId, projectId),
+    getRunRowsForProject(userId, projectId),
+    getDatabase()
+      .select({
+        runId: generationRuns.id,
+        variant: generationVariants,
+      })
+      .from(generationVariants)
+      .innerJoin(generationRuns, eq(generationVariants.runId, generationRuns.id))
+      .where(
+        and(eq(generationRuns.userId, userId), eq(generationRuns.projectId, projectId)),
+      )
+      .orderBy(desc(generationVariants.createdAt)),
+  ])
+
+  const mappedVariants = variantRows.map((row) => ({
+    runId: row.runId,
+    variant: mapVariant(row.variant),
+  }))
+  const runs = runRows.map((runRow) =>
+    mapRun(
+      runRow,
+      mappedVariants
+        .filter((variant) => variant.runId === runRow.id)
+        .map((variant) => variant.variant),
+    ),
+  )
 
   return {
+    outputAssets: assets.filter((asset) => asset.kind === 'output'),
     project,
     referenceAssets: assets.filter((asset) => asset.kind === 'reference'),
+    runs,
   }
 }
 
@@ -816,35 +1387,56 @@ export async function loadPersistedAssetFile(input: {
 
 export async function syncGenerationRunStatus(runId: string) {
   const db = getDatabase()
-  const variantRows = await db
-    .select()
-    .from(generationVariants)
-    .where(eq(generationVariants.runId, runId))
+  const [runRow, variantRows] = await Promise.all([
+    db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, runId))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    getVariantRowsForRun(runId),
+  ])
 
-  if (variantRows.length === 0) {
+  if (!runRow || variantRows.length === 0) {
     return null
   }
 
+  const activeCount = variantRows.filter((variant) =>
+    ['queued', 'submitting', 'rendering'].includes(variant.status),
+  ).length
   const successCount = variantRows.filter((variant) => variant.status === 'success').length
   const errorCount = variantRows.filter((variant) => variant.status === 'error').length
-  const renderingCount = variantRows.filter(
-    (variant) => variant.status === 'rendering' || variant.status === 'submitting',
-  ).length
+  const cancelledCount = variantRows.filter((variant) => variant.status === 'cancelled').length
 
-  const nextStatus =
-    renderingCount > 0
-      ? ('rendering' as const)
-      : successCount === variantRows.length
-        ? ('success' as const)
-        : errorCount === variantRows.length
-          ? ('error' as const)
-          : ('partial-success' as const)
+  let nextStatus: GenerationRunStatus
+
+  if (activeCount > 0) {
+    nextStatus =
+      runRow.status === 'queued' ||
+      runRow.status === 'uploading' ||
+      runRow.status === 'submitting'
+        ? (runRow.status as GenerationRunStatus)
+        : 'rendering'
+  } else if (successCount === variantRows.length) {
+    nextStatus = 'success'
+  } else if (errorCount === variantRows.length) {
+    nextStatus = 'error'
+  } else if (cancelledCount === variantRows.length) {
+    nextStatus = 'cancelled'
+  } else {
+    nextStatus = 'partial-success'
+  }
 
   const [updatedRun] = await db
     .update(generationRuns)
     .set({
       completedAt:
-        nextStatus === 'rendering' ? null : new Date(),
+        nextStatus === 'queued' ||
+        nextStatus === 'uploading' ||
+        nextStatus === 'submitting' ||
+        nextStatus === 'rendering'
+          ? null
+          : new Date(),
       status: nextStatus,
     })
     .where(eq(generationRuns.id, runId))

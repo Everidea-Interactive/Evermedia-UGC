@@ -3,6 +3,8 @@
 import {
   useEffect,
   useMemo,
+  useRef,
+  useState,
   type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -10,25 +12,32 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
+  Check,
+  CircleSlash,
   Brush,
   Clapperboard,
   CupSoda,
   Film,
   Gem,
+  House,
   ImageIcon,
   Laptop,
+  Leaf,
   LoaderCircle,
   MapPin,
   Package2,
   ScanLine,
   Shirt,
   Sparkles,
+  Star,
+  Truck,
   Upload,
   UserRound,
   WandSparkles,
   X,
 } from 'lucide-react'
 
+import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useOptionalStudioProjectContext } from '@/components/dashboard/studio-project-context'
@@ -41,24 +50,38 @@ import {
   getAssetPreviewUrl,
   getGenerationValidation,
 } from '@/lib/generation/client'
+import { isImageMimeType } from '@/lib/media/image-preview'
+import {
+  getActiveTaskCount,
+  getCompletedVariantCount,
+  getFailedVariantCount,
+  getGenerateButtonLabel,
+  getGenerationHelperMessage,
+  getRunBodyCopy,
+  getRunHeadline,
+} from '@/lib/generation/run-copy'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
 import type {
   AssetSlot,
   BatchSize,
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationRun,
   GenerationRunStatus,
   KieStatusResponse,
   GenerationVariant,
+  GenerationReviewStatus,
   ImageModelOption,
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
   ProductCategory,
-  RunSubmissionResponse,
+  ShotEnvironment,
   SubjectMode,
-  TaskPollResponse,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -93,9 +116,10 @@ const productCategories: Array<{
 }> = [
   { value: 'food-drink', label: 'Food & Drink', icon: CupSoda },
   { value: 'jewelry', label: 'Jewelry', icon: Gem },
-  { value: 'cosmetics', label: 'Cosmetics', icon: Sparkles },
-  { value: 'electronics', label: 'Electronics', icon: Laptop },
-  { value: 'clothing', label: 'Clothing', icon: Shirt },
+  { value: 'cosmetics', label: 'Cosmetics & Beauty', icon: Sparkles },
+  { value: 'electronics', label: 'Electronics & Tech', icon: Laptop },
+  { value: 'clothing', label: 'Clothing & Fashion', icon: Shirt },
+  { value: 'miscellaneous', label: 'Miscellaneous', icon: Package2 },
 ]
 
 const creativeStyles: Array<{
@@ -103,16 +127,102 @@ const creativeStyles: Array<{
   label: string
 }> = [
   { value: 'ugc-lifestyle', label: 'UGC / Lifestyle' },
-  { value: 'cinematic', label: 'Cinematic' },
+  { value: 'cinematic', label: 'Hollywood Cinematic' },
   { value: 'tv-commercial', label: 'TV Commercial' },
+  {
+    value: 'elite-product-commercial',
+    label: 'Elite Product Commercial',
+  },
 ]
 
 const subjectModes: Array<{
   value: SubjectMode
   label: string
+  description: string
 }> = [
-  { value: 'product-only', label: 'Product Only' },
-  { value: 'lifestyle', label: 'Lifestyle' },
+  {
+    value: 'lifestyle',
+    label: 'Lifestyle',
+    description:
+      'Lifestyle image with a person naturally interacting with the product.',
+  },
+  {
+    value: 'product-only',
+    label: 'Product Only',
+    description: 'Keep the product as the sole hero subject with no visible person.',
+  },
+]
+
+const shotEnvironments: Array<{
+  value: ShotEnvironment
+  label: string
+  description: string
+  icon: LucideIcon
+}> = [
+  {
+    value: 'indoor',
+    label: 'Indoor',
+    description: 'Studio, interior, curated indoor environment.',
+    icon: House,
+  },
+  {
+    value: 'outdoor',
+    label: 'Outdoor',
+    description: 'Exterior location with natural environmental context.',
+    icon: Leaf,
+  },
+]
+
+const characterGenders: Array<{
+  value: CharacterGender
+  label: string
+}> = [
+  { value: 'any', label: 'Any' },
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'non-binary', label: 'Non-Binary' },
+]
+
+const characterAgeGroups: Array<{
+  value: CharacterAgeGroup
+  label: string
+}> = [
+  { value: 'any', label: 'Any' },
+  { value: 'young-adult', label: 'Young Adult' },
+  { value: 'adult', label: 'Adult' },
+  { value: 'middle-aged', label: 'Middle Aged' },
+  { value: 'senior', label: 'Senior' },
+]
+
+const characterEthnicities: Array<{
+  value: CharacterEthnicity
+  label: string
+}> = [
+  { value: 'any', label: 'Any' },
+  { value: 'south-asian', label: 'South Asian' },
+  { value: 'east-asian', label: 'East Asian' },
+  { value: 'black', label: 'Black' },
+  { value: 'caucasian', label: 'Caucasian' },
+  { value: 'hispanic', label: 'Hispanic' },
+  { value: 'middle-eastern', label: 'Middle Eastern' },
+  { value: 'mixed', label: 'Mixed' },
+]
+
+const figureArtDirections: Array<{
+  value: FigureArtDirection
+  label: string
+  description: string
+}> = [
+  {
+    value: 'none',
+    label: 'None',
+    description: 'Default',
+  },
+  {
+    value: 'curvaceous-editorial',
+    label: 'Curvaceous',
+    description: 'Full figure, dramatic curves, fashion-forward.',
+  },
 ]
 
 const batchSizes: BatchSize[] = [1, 2, 3, 4]
@@ -135,8 +245,8 @@ const imageModels: Array<{
 }> = [
   {
     value: 'nano-banana',
-    label: 'Nano Banana',
-    helper: 'Google image generation / edit',
+    label: 'Nano Banana 2',
+    helper: 'Google image generation with direct reference input',
   },
   {
     value: 'grok-imagine',
@@ -209,9 +319,90 @@ const insetPanelClassName = 'rounded-xl border border-border bg-background'
 const rowClassName = 'rounded-lg border border-border bg-background'
 const tileClassName =
   'min-h-10 w-full items-center justify-center whitespace-normal px-3 py-2.5 text-center leading-tight'
+const presetTileClassName =
+  'preset-chip min-h-[2.9rem] w-full items-center justify-center whitespace-normal rounded-lg border px-3.5 py-2 text-center text-sm font-semibold leading-tight'
+const presetCompactTileClassName =
+  'preset-chip preset-chip-compact w-full items-center justify-center whitespace-normal rounded-lg border text-sm font-semibold leading-tight'
+const presetGroupClassName =
+  'rounded-xl border border-border/80 bg-background/70 p-3.5 sm:p-4'
+const presetSubgroupClassName =
+  'rounded-lg border border-border/70 bg-secondary/35 p-3'
 const imageAccept = 'image/png,image/jpeg,image/webp,image/jpg'
-const taskPollIntervalMs = 3_000
-const taskPollTimeoutMs = 10 * 60 * 1_000
+const projectRunPollIntervalMs = 2_500
+
+function getMediaAssetUrl(assetId: string) {
+  return `/api/media/${assetId}`
+}
+
+function ImagePreviewTrigger({
+  alt,
+  children,
+  className,
+  label,
+  src,
+}: {
+  alt: string
+  children: ReactNode
+  className?: string
+  label: string
+  src: string
+}) {
+  return (
+    <ImagePreviewDialog alt={alt} label={label} src={src}>
+      <button
+        aria-label={`Preview ${label}`}
+        className={cn(
+          'block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          className,
+        )}
+        type="button"
+      >
+        {children}
+      </button>
+    </ImagePreviewDialog>
+  )
+}
+
+function StudioDeliverableMedia({
+  alt,
+  label,
+  mimeType,
+  src,
+}: {
+  alt: string
+  label: string
+  mimeType: string
+  src: string
+}) {
+  if (isImageMimeType(mimeType)) {
+    return (
+      <ImagePreviewTrigger
+        alt={alt}
+        className="block w-full overflow-hidden bg-black/20"
+        label={label}
+        src={src}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt={alt}
+          className="aspect-[4/3] w-full object-cover"
+          loading="lazy"
+          src={src}
+        />
+      </ImagePreviewTrigger>
+    )
+  }
+
+  return (
+    <video
+      className="aspect-[4/3] w-full bg-black object-cover"
+      controls
+      playsInline
+      preload="metadata"
+      src={src}
+    />
+  )
+}
 
 export function DashboardShell() {
   const activeTab = useGenerationStore((state) => state.activeTab)
@@ -242,7 +433,7 @@ export function DashboardShell() {
           onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
           className="flex flex-1 flex-col gap-4"
         >
-          <TopBar disabledReason={controller.disabledReason} />
+          <TopBar />
 
           <section className={cn(panelClassName, 'p-3 sm:p-4')}>
             <div className="flex flex-col gap-3">
@@ -289,17 +480,18 @@ export function DashboardShell() {
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
             <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
-            <PromptSection className="xl:col-start-1 xl:row-start-2" />
             <PreviewCanvas
               canGenerate={controller.canGenerate}
               disabledReason={controller.disabledReason}
               isBusy={controller.isBusy}
+              onCancelRun={controller.handleCancel}
               onGenerate={controller.handleGenerate}
+              onReviewUpdate={controller.handleReviewUpdate}
               className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
             />
-            <RefineRenderSection className="xl:col-start-1 xl:row-start-3" />
+            <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
             {activeTab === 'video' ? (
-              <MotionControlsSection className="xl:col-start-1 xl:row-start-4" />
+              <MotionControlsSection className="xl:col-start-1 xl:row-start-3" />
             ) : null}
           </div>
         </Tabs>
@@ -308,39 +500,14 @@ export function DashboardShell() {
   )
 }
 
-function TopBar({ disabledReason }: { disabledReason: string | null }) {
+function TopBar() {
   const generationRun = useGenerationStore((state) => state.generationRun)
-  const sessionStats = useGenerationStore((state) => state.sessionStats)
   const { isLoading: isKieStatusLoading, status: kieStatus } =
     useKieStatus(generationRun)
-  const activeTaskCount = getActiveTaskCount(generationRun)
-  const headerMetrics = [
-    {
-      helper: getKieCreditsHelper(kieStatus, isKieStatusLoading),
-      label: 'KIE Credits',
-      value: getKieCreditsValue(kieStatus, isKieStatusLoading),
-    },
-    {
-      helper:
-        activeTaskCount > 0 ? 'Rendering now' : 'No active tasks in queue',
-      label: 'Active Tasks',
-      value: String(activeTaskCount),
-    },
-    {
-      helper: 'Completed this session',
-      label: 'Completed',
-      value: String(sessionStats.completedVariants),
-    },
-    {
-      helper: 'Failed this session',
-      label: 'Failed',
-      value: String(sessionStats.failedVariants),
-    },
-  ]
 
   return (
     <header className={cn(panelClassName, 'px-4 py-4 sm:px-5')}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(16rem,0.75fr)] xl:items-start">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background text-foreground">
             <Clapperboard suppressHydrationWarning className="size-5" />
@@ -354,39 +521,13 @@ function TopBar({ disabledReason }: { disabledReason: string | null }) {
           </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {headerMetrics.map((metric) => (
-            <HeaderMetricCard
-              key={metric.label}
-              helper={metric.helper}
-              label={metric.label}
-              value={metric.value}
-            />
-          ))}
+        <div className="w-full xl:max-w-[16rem]">
+          <HeaderMetricCard
+            helper={getKieCreditsHelper(kieStatus, isKieStatusLoading)}
+            label="KIE Credits"
+            value={getKieCreditsValue(kieStatus, isKieStatusLoading)}
+          />
         </div>
-
-        <div className={cn(insetPanelClassName, 'px-4 py-3 md:min-w-[16rem]')}>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Current run
-          </p>
-          <p className="mt-2 text-sm font-medium">
-            {getRunStatusLabel(generationRun.status)}
-          </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {getRunHelperText(generationRun)}
-          </p>
-          {activeTaskCount > 0 ? (
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              {activeTaskCount} provider task{activeTaskCount > 1 ? 's' : ''} active
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-border/80 pt-3">
-        <p className="text-sm text-muted-foreground">
-          {getGenerationHelperMessage(disabledReason, generationRun)}
-        </p>
       </div>
     </header>
   )
@@ -420,8 +561,6 @@ function HeaderMetricCard({
 }
 
 function ReferenceWorkspaceSection({ className }: { className?: string }) {
-  const subjectMode = useGenerationStore((state) => state.subjectMode)
-  const setSubjectMode = useGenerationStore((state) => state.setSubjectMode)
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
   const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
@@ -443,7 +582,7 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
           <SectionHeader
             eyebrow="Reference board"
             title="Build the input set"
-            description="Stage every visual input here first. The board stays fixed so the user can scan people, styling, and products without hunting for slots."
+            description="Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan."
           />
           <Button
             onClick={() => {
@@ -460,33 +599,6 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
             Reset
           </Button>
         </div>
-
-        <ControlGroup
-          title="Reference priority"
-          description="Choose whether the workspace should lead with a face-driven scene or a product-driven scene."
-        >
-          <ToggleGroup
-            aria-label="Subject Mode"
-            type="single"
-            value={subjectMode}
-            className="grid grid-cols-2 gap-2"
-            onValueChange={(value) => {
-              if (value) {
-                setSubjectMode(value as SubjectMode)
-              }
-            }}
-          >
-            {subjectModes.map((mode) => (
-              <ToggleGroupItem
-                key={mode.value}
-                value={mode.value}
-                className="w-full justify-center"
-              >
-                {mode.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </ControlGroup>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-x-6">
           <div className="grid gap-5">
@@ -577,127 +689,163 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
   )
 }
 
-function PromptSection({ className }: { className?: string }) {
-  const activeTab = useGenerationStore((state) => state.activeTab)
-  const textPrompt = useGenerationStore((state) => state.textPrompt)
-  const setTextPrompt = useGenerationStore((state) => state.setTextPrompt)
-
-  return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
-      <div className="flex flex-col gap-4">
-        <SectionHeader
-          eyebrow="Brief"
-          title={activeTab === 'image' ? 'Add written direction' : 'Add motion direction'}
-          description={
-            activeTab === 'image'
-              ? 'Use the prompt after the reference board when the render needs extra art direction or when you want a prompt-only run.'
-              : 'Use the prompt after the reference board to describe motion intent, even if no start-frame reference is ready.'
-          }
-        />
-        <Textarea
-          aria-label={
-            activeTab === 'image'
-              ? 'Image generation prompt'
-              : 'Video generation prompt'
-          }
-          autoComplete="off"
-          placeholder={
-            activeTab === 'image'
-              ? 'Example: Beauty creator holding the serum in soft window light with premium skincare styling.'
-              : 'Example: Hero product glides through morning window light while the actor reaches in from frame left.'
-          }
-          value={textPrompt}
-          onChange={(event) => setTextPrompt(event.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          {activeTab === 'image'
-            ? 'A prompt alone can unlock generation when no reference image is ready.'
-            : 'Prompt-only runs are allowed when no start-frame reference is staged.'}
-        </p>
-      </div>
-    </section>
-  )
-}
-
 function RefineRenderSection({ className }: { className?: string }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
-  const imageModel = useGenerationStore((state) => state.imageModel)
-  const setImageModel = useGenerationStore((state) => state.setImageModel)
-  const videoModel = useGenerationStore((state) => state.videoModel)
-  const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const setProductCategory = useGenerationStore(
     (state) => state.setProductCategory,
   )
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const setCreativeStyle = useGenerationStore((state) => state.setCreativeStyle)
-  const selectedImageModel = imageModels.find((model) => model.value === imageModel)
-  const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
+  const subjectMode = useGenerationStore((state) => state.subjectMode)
+  const setSubjectMode = useGenerationStore((state) => state.setSubjectMode)
+  const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
+  const setShotEnvironment = useGenerationStore(
+    (state) => state.setShotEnvironment,
+  )
+  const textPrompt = useGenerationStore((state) => state.textPrompt)
+  const setTextPrompt = useGenerationStore((state) => state.setTextPrompt)
+  const characterGender = useGenerationStore((state) => state.characterGender)
+  const setCharacterGender = useGenerationStore(
+    (state) => state.setCharacterGender,
+  )
+  const characterAgeGroup = useGenerationStore(
+    (state) => state.characterAgeGroup,
+  )
+  const setCharacterAgeGroup = useGenerationStore(
+    (state) => state.setCharacterAgeGroup,
+  )
+  const characterEthnicity = useGenerationStore(
+    (state) => state.characterEthnicity,
+  )
+  const setCharacterEthnicity = useGenerationStore(
+    (state) => state.setCharacterEthnicity,
+  )
+  const figureArtDirection = useGenerationStore(
+    (state) => state.figureArtDirection,
+  )
+  const setFigureArtDirection = useGenerationStore(
+    (state) => state.setFigureArtDirection,
+  )
+  const isLifestyle = subjectMode === 'lifestyle'
 
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
-      <div className="flex flex-col gap-5">
+    <section className={cn(panelClassName, 'preset-surface p-4 sm:p-5', className)}>
+      <div className="flex flex-col gap-3">
         <SectionHeader
-          eyebrow="Refine render"
-          title="Tune the output"
-          description="Once the reference board is ready, adjust the model and campaign context for the next run."
+          eyebrow="Preset"
+          title="Build the generation preset"
+          description="Set the structured preset first, then add any optional free-form direction."
         />
 
-        <div className="grid gap-5">
+        <div className="grid gap-4 xl:grid-cols-12 xl:gap-x-4">
           <ControlGroup
-            title={activeTab === 'image' ? 'Image model' : 'Video model'}
-            description="Curated provider options for the active workspace."
+            className={cn(presetGroupClassName, 'xl:col-span-4')}
+            title="Subject Configuration"
+            description="Person present or product-only."
           >
-            {activeTab === 'image' ? (
-              <div className="grid gap-2">
-                <Select
-                  aria-label="Image Model"
-                  value={imageModel}
-                  onChange={(event) =>
-                    setImageModel(event.target.value as ImageModelOption)
-                  }
+            <ToggleGroup
+              aria-label="Subject Configuration"
+              type="single"
+              value={subjectMode}
+              className="grid w-full grid-cols-2 gap-2"
+              onValueChange={(value) => {
+                if (value) {
+                  setSubjectMode(value as SubjectMode)
+                }
+              }}
+            >
+              {subjectModes.map((mode) => (
+                <ToggleGroupItem
+                  key={mode.value}
+                  value={mode.value}
+                  className={presetCompactTileClassName}
                 >
-                  {imageModels.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {selectedImageModel?.helper}
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <Select
-                  aria-label="Video Model"
-                  value={videoModel}
-                  onChange={(event) =>
-                    setVideoModel(event.target.value as VideoModelOption)
-                  }
-                >
-                  {videoModels.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {selectedVideoModel?.helper}
-                </p>
-              </div>
-            )}
+                  {mode.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <p className="text-xs text-muted-foreground">
+              {subjectModes.find((mode) => mode.value === subjectMode)?.description ??
+                'Choose the subject setup for this preset.'}
+            </p>
           </ControlGroup>
 
           <ControlGroup
-            title="Product vertical"
-            description="Campaign context used to frame the output."
+            className={cn(presetGroupClassName, 'xl:col-span-4')}
+            title="Photography Style"
+            description="High-level visual language."
+          >
+            <ToggleGroup
+              aria-label="Creative Style"
+              type="single"
+              value={creativeStyle}
+              className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2"
+              onValueChange={(value) => {
+                if (value) {
+                  setCreativeStyle(value as CreativeStyle)
+                }
+              }}
+            >
+              {creativeStyles.map((style) => (
+                <ToggleGroupItem
+                  key={style.value}
+                  value={style.value}
+                  className={presetCompactTileClassName}
+                >
+                  {style.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </ControlGroup>
+
+          <ControlGroup
+            className={cn(presetGroupClassName, 'xl:col-span-4')}
+            title="Shot Environment"
+            description="Indoor or outdoor context."
+          >
+            <ToggleGroup
+              aria-label="Shot Environment"
+              type="single"
+              value={shotEnvironment}
+              className="grid grid-cols-2 gap-2"
+              onValueChange={(value) => {
+                if (value) {
+                  setShotEnvironment(value as ShotEnvironment)
+                }
+              }}
+            >
+              {shotEnvironments.map((environment) => {
+                const Icon = environment.icon
+
+                return (
+                  <ToggleGroupItem
+                    key={environment.value}
+                    value={environment.value}
+                    className={cn(presetCompactTileClassName, 'gap-2')}
+                  >
+                    <Icon suppressHydrationWarning className="size-4" />
+                    <span>{environment.label}</span>
+                  </ToggleGroupItem>
+                )
+              })}
+            </ToggleGroup>
+            <p className="text-xs text-muted-foreground">
+              {shotEnvironments.find((environment) => environment.value === shotEnvironment)
+                ?.description ?? 'Set the scene before generation.'}
+            </p>
+          </ControlGroup>
+
+          <ControlGroup
+            className={cn(presetGroupClassName, 'xl:col-span-8')}
+            title="Product Category"
+            description="Campaign context for the generated prompt."
           >
             <ToggleGroup
               aria-label="Product Category"
               type="single"
               value={productCategory}
-              className="grid grid-cols-2 gap-2"
+              className="grid grid-cols-[repeat(auto-fit,minmax(11.5rem,1fr))] gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setProductCategory(value as ProductCategory)
@@ -711,7 +859,7 @@ function RefineRenderSection({ className }: { className?: string }) {
                   <ToggleGroupItem
                     key={category.value}
                     value={category.value}
-                    className="w-full justify-start gap-2"
+                    className={cn(presetTileClassName, 'justify-start gap-2 text-left')}
                   >
                     <Icon suppressHydrationWarning className="size-4" />
                     {category.label}
@@ -722,34 +870,177 @@ function RefineRenderSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            title="Creative direction"
-            description="High-level visual language for the render."
+            className={cn(presetGroupClassName, 'xl:col-span-4')}
+            title="Figure Art Direction"
+            description="Editorial direction when a person is present."
           >
             <ToggleGroup
-              aria-label="Creative Style"
+              aria-label="Figure Art Direction"
               type="single"
-              value={creativeStyle}
-              className="grid grid-cols-1 gap-2"
+              value={figureArtDirection}
+              className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2"
               onValueChange={(value) => {
                 if (value) {
-                  setCreativeStyle(value as CreativeStyle)
+                  setFigureArtDirection(value as FigureArtDirection)
                 }
               }}
             >
-              {creativeStyles.map((style) => (
+              {figureArtDirections.map((option) => (
                 <ToggleGroupItem
-                  key={style.value}
-                  value={style.value}
-                  className="w-full justify-center"
+                  key={option.value}
+                  value={option.value}
+                  disabled={!isLifestyle}
+                  className={presetCompactTileClassName}
                 >
-                  {style.label}
+                  {option.label}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
+            <p className="text-xs text-muted-foreground">
+              {figureArtDirections.find(
+                (option) => option.value === figureArtDirection,
+              )?.description ?? 'Choose the figure styling direction.'}
+            </p>
+            {!isLifestyle ? (
+              <p className="text-xs text-muted-foreground">
+                Figure art direction is available only for lifestyle presets.
+              </p>
+            ) : null}
+          </ControlGroup>
+
+          <ControlGroup
+            className={cn(presetGroupClassName, 'xl:col-span-12')}
+            title="Character Demographics (Auto-Prompt)"
+            description="Lifestyle presets can bias cast attributes without changing the reference board."
+          >
+            <div
+              className={cn(
+                'grid gap-3 lg:grid-cols-2 lg:gap-x-3 xl:grid-cols-3',
+                !isLifestyle && 'opacity-60',
+              )}
+            >
+              <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
+                <PresetGroupLabel>Gender</PresetGroupLabel>
+                <ToggleGroup
+                  aria-label="Character Gender"
+                  type="single"
+                  value={characterGender}
+                  className="grid grid-cols-[repeat(auto-fit,minmax(6.75rem,1fr))] gap-2"
+                  onValueChange={(value) => {
+                    if (value) {
+                      setCharacterGender(value as CharacterGender)
+                    }
+                  }}
+                >
+                  {characterGenders.map((option) => (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={option.value}
+                      disabled={!isLifestyle}
+                      className={presetCompactTileClassName}
+                    >
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
+                <PresetGroupLabel>Age Group</PresetGroupLabel>
+                <ToggleGroup
+                  aria-label="Character Age Group"
+                  type="single"
+                  value={characterAgeGroup}
+                  className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2"
+                  onValueChange={(value) => {
+                    if (value) {
+                      setCharacterAgeGroup(value as CharacterAgeGroup)
+                    }
+                  }}
+                >
+                  {characterAgeGroups.map((option) => (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={option.value}
+                      disabled={!isLifestyle}
+                      className={presetCompactTileClassName}
+                    >
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              <div
+                className={cn(
+                  presetSubgroupClassName,
+                  'grid gap-1.5 lg:col-span-2 xl:col-span-1 self-start',
+                )}
+              >
+                <PresetGroupLabel>Ethnicity</PresetGroupLabel>
+                <ToggleGroup
+                  aria-label="Character Ethnicity"
+                  type="single"
+                  value={characterEthnicity}
+                  className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2"
+                  onValueChange={(value) => {
+                    if (value) {
+                      setCharacterEthnicity(value as CharacterEthnicity)
+                    }
+                  }}
+                >
+                  {characterEthnicities.map((option) => (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={option.value}
+                      disabled={!isLifestyle}
+                      className={presetCompactTileClassName}
+                    >
+                      {option.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+            {!isLifestyle ? (
+              <p className="text-xs text-muted-foreground">
+                Demographics only apply to lifestyle presets and reset when the subject is product-only.
+              </p>
+            ) : null}
+          </ControlGroup>
+
+          <ControlGroup
+            className={cn(presetGroupClassName, 'xl:col-span-12')}
+            title="Additional Instructions"
+            description="Optional free-form direction appended after the structured preset."
+          >
+            <Textarea
+              aria-label={
+                activeTab === 'image'
+                  ? 'Image generation additional instructions'
+                  : 'Video generation additional instructions'
+              }
+              autoComplete="off"
+              className="preset-textarea"
+              placeholder="Add any extra creative direction, for example: dramatic backlight, golden hour, neon rim light…"
+              value={textPrompt}
+              onChange={(event) => setTextPrompt(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Use this only for direction that does not fit the preset controls.
+            </p>
           </ControlGroup>
         </div>
       </div>
     </section>
+  )
+}
+
+function PresetGroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      {children}
+    </p>
   )
 }
 
@@ -868,6 +1159,7 @@ function MotionControlsSection({ className }: { className?: string }) {
             description="Only Veo uses end-frame guidance in Phase 2. Other models ignore this slot."
           >
             <ReferenceCard
+              className="self-start w-full max-w-[13rem] sm:max-w-[15rem]"
               icon={ScanLine}
               inputId="asset-end-frame"
               slot={endFrame}
@@ -915,12 +1207,14 @@ function ReferenceCardGroup({
 }
 
 function ReferenceCard({
+  className,
   icon: Icon,
   inputId,
   slot,
   onClear,
   onSelect,
 }: {
+  className?: string
   icon: LucideIcon
   inputId: string
   slot: AssetSlot
@@ -939,6 +1233,7 @@ function ReferenceCard({
         slot.error
           ? 'border-destructive/45 bg-destructive/5'
           : 'border-border hover:border-foreground/30',
+        className,
       )}
     >
       <input
@@ -949,16 +1244,25 @@ function ReferenceCard({
         onChange={(event) => handleFileInput(event, onSelect)}
       />
 
-      <div className="absolute inset-0">
-        {previewSrc ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            alt={`${slot.label} reference preview`}
-            className="h-full w-full object-contain p-2.5"
-            loading="lazy"
-            src={previewSrc}
-          />
-        ) : (
+      {previewSrc ? (
+        <ImagePreviewTrigger
+          alt={`${slot.label} reference preview`}
+          className="absolute inset-0 rounded-[1rem]"
+          label={slot.label}
+          src={previewSrc}
+        >
+          <div className="absolute inset-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${slot.label} reference preview`}
+              className="h-full w-full object-contain p-2.5"
+              loading="lazy"
+              src={previewSrc}
+            />
+          </div>
+        </ImagePreviewTrigger>
+      ) : (
+        <div className="absolute inset-0">
           <div className="flex h-full flex-col items-center justify-center gap-2.5 px-3 text-center">
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-secondary/80 text-muted-foreground">
               <Icon suppressHydrationWarning className="size-4.5" />
@@ -967,11 +1271,11 @@ function ReferenceCard({
               {slot.label}
             </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {hasMedia ? (
-        <div className="absolute inset-x-0 bottom-0 p-2.5">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2.5">
           <span className="inline-flex rounded-md bg-background/92 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground shadow-sm backdrop-blur">
             {slot.label}
           </span>
@@ -1040,21 +1344,44 @@ function PreviewCanvas({
   canGenerate,
   disabledReason,
   isBusy,
+  onCancelRun,
   onGenerate,
+  onReviewUpdate,
   className,
 }: {
   canGenerate: boolean
   disabledReason: string | null
   isBusy: boolean
+  onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
+  onReviewUpdate: (input: {
+    reviewNotes?: string | null
+    reviewStatus?: GenerationReviewStatus
+    selectedForDelivery?: boolean
+    setHero?: boolean
+    variantId: string
+  }) => Promise<void>
   className?: string
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const imageModel = useGenerationStore((state) => state.imageModel)
+  const setImageModel = useGenerationStore((state) => state.setImageModel)
   const videoModel = useGenerationStore((state) => state.videoModel)
+  const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
+  const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
+  const characterGender = useGenerationStore((state) => state.characterGender)
+  const characterAgeGroup = useGenerationStore(
+    (state) => state.characterAgeGroup,
+  )
+  const characterEthnicity = useGenerationStore(
+    (state) => state.characterEthnicity,
+  )
+  const figureArtDirection = useGenerationStore(
+    (state) => state.figureArtDirection,
+  )
   const batchSize = useGenerationStore((state) => state.batchSize)
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
@@ -1068,6 +1395,8 @@ function PreviewCanvas({
       [...Object.values(assets), ...products].filter((slot) => isSlotLoaded(slot)),
     [assets, products],
   )
+  const selectedImageModel = imageModels.find((model) => model.value === imageModel)
+  const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
   const activeModelLabel =
     activeTab === 'image'
       ? getImageModelLabel(imageModel)
@@ -1078,8 +1407,20 @@ function PreviewCanvas({
     products,
     textPrompt,
   })
+  const characterPresetLabel = getCharacterPresetSummary({
+    characterAgeGroup,
+    characterEthnicity,
+    characterGender,
+    figureArtDirection,
+    subjectMode,
+  })
   const runMatchesWorkspace = generationRun.workspace === activeTab
-  const linkedTaskCount = getLinkedTaskCount(generationRun)
+  const activeRunInWorkspace =
+    runMatchesWorkspace && hasActiveGeneration(generationRun)
+  const generationFooterMessage =
+    !runMatchesWorkspace || generationRun.status === 'idle'
+      ? getGenerationHelperMessage(disabledReason, generationRun)
+      : null
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -1097,25 +1438,14 @@ function PreviewCanvas({
               run generation from the footer below.
             </p>
           </div>
-          <Badge className="self-start" variant="outline">
+          <Badge className="self-start whitespace-nowrap" variant="outline">
             {activeTab === 'video' ? 'Video workspace' : 'Image workspace'}
           </Badge>
         </div>
 
         <div className={cn(insetPanelClassName, 'overflow-hidden')}>
-          <div className="p-4 sm:p-6">
-            <div className="flex min-h-[320px] flex-col sm:min-h-[420px]">
-              <PreviewStage
-                activeTab={activeTab}
-                loadedAssets={loadedAssets.length}
-                runMatchesWorkspace={runMatchesWorkspace}
-                runState={generationRun}
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-border px-4 py-4 sm:px-6">
-            <div className="grid gap-2 sm:grid-cols-2">
+          <div className="border-b border-border px-3 py-3.5 sm:px-5 sm:py-4">
+            <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-2">
               <PreviewSnapshotItem
                 label="Primary input"
                 value={primaryInputLabel}
@@ -1126,7 +1456,7 @@ function PreviewCanvas({
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
               <StatusPill label="Model" value={activeModelLabel} />
               <StatusPill
                 label="Category"
@@ -1140,6 +1470,13 @@ function PreviewCanvas({
                 label="Subject"
                 value={getSubjectModeLabel(subjectMode)}
               />
+              <StatusPill
+                label="Environment"
+                value={getShotEnvironmentLabel(shotEnvironment)}
+              />
+              {characterPresetLabel ? (
+                <StatusPill label="Casting" value={characterPresetLabel} />
+              ) : null}
               {activeTab === 'video' && cameraMovement ? (
                 <StatusPill
                   label="Camera"
@@ -1147,83 +1484,158 @@ function PreviewCanvas({
                 />
               ) : null}
             </div>
+          </div>
 
-            <div className="mt-4 flex flex-col gap-3">
+          <div className="p-4 sm:p-5">
+            <div className="flex min-h-[240px] flex-col sm:min-h-[320px]">
+              <PreviewStage
+                activeTab={activeTab}
+                loadedAssets={loadedAssets.length}
+                onReviewUpdate={onReviewUpdate}
+                runMatchesWorkspace={runMatchesWorkspace}
+                runState={generationRun}
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-border px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-5">
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Variation
+                  Batch size
                 </p>
-                <div className="mt-2">
-                  <ToggleGroup
-                    aria-label="Batch Size"
-                    type="single"
-                    value={String(batchSize)}
-                    className="grid grid-cols-4 gap-2"
-                    onValueChange={(value) => {
-                      if (value) {
-                        setBatchSize(Number(value) as BatchSize)
-                      }
-                    }}
-                  >
-                    {batchSizes.map((size) => (
-                      <ToggleGroupItem
-                        key={size}
-                        value={String(size)}
-                        className="min-h-15 w-full justify-center"
-                      >
-                        <span className="flex flex-col items-center gap-1">
-                          <span>{size}x</span>
-                          <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
-                            {size === 1 ? 'Single' : `${size} Tasks`}
-                          </span>
-                        </span>
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Parallel variants reuse the same uploaded references and split
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Parallel variants reuse the same staged references and split
                   into separate KIE tasks.
                 </p>
+                <ToggleGroup
+                  aria-label="Batch Size"
+                  type="single"
+                  value={String(batchSize)}
+                  className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
+                  onValueChange={(value) => {
+                    if (value) {
+                      setBatchSize(Number(value) as BatchSize)
+                    }
+                  }}
+                >
+                  {batchSizes.map((size) => (
+                    <ToggleGroupItem
+                      key={size}
+                      value={String(size)}
+                      className="min-h-14 w-full justify-center px-2.5"
+                    >
+                      <span className="flex flex-col items-center gap-0.5">
+                        <span className="text-sm font-semibold">{size}x</span>
+                        <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
+                          {size === 1 ? 'Single' : `${size} tasks`}
+                        </span>
+                      </span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </div>
+
+              <div className="h-px bg-border/70" />
 
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Run action
+                  Generation
                 </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {getGenerationHelperMessage(disabledReason, generationRun)}
-                </p>
-                {runMatchesWorkspace && linkedTaskCount > 0 ? (
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {linkedTaskCount} linked task{linkedTaskCount > 1 ? 's' : ''}{' '}
-                    across {generationRun.variants.length} variation
-                    {generationRun.variants.length > 1 ? 's' : ''}
+                {generationFooterMessage ? (
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {generationFooterMessage}
                   </p>
                 ) : null}
-              </div>
 
-              <Button
-                className="min-h-12 w-full text-base font-medium"
-                disabled={isBusy || !canGenerate}
-                onClick={() => {
-                  void onGenerate()
-                }}
-              >
-                {isBusy ? (
-                  <LoaderCircle
-                    suppressHydrationWarning
-                    data-icon="inline-start"
-                    className="animate-spin"
-                  />
-                ) : (
-                  <WandSparkles
-                    suppressHydrationWarning
-                    data-icon="inline-start"
-                  />
-                )}
-                {getGenerateButtonLabel(generationRun, batchSize)}
-              </Button>
+                <div className={cn(generationFooterMessage ? 'mt-4' : 'mt-2', 'grid gap-2.5')}>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {activeTab === 'image' ? 'Image model' : 'Video model'}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Curated provider options for the active workspace.
+                    </p>
+                  </div>
+
+                  {activeTab === 'image' ? (
+                    <Select
+                      aria-label="Image Model"
+                      value={imageModel}
+                      onChange={(event) =>
+                        setImageModel(event.target.value as ImageModelOption)
+                      }
+                    >
+                      {imageModels.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Select
+                      aria-label="Video Model"
+                      value={videoModel}
+                      onChange={(event) =>
+                        setVideoModel(event.target.value as VideoModelOption)
+                      }
+                    >
+                      {videoModels.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    {activeTab === 'image'
+                      ? selectedImageModel?.helper
+                      : selectedVideoModel?.helper}
+                  </p>
+                </div>
+
+                <div className="mt-2.5 flex w-full flex-col gap-2">
+                  {activeRunInWorkspace ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        void onCancelRun()
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <CircleSlash
+                        suppressHydrationWarning
+                        data-icon="inline-start"
+                      />
+                      Cancel Run
+                    </Button>
+                  ) : null}
+
+                  <Button
+                    className="min-h-12 w-full text-base font-medium"
+                    disabled={isBusy || !canGenerate}
+                    onClick={() => {
+                      void onGenerate()
+                    }}
+                  >
+                    {isBusy ? (
+                      <LoaderCircle
+                        suppressHydrationWarning
+                        data-icon="inline-start"
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <WandSparkles
+                        suppressHydrationWarning
+                        data-icon="inline-start"
+                      />
+                    )}
+                    {getGenerateButtonLabel(generationRun, batchSize)}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1235,17 +1647,37 @@ function PreviewCanvas({
 function PreviewStage({
   activeTab,
   loadedAssets,
+  onReviewUpdate,
   runMatchesWorkspace,
   runState,
 }: {
   activeTab: WorkspaceTab
   loadedAssets: number
+  onReviewUpdate: (input: {
+    reviewNotes?: string | null
+    reviewStatus?: GenerationReviewStatus
+    selectedForDelivery?: boolean
+    setHero?: boolean
+    variantId: string
+  }) => Promise<void>
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
 }) {
+  const projectContext = useOptionalStudioProjectContext()
   const selectGenerationVariant = useGenerationStore(
     (state) => state.selectGenerationVariant,
   )
+  const [reviewFilter, setReviewFilter] = useState<'all' | GenerationReviewStatus>(
+    'all',
+  )
+  const [detailPanel, setDetailPanel] = useState<'prompt' | 'notes'>('prompt')
+  const [noteEditor, setNoteEditor] = useState<{
+    text: string
+    variantId: string | null
+  }>({
+    text: '',
+    variantId: null,
+  })
   const selectedVariant = runMatchesWorkspace
     ? getSelectedRunVariant(runState)
     : null
@@ -1253,10 +1685,77 @@ function PreviewStage({
   const completedVariants = getCompletedVariantCount(runState)
   const failedVariants = getFailedVariantCount(runState)
   const activeTaskCount = getActiveTaskCount(runState)
+  const runSummaryItems = [`${completedVariants}/${totalVariants} complete`]
+  if (failedVariants > 0) {
+    runSummaryItems.push(`${failedVariants} failed`)
+  }
+  if (activeTaskCount > 0) {
+    runSummaryItems.push(`${activeTaskCount} active`)
+  }
+  const filteredVariants = runState.variants.filter((variant) => {
+    if (reviewFilter === 'all') {
+      return true
+    }
+
+    if (reviewFilter === 'rejected') {
+      return (
+        variant.reviewStatus === 'rejected' ||
+        variant.status === 'error' ||
+        variant.status === 'cancelled'
+      )
+    }
+
+    return variant.status === 'success' && variant.reviewStatus === reviewFilter
+  })
+  const deliverables = useMemo(() => {
+    const currentProject = projectContext?.currentProject
+
+    if (!currentProject) {
+      return []
+    }
+
+    const outputMap = new Map(
+      currentProject.outputAssets.map((asset) => [asset.id, asset] as const),
+    )
+
+    return currentProject.runs.flatMap((run) =>
+      run.variants
+        .filter(
+          (variant) =>
+            Boolean(variant.resultAssetId) &&
+            (variant.selectedForDelivery || variant.isHero || variant.reviewStatus === 'approved'),
+        )
+        .map((variant) => {
+          const asset = variant.resultAssetId
+            ? outputMap.get(variant.resultAssetId)
+            : null
+
+          if (!asset) {
+            return null
+          }
+
+          return {
+            assetId: asset.id,
+            isHero: variant.isHero,
+            label: asset.label,
+            mimeType: asset.mimeType,
+            reviewStatus: variant.reviewStatus,
+            variantIndex: variant.variantIndex,
+          }
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+    )
+  }, [projectContext?.currentProject])
+  const noteDraft =
+    noteEditor.variantId === selectedVariant?.variantId
+      ? noteEditor.text
+      : (selectedVariant?.reviewNotes ?? '')
 
   if (
     runMatchesWorkspace &&
-    (runState.status === 'uploading' || runState.status === 'submitting') &&
+    (runState.status === 'queued' ||
+      runState.status === 'uploading' ||
+      runState.status === 'submitting') &&
     totalVariants === 0
   ) {
     return (
@@ -1276,31 +1775,50 @@ function PreviewStage({
   if (runMatchesWorkspace && totalVariants > 0) {
     return (
       <div className="flex flex-1 flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-secondary/60 p-4">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Batch review
-            </p>
-            <p className="mt-2 text-lg font-semibold text-foreground">
-              {getRunHeadline(runState)}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {getRunBodyCopy(runState)}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <StatusPill label="Status" value={getRunStatusLabel(runState.status)} />
-            <StatusPill label="Complete" value={`${completedVariants}/${totalVariants}`} />
-            {failedVariants > 0 ? (
-              <StatusPill label="Failed" value={String(failedVariants)} />
-            ) : null}
-            {activeTaskCount > 0 ? (
-              <StatusPill label="Tasks" value={String(activeTaskCount)} />
-            ) : null}
+        <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
+          <div className="flex flex-col gap-3">
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-foreground">
+                {getRunHeadline(runState)}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {runSummaryItems.join(' · ')}
+              </p>
+            </div>
+
+            <div>
+              <ToggleGroup
+                aria-label="Review Filter"
+                type="single"
+                value={reviewFilter}
+                onValueChange={(value) => {
+                  if (
+                    value === 'all' ||
+                    value === 'pending' ||
+                    value === 'approved' ||
+                    value === 'rejected'
+                  ) {
+                    setReviewFilter(value)
+                  }
+                }}
+              >
+                {(['all', 'pending', 'approved', 'rejected'] as const).map(
+                  (value) => (
+                    <ToggleGroupItem
+                      key={value}
+                      value={value}
+                      className="min-h-9 px-3"
+                    >
+                      {value === 'all' ? 'All' : getRunStatusLabel(value)}
+                    </ToggleGroupItem>
+                  ),
+                )}
+              </ToggleGroup>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-secondary/70">
+        <div className="overflow-hidden rounded-xl border border-border bg-background">
           {selectedVariant?.result ? (
             <div className="flex flex-col">
               <div className="relative aspect-[4/5] min-h-[280px] bg-black/20 sm:aspect-video">
@@ -1315,40 +1833,181 @@ function PreviewStage({
                     src={selectedVariant.result.url}
                   />
                 ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <ImagePreviewTrigger
                     alt={`Generated result for variation ${selectedVariant.index}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full overflow-hidden"
+                    label={`Variation ${selectedVariant.index}`}
                     src={selectedVariant.result.url}
-                  />
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      alt={`Generated result for variation ${selectedVariant.index}`}
+                      className="h-full w-full object-cover"
+                      src={selectedVariant.result.url}
+                    />
+                  </ImagePreviewTrigger>
                 )}
               </div>
 
               <div className="border-t border-border bg-background/95 px-4 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      Selected variation
-                    </p>
-                    <p className="mt-2 text-base font-semibold">
-                      Variation {selectedVariant.index}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {selectedVariant.profile}
-                    </p>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Selected output
+                      </p>
+                      <p className="mt-1 text-base font-semibold">
+                        Variation {selectedVariant.index}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {selectedVariant.profile}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        {getRunStatusLabel(selectedVariant.reviewStatus)}
+                      </Badge>
+                      <Badge variant="outline">
+                        {selectedVariant.result.model}
+                      </Badge>
+                      <Badge variant="outline">
+                        Task {selectedVariant.result.taskId.slice(0, 18)}
+                      </Badge>
+                      {selectedVariant.isHero ? (
+                        <Badge variant="secondary">Hero</Badge>
+                      ) : null}
+                      {selectedVariant.selectedForDelivery ? (
+                        <Badge variant="secondary">Deliverable</Badge>
+                      ) : null}
+                    </div>
                   </div>
+
                   <div className="flex flex-wrap gap-2">
-                    <StatusPill label="Task" value={selectedVariant.result.taskId.slice(0, 18)} />
-                    <StatusPill label="Model" value={selectedVariant.result.model} />
+                    <Button
+                      onClick={() => {
+                        void onReviewUpdate({
+                          reviewStatus: 'approved',
+                          variantId: selectedVariant.variantId,
+                        })
+                      }}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      <Check suppressHydrationWarning data-icon="inline-start" />
+                      Approve
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        void onReviewUpdate({
+                          reviewStatus: 'rejected',
+                          variantId: selectedVariant.variantId,
+                        })
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <X suppressHydrationWarning data-icon="inline-start" />
+                      Reject
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        void onReviewUpdate({
+                          setHero: !selectedVariant.isHero,
+                          variantId: selectedVariant.variantId,
+                        })
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Star suppressHydrationWarning data-icon="inline-start" />
+                      {selectedVariant.isHero ? 'Hero Pick' : 'Mark Hero'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        void onReviewUpdate({
+                          selectedForDelivery: !selectedVariant.selectedForDelivery,
+                          variantId: selectedVariant.variantId,
+                        })
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Truck suppressHydrationWarning data-icon="inline-start" />
+                      {selectedVariant.selectedForDelivery
+                        ? 'In Deliverables'
+                        : 'Add Deliverable'}
+                    </Button>
                   </div>
-                </div>
-                <div className="mt-4 rounded-lg border border-border bg-secondary/60 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Prompt
-                  </p>
-                  <p className="mt-2 max-h-24 overflow-auto pr-1 text-sm leading-6 text-foreground/88">
-                    {selectedVariant.prompt}
-                  </p>
+
+                  <div className="rounded-lg border border-border bg-secondary/50 p-3">
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          Variation details
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Keep the prompt and review notes attached to the selected
+                          output.
+                        </p>
+                      </div>
+
+                      <ToggleGroup
+                        aria-label="Detail View"
+                        type="single"
+                        value={detailPanel}
+                        onValueChange={(value) => {
+                          if (value === 'prompt' || value === 'notes') {
+                            setDetailPanel(value)
+                          }
+                        }}
+                      >
+                        <ToggleGroupItem value="prompt" className="min-h-9 px-3">
+                          Prompt
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="notes" className="min-h-9 px-3">
+                          Notes
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+
+                    {detailPanel === 'prompt' ? (
+                      <p className="mt-3 max-h-28 overflow-auto pr-1 text-sm leading-6 text-foreground/88">
+                        {selectedVariant.prompt}
+                      </p>
+                    ) : (
+                      <div className="mt-3">
+                        <Textarea
+                          className="min-h-24"
+                          value={noteDraft}
+                          onChange={(event) =>
+                            setNoteEditor({
+                              text: event.target.value,
+                              variantId: selectedVariant.variantId,
+                            })
+                          }
+                        />
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            onClick={() => {
+                              void onReviewUpdate({
+                                reviewNotes: noteDraft,
+                                variantId: selectedVariant.variantId,
+                              })
+                              setNoteEditor({
+                                text: noteDraft,
+                                variantId: selectedVariant.variantId,
+                              })
+                            }}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            Save Notes
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1361,6 +2020,11 @@ function PreviewStage({
                     suppressHydrationWarning
                     className="size-8"
                   />
+                ) : runState.status === 'cancelled' ? (
+                  <CircleSlash
+                    suppressHydrationWarning
+                    className="size-8"
+                  />
                 ) : (
                   <LoaderCircle
                     suppressHydrationWarning
@@ -1368,14 +2032,18 @@ function PreviewStage({
                   />
                 )
               }
-              tone={runState.status === 'error' ? 'destructive' : 'default'}
+              tone={
+                runState.status === 'error' || runState.status === 'cancelled'
+                  ? 'destructive'
+                  : 'default'
+              }
               title={getRunHeadline(runState)}
             />
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {runState.variants.map((variant) => {
+        <div className="grid gap-2 sm:grid-cols-2">
+          {filteredVariants.map((variant) => {
             const isSelected = selectedVariant?.variantId === variant.variantId
             const isInteractive =
               variant.status === 'success' && Boolean(variant.result)
@@ -1384,7 +2052,7 @@ function PreviewStage({
               <button
                 key={variant.variantId}
                 className={cn(
-                  'flex min-h-36 w-full flex-col items-start rounded-xl border bg-background p-4 text-left transition-colors',
+                  'flex min-h-28 w-full flex-col items-start rounded-lg border bg-background p-3 text-left transition-colors',
                   isSelected
                     ? 'border-foreground/45 bg-secondary'
                     : 'border-border hover:border-foreground/25',
@@ -1410,23 +2078,78 @@ function PreviewStage({
                   </Badge>
                 </div>
 
-                <p className="mt-4 text-sm text-muted-foreground">
+                <p className="mt-3 text-xs text-muted-foreground">
                   {variant.taskId
                     ? `Task ${variant.taskId.slice(0, 18)}`
                     : variant.error ?? 'Task creation did not complete.'}
                 </p>
 
-                <p className="mt-3 text-sm leading-6 text-foreground/86">
+                <p className="mt-2 text-sm leading-6 text-foreground/86">
                   {variant.status === 'success' && variant.result
-                    ? `Ready to review in the spotlight. ${variant.result.type === 'video' ? 'Video output returned.' : 'Image output returned.'}`
+                    ? 'Ready to review in the spotlight.'
+                    : variant.status === 'queued'
+                      ? 'Queued for the background worker to claim.'
                     : variant.status === 'error'
                       ? variant.error ?? 'This variation failed upstream.'
-                      : 'Provider task is still rendering.'}
+                      : variant.status === 'cancelled'
+                        ? 'This variation was cancelled before completion.'
+                        : 'Provider task is still rendering.'}
                 </p>
+                {variant.status === 'success' ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      {getRunStatusLabel(variant.reviewStatus)}
+                    </Badge>
+                    {variant.isHero ? <Badge variant="secondary">Hero</Badge> : null}
+                    {variant.selectedForDelivery ? (
+                      <Badge variant="secondary">Deliverable</Badge>
+                    ) : null}
+                  </div>
+                ) : null}
               </button>
             )
           })}
         </div>
+
+        {deliverables.length > 0 ? (
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Deliverables
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Approved outputs promoted from this project’s persisted run history.
+                </p>
+              </div>
+              <Badge variant="outline">{deliverables.length} selected</Badge>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {deliverables.map((deliverable) => (
+                <article
+                  key={deliverable.assetId}
+                  className="overflow-hidden rounded-xl border border-border bg-card"
+                >
+                  <StudioDeliverableMedia
+                    alt={deliverable.label}
+                    label={deliverable.label}
+                    mimeType={deliverable.mimeType}
+                    src={getMediaAssetUrl(deliverable.assetId)}
+                  />
+                  <div className="flex flex-wrap items-start justify-between gap-3 p-3">
+                    <div>
+                      <p className="font-medium text-foreground">{deliverable.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Variation {deliverable.variantIndex} · {getRunStatusLabel(deliverable.reviewStatus)}
+                      </p>
+                    </div>
+                    {deliverable.isHero ? <Badge variant="secondary">Hero</Badge> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -1511,11 +2234,11 @@ function PreviewSnapshotItem({
   value: string
 }) {
   return (
-    <div className={cn(rowClassName, 'px-3 py-3')}>
+    <div className={cn(rowClassName, 'px-3 py-2.5 sm:px-3.5 sm:py-3')}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 text-base font-semibold tracking-tight text-foreground">
+      <p className="mt-1 text-[15px] font-semibold leading-5 tracking-tight text-foreground sm:text-base">
         {value}
       </p>
     </div>
@@ -1524,28 +2247,32 @@ function PreviewSnapshotItem({
 
 function StatusPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="max-w-full rounded-lg border border-border bg-secondary px-3 py-2">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        {label}
-      </span>{' '}
-      <span className="break-words text-sm font-medium tracking-tight text-foreground">
-        {value}
-      </span>
+    <div className="min-w-0 rounded-md border border-border bg-secondary/70 px-3 py-2 sm:px-3.5 sm:py-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="min-w-0 break-words text-[13px] font-medium leading-5 tracking-tight text-foreground sm:text-sm">
+          {value}
+        </p>
+      </div>
     </div>
   )
 }
 
 function ControlGroup({
   children,
+  className,
   description,
   title,
 }: {
   children: ReactNode
+  className?: string
   description: string
   title: string
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn('flex flex-col gap-3', className)}>
       <div>
         <h3 className="text-sm font-semibold">{title}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
@@ -1587,6 +2314,17 @@ function useGenerationController() {
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
+  const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
+  const characterGender = useGenerationStore((state) => state.characterGender)
+  const characterAgeGroup = useGenerationStore(
+    (state) => state.characterAgeGroup,
+  )
+  const characterEthnicity = useGenerationStore(
+    (state) => state.characterEthnicity,
+  )
+  const figureArtDirection = useGenerationStore(
+    (state) => state.figureArtDirection,
+  )
   const batchSize = useGenerationStore((state) => state.batchSize)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
@@ -1595,23 +2333,10 @@ function useGenerationController() {
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
   const generationRun = useGenerationStore((state) => state.generationRun)
-  const activeVariantSignature = useMemo(
-    () =>
-      generationRun.variants
-        .map(
-          (variant) =>
-            `${variant.variantId}:${variant.status}:${variant.taskId ?? ''}`,
-        )
-        .join('|'),
-    [generationRun.variants],
+  const hydrateGenerationRun = useGenerationStore(
+    (state) => state.hydrateGenerationRun,
   )
-  const hasRenderableVariants = useMemo(
-    () =>
-      generationRun.variants.some(
-        (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
-      ),
-    [generationRun.variants],
-  )
+  const lastTerminalRefreshRef = useRef<string | null>(null)
 
   const validation = useMemo(
     () =>
@@ -1620,11 +2345,16 @@ function useGenerationController() {
         assets,
         batchSize,
         cameraMovement,
+        characterAgeGroup,
+        characterEthnicity,
+        characterGender,
         creativeStyle,
+        figureArtDirection,
         imageModel,
         outputQuality,
         productCategory,
         products,
+        shotEnvironment,
         subjectMode,
         textPrompt,
         videoDuration,
@@ -1635,11 +2365,16 @@ function useGenerationController() {
       assets,
       batchSize,
       cameraMovement,
+      characterAgeGroup,
+      characterEthnicity,
+      characterGender,
       creativeStyle,
+      figureArtDirection,
       imageModel,
       outputQuality,
       productCategory,
       products,
+      shotEnvironment,
       subjectMode,
       textPrompt,
       videoDuration,
@@ -1654,161 +2389,85 @@ function useGenerationController() {
 
   useEffect(() => {
     if (
-      generationRun.status !== 'rendering' ||
-      !generationRun.provider ||
-      !generationRun.workspace ||
-      !generationRun.model ||
-      !hasRenderableVariants
+      !generationRun.projectId ||
+      !generationRun.runId ||
+      !hasPollingRunStatus(generationRun.status)
     ) {
       return
     }
 
-    const pollTaskGroup = async () => {
-      const state = useGenerationStore.getState()
-      const { generationRun: run } = state
+    let isCancelled = false
+    const projectId = generationRun.projectId
+    const runId = generationRun.runId
 
-      if (
-        run.status !== 'rendering' ||
-        !run.provider ||
-        !run.workspace ||
-        !run.model
-      ) {
-        return
-      }
-
-      const activeVariants = run.variants.filter(
-        (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
-      )
-      const provider = run.provider
-      const workspace = run.workspace
-      const model = run.model
-
-      if (activeVariants.length === 0) {
-        return
-      }
-
-      if (run.startedAt && Date.now() - run.startedAt > taskPollTimeoutMs) {
-        state.setGenerationError(
-          'Generation timed out after 10 minutes. Please retry the task.',
-        )
-
-        return
-      }
-
+    const pollRunState = async () => {
       try {
-        const pollResults = await Promise.allSettled(
-          activeVariants.map(async (variant) => {
-            const response = await fetch(
-              `/api/generation/tasks/${encodeURIComponent(variant.taskId ?? '')}?provider=${encodeURIComponent(provider)}&workspace=${encodeURIComponent(workspace)}&model=${encodeURIComponent(model)}&runId=${encodeURIComponent(run.runId ?? '')}`,
-              {
-                cache: 'no-store',
-              },
-            )
-            const payload = (await response.json()) as TaskPollResponse & {
+        const response = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}`,
+          {
+            cache: 'no-store',
+          },
+        )
+        const payload = (await response.json().catch(() => null)) as
+          | {
               error?: string
+              run?: GenerationRun
             }
+          | null
 
-            if (!response.ok) {
-              throw new Error(
-                payload.error ?? 'Unable to read generation status.',
-              )
-            }
+        if (!response.ok || !payload?.run) {
+          throw new Error(payload?.error ?? 'Unable to refresh run status.')
+        }
 
-            return {
-              payload,
-              variantId: variant.variantId,
-            }
-          }),
-        )
-        const latestState = useGenerationStore.getState()
-
-        if (latestState.generationRun.runId !== run.runId) {
+        if (isCancelled) {
           return
         }
 
-        const updates = new Map<
-          string,
-          Partial<GenerationVariant>
-        >()
-
-        pollResults.forEach((result, index) => {
-          const variant = activeVariants[index]
-
-          if (!variant) {
-            return
-          }
-
-          if (result.status === 'rejected') {
-            updates.set(variant.variantId, {
-              error:
-                result.reason instanceof Error
-                  ? result.reason.message
-                  : 'Unable to poll generation status.',
-              result: null,
-              status: 'error',
-            })
-
-            return
-          }
-
-          if (result.value.payload.status === 'success' && result.value.payload.result) {
-            updates.set(variant.variantId, {
-              error: null,
-              result: result.value.payload.result,
-              status: 'success',
-            })
-            return
-          }
-
-          if (result.value.payload.status === 'error') {
-            updates.set(variant.variantId, {
-              error: result.value.payload.error ?? 'Generation failed.',
-              result: null,
-              status: 'error',
-            })
-          }
-        })
-
-        if (updates.size === 0) {
-          return
+        if (payload.run.uploadedAssets.length > 0) {
+          applyUploadedAssetState(payload.run.uploadedAssets)
         }
 
-        latestState.setGenerationVariants(
-          latestState.generationRun.variants.map((variant) =>
-            updates.has(variant.variantId)
-              ? {
-                  ...variant,
-                  ...updates.get(variant.variantId),
-                }
-              : variant,
-          ),
-        )
+        hydrateGenerationRun(payload.run)
+
+        if (
+          projectContext &&
+          payload.run.projectId &&
+          isTerminalGenerationStatus(payload.run.status)
+        ) {
+          const terminalKey = `${payload.run.runId}:${payload.run.status}:${payload.run.completedAt ?? ''}`
+
+          if (lastTerminalRefreshRef.current !== terminalKey) {
+            lastTerminalRefreshRef.current = terminalKey
+            await projectContext.refreshProject(payload.run.projectId).catch(
+              () => undefined,
+            )
+          }
+        }
       } catch (error) {
-        state.setGenerationError(
+        useGenerationStore.getState().setGenerationError(
           error instanceof Error
             ? error.message
-            : 'Unable to poll generation status.',
+            : 'Unable to refresh run status.',
         )
       }
     }
 
-    void pollTaskGroup()
+    void pollRunState()
 
     const interval = window.setInterval(() => {
-      void pollTaskGroup()
-    }, taskPollIntervalMs)
+      void pollRunState()
+    }, projectRunPollIntervalMs)
 
     return () => {
+      isCancelled = true
       window.clearInterval(interval)
     }
   }, [
-    activeVariantSignature,
-    generationRun.model,
-    generationRun.provider,
+    generationRun.projectId,
     generationRun.runId,
     generationRun.status,
-    generationRun.workspace,
-    hasRenderableVariants,
+    hydrateGenerationRun,
+    projectContext,
   ])
 
   const handleGenerate = async () => {
@@ -1824,8 +2483,6 @@ function useGenerationController() {
 
     const { assetManifest, formData } = buildGenerationFormData(state)
     let projectId: string | null = null
-    const currentModel =
-      state.activeTab === 'image' ? state.imageModel : state.videoModel
 
     if (projectContext) {
       try {
@@ -1850,28 +2507,14 @@ function useGenerationController() {
     }
 
     state.clearUploadMetadata()
-    state.updateGenerationRun({
-      error: null,
-      model: currentModel,
-      provider: null,
-      runId: null,
-      selectedVariantId: null,
-      startedAt: Date.now(),
-      uploadedAssets: [],
-      variants: [],
-      workspace: state.activeTab,
-    })
     markManifestState(assetManifest, 'uploading', null)
-    state.setGenerationRunStatus('uploading')
 
     try {
-      state.setGenerationRunStatus('submitting')
-
       const response = await fetch('/api/generation/run', {
         method: 'POST',
         body: formData,
       })
-      const payload = (await response.json()) as RunSubmissionResponse & {
+      const payload = (await response.json()) as GenerationRun & {
         error?: string
       }
 
@@ -1879,19 +2522,10 @@ function useGenerationController() {
         throw new Error(payload.error ?? 'Unable to start generation.')
       }
 
-      applyUploadedAssetState(payload.uploadedAssets)
-
-      state.updateGenerationRun({
-        error: null,
-        model: payload.model,
-        provider: payload.provider,
-        runId: payload.runId,
-        selectedVariantId: null,
-        startedAt: Date.now(),
-        uploadedAssets: payload.uploadedAssets,
-        workspace: payload.workspace,
-      })
-      state.setGenerationVariants(payload.variants)
+      hydrateGenerationRun(payload)
+      if (projectContext && projectId) {
+        await projectContext.refreshProject(projectId).catch(() => undefined)
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to start generation.'
@@ -1901,10 +2535,90 @@ function useGenerationController() {
     }
   }
 
+  const handleCancel = async () => {
+    if (!generationRun.projectId || !generationRun.runId) {
+      return
+    }
+    const projectId = generationRun.projectId
+    const runId = generationRun.runId
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/cancel`,
+        {
+          method: 'POST',
+        },
+      )
+      const payload = (await response.json()) as
+        | {
+            error?: string
+            run?: GenerationRun
+          }
+        | null
+
+      if (!response.ok || !payload?.run) {
+        throw new Error(payload?.error ?? 'Unable to cancel the active run.')
+      }
+
+      hydrateGenerationRun(payload.run)
+      await projectContext?.refreshProject(projectId).catch(() => undefined)
+    } catch (error) {
+      useGenerationStore.getState().setGenerationError(
+        error instanceof Error ? error.message : 'Unable to cancel the active run.',
+      )
+    }
+  }
+
+  const handleReviewUpdate = async (input: {
+    reviewNotes?: string | null
+    reviewStatus?: GenerationReviewStatus
+    selectedForDelivery?: boolean
+    setHero?: boolean
+    variantId: string
+  }) => {
+    if (!generationRun.projectId || !generationRun.runId) {
+      return
+    }
+    const projectId = generationRun.projectId
+    const runId = generationRun.runId
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/variants/${encodeURIComponent(input.variantId)}/review`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(input),
+        },
+      )
+      const payload = (await response.json()) as
+        | {
+            error?: string
+            run?: GenerationRun
+          }
+        | null
+
+      if (!response.ok || !payload?.run) {
+        throw new Error(payload?.error ?? 'Unable to update review state.')
+      }
+
+      hydrateGenerationRun(payload.run)
+      await projectContext?.refreshProject(projectId).catch(() => undefined)
+    } catch (error) {
+      useGenerationStore.getState().setGenerationError(
+        error instanceof Error ? error.message : 'Unable to update review state.',
+      )
+    }
+  }
+
   return {
     canGenerate: validation.canGenerate,
     disabledReason,
+    handleCancel,
     handleGenerate,
+    handleReviewUpdate,
     isBusy,
   }
 }
@@ -1940,7 +2654,7 @@ function markManifestState(
 }
 
 function applyUploadedAssetState(
-  uploadedAssets: RunSubmissionResponse['uploadedAssets'],
+  uploadedAssets: GenerationRun['uploadedAssets'],
 ) {
   const state = useGenerationStore.getState()
 
@@ -2034,16 +2748,6 @@ function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
 }
 
-function getActiveTaskCount(run: GenerationRun) {
-  return run.variants.filter(
-    (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
-  ).length
-}
-
-function getLinkedTaskCount(run: GenerationRun) {
-  return run.variants.filter((variant) => Boolean(variant.taskId)).length
-}
-
 function getKieCreditsValue(
   kieStatus: KieStatusResponse,
   isLoading: boolean,
@@ -2076,19 +2780,30 @@ function getKieCreditsHelper(
   return kieStatus.error ?? 'KIE account unavailable'
 }
 
-function getCompletedVariantCount(run: GenerationRun) {
-  return run.variants.filter((variant) => variant.status === 'success').length
-}
-
-function getFailedVariantCount(run: GenerationRun) {
-  return run.variants.filter((variant) => variant.status === 'error').length
-}
-
 function hasActiveGeneration(run: GenerationRun) {
   return (
+    run.status === 'queued' ||
     run.status === 'uploading' ||
     run.status === 'submitting' ||
     run.status === 'rendering'
+  )
+}
+
+function hasPollingRunStatus(status: GenerationRun['status']) {
+  return (
+    status === 'queued' ||
+    status === 'uploading' ||
+    status === 'submitting' ||
+    status === 'rendering'
+  )
+}
+
+function isTerminalGenerationStatus(status: GenerationRun['status']) {
+  return (
+    status === 'success' ||
+    status === 'partial-success' ||
+    status === 'error' ||
+    status === 'cancelled'
   )
 }
 
@@ -2112,161 +2827,12 @@ function getVariantBadgeVariant(status: GenerationVariant['status']) {
   switch (status) {
     case 'success':
       return 'default' as const
+    case 'queued':
     case 'rendering':
     case 'submitting':
       return 'outline' as const
     default:
       return 'secondary' as const
-  }
-}
-
-function getGenerationHelperMessage(
-  disabledReason: string | null,
-  generationRun: GenerationRun,
-) {
-  if (disabledReason) {
-    return disabledReason
-  }
-
-  const total = generationRun.variants.length
-  const completed = getCompletedVariantCount(generationRun)
-  const failed = getFailedVariantCount(generationRun)
-
-  if (generationRun.status === 'success') {
-    return `${completed} of ${total} variation${total === 1 ? '' : 's'} completed successfully.`
-  }
-
-  if (generationRun.status === 'partial-success') {
-    return `${completed} variation${completed === 1 ? '' : 's'} finished and ${failed} failed. Review the successful outputs in the spotlight.`
-  }
-
-  if (generationRun.status === 'error') {
-    if (total > 0) {
-      return generationRun.error ?? `All ${total} variations failed. Adjust the brief and try again.`
-    }
-
-    return generationRun.error ?? 'The last run failed. Adjust inputs and retry.'
-  }
-
-  if (generationRun.status === 'rendering') {
-    return `${completed} of ${total} variation${total === 1 ? '' : 's'} completed so far. The remaining tasks are still rendering.`
-  }
-
-  if (generationRun.status === 'submitting') {
-    return 'The server is creating parallel provider tasks for the selected batch.'
-  }
-
-  if (generationRun.status === 'uploading') {
-    return 'Local references are uploading once and will be reused across every variation.'
-  }
-
-  return 'Use the reference board first, then run from the output panel.'
-}
-
-function getGenerateButtonLabel(
-  generationRun: GenerationRun,
-  batchSize: BatchSize,
-) {
-  if (generationRun.status === 'uploading') {
-    return 'Uploading References'
-  }
-
-  if (generationRun.status === 'submitting') {
-    return `Creating ${batchSize} Variation${batchSize > 1 ? 's' : ''}`
-  }
-
-  if (generationRun.status === 'rendering') {
-    const total = generationRun.variants.length || batchSize
-    const completed = getCompletedVariantCount(generationRun)
-
-    return completed > 0
-      ? `${completed} of ${total} Complete`
-      : `Generating ${total} Variation${total > 1 ? 's' : ''}`
-  }
-
-  if (generationRun.status === 'partial-success') {
-    const failed = getFailedVariantCount(generationRun)
-
-    return `Completed with ${failed} Failed`
-  }
-
-  if (generationRun.status === 'error') {
-    return 'Retry Generation'
-  }
-
-  if (generationRun.status === 'success') {
-    return 'Generate Again'
-  }
-
-  return `Generate ${batchSize} Variation${batchSize > 1 ? 's' : ''}`
-}
-
-function getRunHelperText(run: GenerationRun) {
-  const total = run.variants.length
-  const completed = getCompletedVariantCount(run)
-  const failed = getFailedVariantCount(run)
-
-  switch (run.status) {
-    case 'uploading':
-      return 'Uploading shared references once'
-    case 'submitting':
-      return 'Creating batched provider tasks'
-    case 'rendering':
-      return `${completed} of ${total} complete`
-    case 'partial-success':
-      return `${completed} complete, ${failed} failed`
-    case 'success':
-      return `${completed} variation${completed === 1 ? '' : 's'} ready`
-    case 'error':
-      return total > 0 ? 'Batch finished with no usable outputs' : 'Retry after adjusting inputs'
-    default:
-      return 'No active render'
-  }
-}
-
-function getRunHeadline(run: GenerationRun) {
-  const total = run.variants.length
-  const completed = getCompletedVariantCount(run)
-  const failed = getFailedVariantCount(run)
-
-  switch (run.status) {
-    case 'uploading':
-      return 'Uploading local references'
-    case 'submitting':
-      return `Submitting ${total || 1} KIE variation${(total || 1) > 1 ? 's' : ''}`
-    case 'rendering':
-      return `Generating ${total} variation${total > 1 ? 's' : ''}`
-    case 'partial-success':
-      return `Completed with ${failed} failed variation${failed > 1 ? 's' : ''}`
-    case 'success':
-      return `${completed} variation${completed > 1 ? 's are' : ' is'} ready for review`
-    case 'error':
-      return total > 0 ? 'Every variation failed' : 'Generation stopped before completion'
-    default:
-      return 'Rendering media on KIE'
-  }
-}
-
-function getRunBodyCopy(run: GenerationRun) {
-  const total = run.variants.length
-  const completed = getCompletedVariantCount(run)
-  const failed = getFailedVariantCount(run)
-
-  switch (run.status) {
-    case 'uploading':
-      return 'Your browser-local images are being uploaded to temporary KIE file storage before task submission.'
-    case 'submitting':
-      return 'The server is compiling deterministic prompt variants and creating the provider tasks in parallel.'
-    case 'rendering':
-      return `${completed} of ${total} variation${total === 1 ? '' : 's'} have completed. The remaining tasks are polled every three seconds until they resolve or time out.`
-    case 'partial-success':
-      return `${completed} successful variation${completed === 1 ? '' : 's'} remain reviewable in the spotlight. ${failed} variation${failed === 1 ? '' : 's'} failed and stay visible in the gallery for debugging.`
-    case 'success':
-      return 'Review the spotlight output, switch between finished variants below, and rerun when you want a fresh batch.'
-    case 'error':
-      return run.error ?? 'The provider rejected every variation in this batch.'
-    default:
-      return 'The app is polling the task status every three seconds and will swap this canvas to the finished result when the provider completes.'
   }
 }
 
@@ -2293,10 +2859,47 @@ function getCreativeStyleLabel(style: CreativeStyle) {
 }
 
 function getSubjectModeLabel(mode: SubjectMode) {
+  return mode === 'lifestyle' ? 'Lifestyle' : 'Product Only'
+}
+
+function getShotEnvironmentLabel(environment: ShotEnvironment) {
   return (
-    subjectModes.find((option) => option.value === mode)?.label ??
-    humanize(mode)
+    shotEnvironments.find((option) => option.value === environment)?.label ??
+    humanize(environment)
   )
+}
+
+function getFigureArtDirectionLabel(direction: FigureArtDirection) {
+  return (
+    figureArtDirections.find((option) => option.value === direction)?.label ??
+    humanize(direction)
+  )
+}
+
+function getCharacterPresetSummary(input: {
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  characterGender: CharacterGender
+  figureArtDirection: FigureArtDirection
+  subjectMode: SubjectMode
+}) {
+  if (input.subjectMode !== 'lifestyle') {
+    return null
+  }
+
+  const selections = [
+    input.characterGender,
+    input.characterAgeGroup,
+    input.characterEthnicity,
+  ]
+    .filter((value) => value !== 'any')
+    .map((value) => humanize(value))
+
+  if (input.figureArtDirection !== 'none') {
+    selections.push(getFigureArtDirectionLabel(input.figureArtDirection))
+  }
+
+  return selections.length > 0 ? selections.join(', ') : 'Any Cast'
 }
 
 function getCameraMovementLabel(movement: CameraMovement) {
@@ -2307,7 +2910,10 @@ function getCameraMovementLabel(movement: CameraMovement) {
 }
 
 function getRunStatusLabel(
-  status: GenerationRunStatus | GenerationVariant['status'],
+  status:
+    | GenerationRunStatus
+    | GenerationVariant['status']
+    | GenerationReviewStatus,
 ) {
   return humanize(status)
 }

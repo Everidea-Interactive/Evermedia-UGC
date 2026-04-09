@@ -60,6 +60,54 @@ describe('useGenerationStore', () => {
     expect(state.assets.face1.uploadStatus).toBe('idle')
   })
 
+  it('starts with the preset v1 defaults and resets lifestyle-only fields', () => {
+    const store = useGenerationStore.getState()
+
+    expect(store.shotEnvironment).toBe('indoor')
+    expect(store.characterGender).toBe('any')
+    expect(store.characterAgeGroup).toBe('any')
+    expect(store.characterEthnicity).toBe('any')
+    expect(store.figureArtDirection).toBe('none')
+
+    store.setCharacterGender('female')
+    store.setCharacterAgeGroup('young-adult')
+    store.setCharacterEthnicity('south-asian')
+    store.setFigureArtDirection('curvaceous-editorial')
+    store.setSubjectMode('product-only')
+
+    const state = useGenerationStore.getState()
+
+    expect(state.subjectMode).toBe('product-only')
+    expect(state.characterGender).toBe('any')
+    expect(state.characterAgeGroup).toBe('any')
+    expect(state.characterEthnicity).toBe('any')
+    expect(state.figureArtDirection).toBe('none')
+  })
+
+  it('hydrates older project snapshots with defaults for the new preset fields', () => {
+    useGenerationStore.getState().hydrateProjectConfig({
+      activeTab: 'image',
+      batchSize: 1,
+      cameraMovement: 'orbit',
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Legacy snapshot',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+    } as never)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.shotEnvironment).toBe('indoor')
+    expect(state.characterGender).toBe('any')
+    expect(state.characterAgeGroup).toBe('any')
+    expect(state.characterEthnicity).toBe('any')
+    expect(state.figureArtDirection).toBe('none')
+  })
+
   it('tracks grouped variant selection and partial-success resolution', () => {
     const store = useGenerationStore.getState()
 

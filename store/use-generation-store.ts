@@ -7,7 +7,11 @@ import type {
   AssetUploadStatus,
   BatchSize,
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationRun,
   GenerationRunStatus,
   GenerationSessionStats,
@@ -17,6 +21,7 @@ import type {
   NamedAssetSlots,
   OutputQuality,
   ProductCategory,
+  ShotEnvironment,
   SubjectMode,
   VideoDuration,
   VideoModelOption,
@@ -26,6 +31,7 @@ import type {
   ProductSlotKey,
   ProjectConfigSnapshot,
 } from '@/lib/persistence/types'
+import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
 type GenerationStateShape = {
   activeTab: WorkspaceTab
@@ -34,6 +40,11 @@ type GenerationStateShape = {
   productCategory: ProductCategory
   creativeStyle: CreativeStyle
   subjectMode: SubjectMode
+  shotEnvironment: ShotEnvironment
+  characterGender: CharacterGender
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  figureArtDirection: FigureArtDirection
   batchSize: BatchSize
   textPrompt: string
   videoDuration: VideoDuration
@@ -64,6 +75,13 @@ type GenerationStore = GenerationStateShape & {
   setProductCategory: (productCategory: ProductCategory) => void
   setCreativeStyle: (creativeStyle: CreativeStyle) => void
   setSubjectMode: (subjectMode: SubjectMode) => void
+  setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
+  setCharacterGender: (characterGender: CharacterGender) => void
+  setCharacterAgeGroup: (characterAgeGroup: CharacterAgeGroup) => void
+  setCharacterEthnicity: (characterEthnicity: CharacterEthnicity) => void
+  setFigureArtDirection: (
+    figureArtDirection: FigureArtDirection,
+  ) => void
   setBatchSize: (batchSize: BatchSize) => void
   setTextPrompt: (textPrompt: string) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
@@ -99,6 +117,7 @@ type GenerationStore = GenerationStateShape & {
   clearProductSlot: (id: string) => void
   clearUploadMetadata: () => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
+  hydrateGenerationRun: (run: GenerationRun | null) => void
   updateGenerationRun: (patch: Partial<GenerationRun>) => void
   setGenerationRunStatus: (
     status: GenerationRunStatus,
@@ -170,7 +189,12 @@ function createProductSlots() {
 
 function createEmptyRunState(): GenerationRun {
   return {
+    cancelRequestedAt: null,
+    completedAt: null,
+    createdAt: null,
     runId: null,
+    projectId: null,
+    parentRunId: null,
     workspace: null,
     provider: null,
     model: null,
@@ -190,6 +214,26 @@ function createEmptySessionStats(): GenerationSessionStats {
   }
 }
 
+function createLifestyleDefaults() {
+  return {
+    characterAgeGroup: 'any' as const,
+    characterEthnicity: 'any' as const,
+    characterGender: 'any' as const,
+    figureArtDirection: 'none' as const,
+  }
+}
+
+function createSubjectModeState(subjectMode: SubjectMode) {
+  return subjectMode === 'lifestyle'
+    ? {
+        subjectMode,
+      }
+    : {
+        subjectMode,
+        ...createLifestyleDefaults(),
+      }
+}
+
 function createInitialState(): GenerationStateShape {
   return {
     activeTab: 'image',
@@ -198,6 +242,8 @@ function createInitialState(): GenerationStateShape {
     productCategory: 'cosmetics',
     creativeStyle: 'ugc-lifestyle',
     subjectMode: 'lifestyle',
+    shotEnvironment: 'indoor',
+    ...createLifestyleDefaults(),
     batchSize: 1,
     textPrompt: '',
     videoDuration: 'base',
@@ -301,6 +347,10 @@ function resolveGenerationRunStatus(variants: GenerationVariant[]) {
     return 'idle' satisfies GenerationRunStatus
   }
 
+  if (variants.some((variant) => variant.status === 'queued')) {
+    return 'queued' satisfies GenerationRunStatus
+  }
+
   if (variants.some((variant) => variant.status === 'submitting')) {
     return 'submitting' satisfies GenerationRunStatus
   }
@@ -311,24 +361,34 @@ function resolveGenerationRunStatus(variants: GenerationVariant[]) {
 
   const successCount = variants.filter((variant) => variant.status === 'success').length
   const errorCount = variants.filter((variant) => variant.status === 'error').length
+  const cancelledCount = variants.filter(
+    (variant) => variant.status === 'cancelled',
+  ).length
 
   if (successCount === variants.length) {
     return 'success' satisfies GenerationRunStatus
+  }
+
+  if (cancelledCount === variants.length) {
+    return 'cancelled' satisfies GenerationRunStatus
   }
 
   if (errorCount === variants.length) {
     return 'error' satisfies GenerationRunStatus
   }
 
-  if (successCount > 0 && errorCount > 0) {
+  if (successCount > 0 && errorCount + cancelledCount > 0) {
     return 'partial-success' satisfies GenerationRunStatus
   }
 
-  return 'error' satisfies GenerationRunStatus
+  return cancelledCount > 0 ? 'cancelled' : ('error' satisfies GenerationRunStatus)
 }
 
 function getDefaultSelectedVariantId(variants: GenerationVariant[]) {
   return (
+    variants.find(
+      (variant) => variant.isHero && variant.status === 'success' && Boolean(variant.result),
+    )?.variantId ??
     variants.find(
       (variant) => variant.status === 'success' && Boolean(variant.result),
     )?.variantId ?? null
@@ -417,7 +477,24 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setVideoModel: (videoModel) => set({ videoModel }),
   setProductCategory: (productCategory) => set({ productCategory }),
   setCreativeStyle: (creativeStyle) => set({ creativeStyle }),
-  setSubjectMode: (subjectMode) => set({ subjectMode }),
+  setSubjectMode: (subjectMode) => set(createSubjectModeState(subjectMode)),
+  setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
+  setCharacterGender: (characterGender) =>
+    set((state) =>
+      state.subjectMode === 'lifestyle' ? { characterGender } : {},
+    ),
+  setCharacterAgeGroup: (characterAgeGroup) =>
+    set((state) =>
+      state.subjectMode === 'lifestyle' ? { characterAgeGroup } : {},
+    ),
+  setCharacterEthnicity: (characterEthnicity) =>
+    set((state) =>
+      state.subjectMode === 'lifestyle' ? { characterEthnicity } : {},
+    ),
+  setFigureArtDirection: (figureArtDirection) =>
+    set((state) =>
+      state.subjectMode === 'lifestyle' ? { figureArtDirection } : {},
+    ),
   setBatchSize: (batchSize) => set({ batchSize }),
   setTextPrompt: (textPrompt) => set({ textPrompt }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
@@ -544,25 +621,43 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   hydrateProjectConfig: (configSnapshot) =>
     set((state) => {
+      const normalizedConfig = normalizeProjectConfigSnapshot(configSnapshot)
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
 
       return {
         ...createInitialState(),
-        activeTab: configSnapshot.activeTab,
-        batchSize: configSnapshot.batchSize,
-        cameraMovement: configSnapshot.cameraMovement,
-        creativeStyle: configSnapshot.creativeStyle,
-        imageModel: configSnapshot.imageModel,
-        outputQuality: configSnapshot.outputQuality,
-        productCategory: configSnapshot.productCategory,
+        activeTab: normalizedConfig.activeTab,
+        batchSize: normalizedConfig.batchSize,
+        cameraMovement: normalizedConfig.cameraMovement,
+        characterAgeGroup: normalizedConfig.characterAgeGroup,
+        characterEthnicity: normalizedConfig.characterEthnicity,
+        characterGender: normalizedConfig.characterGender,
+        creativeStyle: normalizedConfig.creativeStyle,
+        figureArtDirection: normalizedConfig.figureArtDirection,
+        imageModel: normalizedConfig.imageModel,
+        outputQuality: normalizedConfig.outputQuality,
+        productCategory: normalizedConfig.productCategory,
         sessionStats: state.sessionStats,
-        subjectMode: configSnapshot.subjectMode,
-        textPrompt: configSnapshot.textPrompt,
-        videoDuration: configSnapshot.videoDuration,
-        videoModel: configSnapshot.videoModel,
+        shotEnvironment: normalizedConfig.shotEnvironment,
+        subjectMode: normalizedConfig.subjectMode,
+        textPrompt: normalizedConfig.textPrompt,
+        videoDuration: normalizedConfig.videoDuration,
+        videoModel: normalizedConfig.videoModel,
       }
     }),
+  hydrateGenerationRun: (run) =>
+    set(() => ({
+      generationRun: run
+        ? {
+            ...run,
+            selectedVariantId: resolveSelectedVariantId(
+              run.variants,
+              run.selectedVariantId,
+            ),
+          }
+        : createEmptyRunState(),
+    })),
   updateGenerationRun: (patch) =>
     set((state) => ({
       generationRun: {
@@ -628,7 +723,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setGenerationError: (error) =>
     set((state) => {
       const variants = state.generationRun.variants.map((variant) =>
-        variant.status === 'rendering' || variant.status === 'submitting'
+        variant.status === 'queued' ||
+        variant.status === 'rendering' ||
+        variant.status === 'submitting'
           ? {
               ...variant,
               error,
@@ -660,6 +757,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       generationRun: {
         ...createEmptyRunState(),
+        projectId: state.generationRun.projectId,
         workspace: state.generationRun.workspace,
       },
     })),
@@ -688,7 +786,11 @@ export type {
   AssetSlot,
   BatchSize,
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationRun,
   GenerationRunStatus,
   GenerationSessionStats,
@@ -697,6 +799,7 @@ export type {
   NamedAssetKey,
   OutputQuality,
   ProductCategory,
+  ShotEnvironment,
   SubjectMode,
   VideoDuration,
   VideoModelOption,

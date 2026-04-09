@@ -12,10 +12,13 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "worker": "tsx scripts/run-generation-worker.ts",
+    "worker:dev": "tsx watch scripts/run-generation-worker.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-scroll-area": "1.2.2",
     "@radix-ui/react-separator": "1.1.1",
     "@radix-ui/react-slot": "1.1.1",
@@ -46,6 +49,7 @@
     "eslint-config-next": "^16.2.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.6",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4"
   }

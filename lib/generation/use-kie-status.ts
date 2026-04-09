@@ -22,7 +22,12 @@ const emptyKieStatus: KieStatusResponse = {
 }
 
 function isTerminalRunStatus(status: GenerationRun['status']) {
-  return status === 'success' || status === 'partial-success' || status === 'error'
+  return (
+    status === 'success' ||
+    status === 'partial-success' ||
+    status === 'error' ||
+    status === 'cancelled'
+  )
 }
 
 export function useKieStatus(generationRun: GenerationRun) {

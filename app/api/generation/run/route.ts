@@ -1,19 +1,24 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
+  getQueuedVariantPlan,
   parseGenerationFormData,
-  submitGenerationRequest,
+  stripAssetFiles,
 } from '@/lib/generation/kie'
+import { runGenerationWorkerCycle } from '@/lib/generation/worker'
 import {
   createGenerationRunForUser,
   createGenerationVariantsForRun,
   getProjectForUser,
-  loadPersistedAssetFile,
-  markGenerationRunError,
+  getProjectGenerationRunForUser,
 } from '@/lib/persistence/repository'
+import {
+  createGenerationRunState,
+  normalizeProjectConfigSnapshot,
+} from '@/lib/persistence/serialization'
 
 export const runtime = 'nodejs'
 
@@ -26,19 +31,28 @@ function inferProvider(input: ReturnType<typeof parseGenerationFormData>) {
 }
 
 function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>) {
-  return {
+  return normalizeProjectConfigSnapshot({
     activeTab: input.workspace,
     batchSize: input.batchSize,
     cameraMovement: input.cameraMovement,
+    characterAgeGroup: input.characterAgeGroup,
+    characterEthnicity: input.characterEthnicity,
+    characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
+    figureArtDirection: input.figureArtDirection,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
+    shotEnvironment: input.shotEnvironment,
     subjectMode: input.subjectMode,
     textPrompt: input.textPrompt,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
-  }
+  })
+}
+
+function createEphemeralWorkerId(runId: string) {
+  return `web-${runId}`
 }
 
 export async function POST(request: Request) {
@@ -47,8 +61,6 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  let runId: string | null = null
 
   try {
     const formData = await request.formData()
@@ -59,59 +71,54 @@ export async function POST(request: Request) {
       throw new Error('Active project could not be found.')
     }
 
-    runId = createRunId()
+    const runId = createRunId()
     const promptSnapshot = buildPromptSnapshot(parsedRequest)
+    const assetManifest = stripAssetFiles(parsedRequest.assetDescriptors)
+
+    if (assetManifest.some((descriptor) => !descriptor.persistedAssetId)) {
+      throw new Error(
+        'Wait for project asset sync to finish before starting generation.',
+      )
+    }
 
     await createGenerationRunForUser({
+      assetManifest,
       configSnapshot: createConfigSnapshot(parsedRequest),
       model: String(parsedRequest.activeModel),
       projectId: parsedRequest.projectId,
       promptSnapshot,
       provider: inferProvider(parsedRequest),
       runId,
-      status: 'uploading',
+      status: 'queued',
       userId: user.id,
       workspace: parsedRequest.workspace,
     })
 
-    const response = await submitGenerationRequest(parsedRequest, {
-      basePrompt: promptSnapshot,
-      resolvePersistedAssetFile: async (assetId) =>
-        (
-          await loadPersistedAssetFile({
-            assetId,
-            projectId: parsedRequest.projectId,
-            userId: user.id,
-          })
-        ).file,
-      runId,
-    })
-
     await createGenerationVariantsForRun(
       runId,
-      response.variants.map((variant) => ({
-        error: variant.error,
-        id: variant.variantId,
-        profile: variant.profile,
-        prompt: variant.prompt,
-        status: variant.status,
-        taskId: variant.taskId,
-        variantIndex: variant.index,
-      })),
+      getQueuedVariantPlan(parsedRequest, {
+        basePrompt: promptSnapshot,
+        runId,
+      }),
     )
+    const persistedRun = await getProjectGenerationRunForUser({
+      projectId: parsedRequest.projectId,
+      runId,
+      userId: user.id,
+    })
 
-    return NextResponse.json(response)
+    if (!persistedRun) {
+      throw new Error('Queued generation run could not be reloaded.')
+    }
+
+    after(async () => {
+      await runGenerationWorkerCycle(createEphemeralWorkerId(runId)).catch(() => undefined)
+    })
+
+    return NextResponse.json(createGenerationRunState(persistedRun, []))
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unable to start generation.'
-
-    if (user && runId) {
-      await markGenerationRunError({
-        error: message,
-        runId,
-        userId: user.id,
-      }).catch(() => undefined)
-    }
 
     return NextResponse.json(
       {

@@ -9,7 +9,11 @@ import {
 import type {
   BatchSize,
   CameraMovement,
+  CharacterAgeGroup,
+  CharacterEthnicity,
+  CharacterGender,
   CreativeStyle,
+  FigureArtDirection,
   GenerationProvider,
   GenerationResult,
   KieStatusResponse,
@@ -21,6 +25,7 @@ import type {
   OutputQuality,
   ProductCategory,
   RunSubmissionResponse,
+  ShotEnvironment,
   SubjectMode,
   SubmittedAssetDescriptor,
   TaskPollResponse,
@@ -33,6 +38,7 @@ import type {
 const KIE_API_BASE_URL = 'https://api.kie.ai'
 const KIE_FILE_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-stream-upload'
 const VEO_DEFAULT_MODEL = 'veo3_fast'
+const NANO_BANANA_REFERENCE_LIMIT = 3
 const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'endFrame'] as const
 const kieCreditSources: Array<{
   endpoint: string
@@ -48,18 +54,23 @@ const kieCreditSources: Array<{
   },
 ]
 
-type ParsedGenerationRequest = {
+export type ParsedGenerationRequest = {
   activeModel: ImageModelOption | VideoModelOption
   assetDescriptors: Array<
     SubmittedAssetDescriptor & { file: File | null; persistedAssetId?: string }
   >
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   projectId: string
   productCategory: ProductCategory
+  shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
@@ -315,6 +326,10 @@ function getGrokResolution(outputQuality: OutputQuality) {
   return '480p'
 }
 
+function getNanoBananaResolution(outputQuality: OutputQuality) {
+  return outputQuality === '4k' ? '2K' : '1K'
+}
+
 function getKlingDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '5'
 }
@@ -380,9 +395,14 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
   return compileGenerationPrompt({
     assets: createPromptAssets(input.assetDescriptors),
     cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
+    characterAgeGroup: input.characterAgeGroup,
+    characterEthnicity: input.characterEthnicity,
+    characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
+    figureArtDirection: input.figureArtDirection,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
+    shotEnvironment: input.shotEnvironment,
     subjectMode: input.subjectMode,
     textPrompt: input.textPrompt,
     videoDuration: input.videoDuration,
@@ -390,43 +410,239 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
   })
 }
 
+export function getQueuedVariantPlan(
+  input: ParsedGenerationRequest,
+  options: {
+    basePrompt?: string
+    runId: string
+  },
+) {
+  const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)
+  const promptSet = buildVariantPromptSet({
+    basePrompt,
+    batchSize: input.batchSize as GenerationVariantIndex,
+    cameraMovement: input.cameraMovement,
+    workspace: input.workspace,
+  })
+
+  return promptSet.map(({ index, profile, prompt }) => ({
+    error: null,
+    id: `${options.runId}-variant-${index}`,
+    profile,
+    prompt,
+    status: 'queued' as const,
+    taskId: null,
+    variantIndex: index,
+  }))
+}
+
+export function stripAssetFiles(
+  assetDescriptors: ParsedGenerationRequest['assetDescriptors'],
+): SubmittedAssetDescriptor[] {
+  return assetDescriptors.map(({ file, ...descriptor }) => {
+    void file
+    return descriptor
+  })
+}
+
+function isEndFrameAsset(asset: UploadedAssetDescriptor) {
+  return asset.kind === 'named' && asset.key === 'endFrame'
+}
+
+function isNamedAsset(
+  asset: UploadedAssetDescriptor,
+  key: NamedAssetKey,
+): boolean {
+  return asset.kind === 'named' && asset.key === key
+}
+
+function collectImageReferenceAssets(
+  subjectMode: SubjectMode,
+  assets: UploadedAssetDescriptor[],
+) {
+  const orderedAssets = assets
+    .filter((asset) => !isEndFrameAsset(asset))
+    .filter((asset) => asset.remoteUrl.length > 0)
+    .slice()
+    .sort((left, right) => left.order - right.order)
+  const primaryReference = choosePrimaryReference(subjectMode, orderedAssets)
+
+  if (!primaryReference) {
+    return orderedAssets
+  }
+
+  return [
+    primaryReference,
+    ...orderedAssets.filter(
+      (asset) => asset.fieldName !== primaryReference.fieldName,
+    ),
+  ]
+}
+
+function collectNanoBananaReferenceAssets(
+  subjectMode: SubjectMode,
+  assets: UploadedAssetDescriptor[],
+) {
+  const orderedAssets = collectImageReferenceAssets(subjectMode, assets)
+  const selectedAssets: UploadedAssetDescriptor[] = []
+  const selectedFields = new Set<string>()
+
+  const addAsset = (asset: UploadedAssetDescriptor | null | undefined) => {
+    if (!asset || selectedFields.has(asset.fieldName)) {
+      return
+    }
+
+    selectedAssets.push(asset)
+    selectedFields.add(asset.fieldName)
+  }
+
+  const firstProduct =
+    orderedAssets.find((asset) => asset.kind === 'product') ?? null
+  const face1 =
+    orderedAssets.find((asset) => isNamedAsset(asset, 'face1')) ?? null
+  const face2 =
+    orderedAssets.find((asset) => isNamedAsset(asset, 'face2')) ?? null
+  const clothing =
+    orderedAssets.find((asset) => isNamedAsset(asset, 'clothing')) ?? null
+  const location =
+    orderedAssets.find((asset) => isNamedAsset(asset, 'location')) ?? null
+
+  if (subjectMode === 'lifestyle') {
+    addAsset(face1 ?? face2)
+    addAsset(firstProduct)
+    addAsset(clothing)
+    addAsset(location)
+
+    if (face1) {
+      addAsset(face2)
+    }
+  } else {
+    orderedAssets
+      .filter((asset) => asset.kind === 'product')
+      .forEach(addAsset)
+    addAsset(location)
+    addAsset(clothing)
+    addAsset(face1 ?? face2)
+  }
+
+  orderedAssets.forEach(addAsset)
+
+  return selectedAssets.slice(0, NANO_BANANA_REFERENCE_LIMIT)
+}
+
+function describeNanoBananaReference(
+  asset: UploadedAssetDescriptor,
+  options: {
+    isIdentityAnchor: boolean
+    subjectMode: SubjectMode
+  },
+) {
+  if (asset.kind === 'product') {
+    return `Use it as the exact product reference. Preserve packaging, branding, colors, materials, and proportions.`
+  }
+
+  switch (asset.key) {
+    case 'face1':
+      return options.subjectMode === 'lifestyle'
+        ? 'This is the identity anchor. Preserve the same person and facial likeness.'
+        : 'Use it as a supporting human reference only if a person is shown.'
+    case 'face2':
+      return options.subjectMode === 'lifestyle' && options.isIdentityAnchor
+        ? 'This is the identity anchor. Preserve the same person and facial likeness.'
+        : options.subjectMode === 'lifestyle'
+          ? 'Use it only as supplementary angle or expression guidance for the same person. Do not introduce a second identity.'
+        : 'Use it only as a supporting human reference if needed.'
+    case 'clothing':
+      return 'Use it only for wardrobe and styling cues. Ignore any face in this image.'
+    case 'location':
+      return 'Use it only for environment and background cues. Ignore any people in this image.'
+    default:
+      return 'Use it as supporting visual guidance only.'
+  }
+}
+
+function buildNanoBananaPrompt(input: {
+  prompt: string
+  referenceAssets: UploadedAssetDescriptor[]
+  subjectMode: SubjectMode
+}) {
+  const trimmedPrompt = input.prompt.trim()
+
+  if (input.referenceAssets.length === 0) {
+    return trimmedPrompt
+  }
+  const identityReference = choosePrimaryReference(
+    input.subjectMode,
+    input.referenceAssets,
+  )
+
+  const referenceInstructions = input.referenceAssets.map((asset, index) => {
+    const imageIndex = index + 1
+
+    return `Image ${imageIndex} (${asset.label}) ${describeNanoBananaReference(asset, {
+      isIdentityAnchor: asset.fieldName === identityReference?.fieldName,
+      subjectMode: input.subjectMode,
+    })}`
+  })
+
+  const safeguard =
+    input.subjectMode === 'lifestyle'
+      ? 'Do not blend faces across references, and do not let clothing or location references override the identity anchor.'
+      : 'Do not let supporting references override the core product design.'
+
+  return [
+    'Treat the uploaded references as image 1, image 2, and image 3 in the exact order provided when applicable.',
+    ...referenceInstructions,
+    safeguard,
+    trimmedPrompt,
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function ensureGrokImagePromptReference(prompt: string) {
+  const trimmedPrompt = prompt.trim()
+
+  if (/@image1\b/.test(trimmedPrompt)) {
+    return trimmedPrompt
+  }
+
+  return `@image1 ${trimmedPrompt}`.trim()
+}
+
 function buildMarketImagePayload(input: {
   assets: UploadedAssetDescriptor[]
   imageModel: ImageModelOption
+  outputQuality: OutputQuality
   prompt: string
   subjectMode: SubjectMode
 }) {
-  const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
+  const referenceAssets =
+    input.imageModel === 'nano-banana'
+      ? collectNanoBananaReferenceAssets(input.subjectMode, input.assets)
+      : collectImageReferenceAssets(input.subjectMode, input.assets)
+  const primaryReference = referenceAssets[0] ?? null
   const aspectRatio = getImageAspectRatio(input.subjectMode)
 
   if (input.imageModel === 'nano-banana') {
-    if (primaryReference) {
-      return {
-        endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-        modelName: 'google/nano-banana-edit',
-        provider: 'market' as const,
-        requestBody: {
-          model: 'google/nano-banana-edit',
-          input: {
-            prompt: input.prompt,
-            image_urls: [primaryReference.remoteUrl],
-            output_format: 'png',
-            image_size: aspectRatio,
-          },
-        },
-      }
-    }
-
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-      modelName: 'google/nano-banana',
+      modelName: 'nano-banana-2',
       provider: 'market' as const,
       requestBody: {
-        model: 'google/nano-banana',
+        model: 'nano-banana-2',
         input: {
-          prompt: input.prompt,
+          prompt: buildNanoBananaPrompt({
+            prompt: input.prompt,
+            referenceAssets,
+            subjectMode: input.subjectMode,
+          }),
+          image_input: referenceAssets.map((asset) => asset.remoteUrl),
+          aspect_ratio: aspectRatio,
+          resolution: getNanoBananaResolution(input.outputQuality),
           output_format: 'png',
-          image_size: aspectRatio,
+          google_search: false,
         },
       },
     }
@@ -440,7 +656,7 @@ function buildMarketImagePayload(input: {
       requestBody: {
         model: 'grok-imagine/image-to-image',
         input: {
-          prompt: input.prompt,
+          prompt: ensureGrokImagePromptReference(input.prompt),
           image_urls: [primaryReference.remoteUrl],
         },
       },
@@ -516,7 +732,9 @@ function buildVideoPayload(input: {
       requestBody: {
         model: modelName,
         input: {
-          prompt: input.prompt,
+          prompt: primaryReference
+            ? ensureGrokImagePromptReference(input.prompt)
+            : input.prompt,
           ...(primaryReference
             ? { image_urls: [primaryReference.remoteUrl] }
             : null),
@@ -551,7 +769,7 @@ function buildVideoPayload(input: {
   }
 }
 
-async function uploadFileToKie(
+export async function uploadFileToKie(
   apiKey: string,
   file: File,
   workspace: WorkspaceTab,
@@ -671,10 +889,44 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       'cameraMovement',
       ['orbit', 'dolly', 'drone', 'crash-zoom', 'macro'] as const,
     ),
+    characterAgeGroup: readEnum(
+      formData,
+      'characterAgeGroup',
+      ['any', 'young-adult', 'adult', 'middle-aged', 'senior'] as const,
+    ),
+    characterEthnicity: readEnum(
+      formData,
+      'characterEthnicity',
+      [
+        'any',
+        'south-asian',
+        'east-asian',
+        'black',
+        'caucasian',
+        'hispanic',
+        'middle-eastern',
+        'mixed',
+      ] as const,
+    ),
+    characterGender: readEnum(
+      formData,
+      'characterGender',
+      ['any', 'female', 'male', 'non-binary'] as const,
+    ),
     creativeStyle: readEnum(
       formData,
       'creativeStyle',
-      ['ugc-lifestyle', 'cinematic', 'tv-commercial'] as const,
+      [
+        'ugc-lifestyle',
+        'cinematic',
+        'tv-commercial',
+        'elite-product-commercial',
+      ] as const,
+    ),
+    figureArtDirection: readEnum(
+      formData,
+      'figureArtDirection',
+      ['none', 'curvaceous-editorial'] as const,
     ),
     imageModel,
     outputQuality: readEnum(
@@ -686,7 +938,19 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     productCategory: readEnum(
       formData,
       'productCategory',
-      ['food-drink', 'jewelry', 'cosmetics', 'electronics', 'clothing'] as const,
+      [
+        'food-drink',
+        'jewelry',
+        'cosmetics',
+        'electronics',
+        'clothing',
+        'miscellaneous',
+      ] as const,
+    ),
+    shotEnvironment: readEnum(
+      formData,
+      'shotEnvironment',
+      ['indoor', 'outdoor'] as const,
     ),
     subjectMode: readEnum(
       formData,
@@ -704,7 +968,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   }
 }
 
-async function submitProviderTask(
+export async function submitProviderTask(
   apiKey: string,
   submission: {
     endpoint: string
@@ -770,7 +1034,7 @@ async function resolveAssetDescriptors(
   return descriptors satisfies ResolvedAssetDescriptor[]
 }
 
-function resolveSubmission(input: {
+export function resolveSubmission(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
   creativeStyle: CreativeStyle
@@ -787,6 +1051,7 @@ function resolveSubmission(input: {
     ? buildMarketImagePayload({
         assets: input.assets,
         imageModel: input.imageModel,
+        outputQuality: input.outputQuality,
         prompt: input.prompt,
         subjectMode: input.subjectMode,
       })
@@ -797,7 +1062,56 @@ function resolveSubmission(input: {
         subjectMode: input.subjectMode,
         videoDuration: input.videoDuration,
         videoModel: input.videoModel,
-      })
+    })
+}
+
+export async function uploadPersistedAssets(input: {
+  apiKey?: string
+  assetDescriptors: ResolvedAssetDescriptor[]
+  workspace: WorkspaceTab
+}) {
+  const apiKey = input.apiKey ?? getKieApiKey()
+
+  return Promise.all(
+    input.assetDescriptors.map(async (descriptor) => ({
+      ...descriptor,
+      remoteUrl: await uploadFileToKie(apiKey, descriptor.file, input.workspace),
+    })),
+  )
+}
+
+export async function resolvePersistedAssetsForRequest(
+  input: ParsedGenerationRequest,
+  options: {
+    resolvePersistedAssetFile: (assetId: string) => Promise<File>
+  },
+) {
+  return resolveAssetDescriptors(input, options)
+}
+
+export async function submitVariantTaskForRun(input: {
+  apiKey?: string
+  assets: UploadedAssetDescriptor[]
+  cameraMovement: CameraMovement | null
+  creativeStyle: CreativeStyle
+  imageModel: ImageModelOption
+  outputQuality: OutputQuality
+  productCategory: ProductCategory
+  prompt: string
+  subjectMode: SubjectMode
+  videoDuration: VideoDuration
+  videoModel: VideoModelOption
+  workspace: WorkspaceTab
+}) {
+  const apiKey = input.apiKey ?? getKieApiKey()
+  const submission = resolveSubmission(input)
+  const taskId = await submitProviderTask(apiKey, submission)
+
+  return {
+    model: submission.modelName,
+    provider: submission.provider,
+    taskId,
+  }
 }
 
 export async function submitGenerationRequest(
@@ -856,11 +1170,17 @@ export async function submitGenerationRequest(
       const taskId = await submitProviderTask(apiKey, submission)
 
       return {
+        completedAt: null,
+        createdAt: null,
         error: null,
         index,
+        isHero: false,
         profile,
         prompt,
         result: null,
+        reviewNotes: null,
+        reviewStatus: 'pending' as const,
+        selectedForDelivery: false,
         status: 'rendering' as const,
         taskId,
         variantId: `${runId}-variant-${index}`,
@@ -876,14 +1196,20 @@ export async function submitGenerationRequest(
     const descriptor = promptSet[index]
 
     return {
+      completedAt: null,
+      createdAt: null,
       error:
         variant.reason instanceof Error
           ? variant.reason.message
           : 'Unable to create provider task.',
       index: descriptor.index,
+      isHero: false,
       profile: descriptor.profile,
       prompt: descriptor.prompt,
       result: null,
+      reviewNotes: null,
+      reviewStatus: 'pending' as const,
+      selectedForDelivery: false,
       status: 'error' as const,
       taskId: null,
       variantId: `${runId}-variant-${descriptor.index}`,
@@ -891,9 +1217,19 @@ export async function submitGenerationRequest(
   }) satisfies GenerationVariant[]
 
   return {
+    cancelRequestedAt: null,
+    completedAt: null,
+    createdAt: new Date().toISOString(),
     model: sampleSubmission.modelName,
+    parentRunId: null,
     provider: sampleSubmission.provider,
+    projectId: input.projectId,
     runId,
+    status: variants.some((variant) => variant.status === 'rendering')
+      ? 'rendering'
+      : variants.every((variant) => variant.status === 'error')
+        ? 'error'
+        : 'partial-success',
     uploadedAssets,
     variants,
     workspace: input.workspace,

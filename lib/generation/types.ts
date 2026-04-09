@@ -6,9 +6,32 @@ export type ProductCategory =
   | 'cosmetics'
   | 'electronics'
   | 'clothing'
+  | 'miscellaneous'
 
-export type CreativeStyle = 'ugc-lifestyle' | 'cinematic' | 'tv-commercial'
+export type CreativeStyle =
+  | 'ugc-lifestyle'
+  | 'cinematic'
+  | 'tv-commercial'
+  | 'elite-product-commercial'
 export type SubjectMode = 'product-only' | 'lifestyle'
+export type ShotEnvironment = 'indoor' | 'outdoor'
+export type CharacterGender = 'any' | 'female' | 'male' | 'non-binary'
+export type CharacterAgeGroup =
+  | 'any'
+  | 'young-adult'
+  | 'adult'
+  | 'middle-aged'
+  | 'senior'
+export type CharacterEthnicity =
+  | 'any'
+  | 'south-asian'
+  | 'east-asian'
+  | 'black'
+  | 'caucasian'
+  | 'hispanic'
+  | 'middle-eastern'
+  | 'mixed'
+export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
 export type OutputQuality = '720p' | '1080p' | '4k'
 export type BatchSize = 1 | 2 | 3 | 4
@@ -33,20 +56,25 @@ export type AssetUploadStatus =
 
 export type GenerationRunStatus =
   | 'idle'
+  | 'queued'
   | 'uploading'
   | 'submitting'
   | 'rendering'
   | 'partial-success'
   | 'success'
+  | 'cancelled'
   | 'error'
 
 export type GenerationVariantStatus =
+  | 'queued'
   | 'submitting'
   | 'rendering'
   | 'success'
+  | 'cancelled'
   | 'error'
 
 export type GenerationVariantIndex = 1 | 2 | 3 | 4
+export type GenerationReviewStatus = 'pending' | 'approved' | 'rejected'
 
 export type NamedAssetKey =
   | 'face1'
@@ -87,16 +115,27 @@ export type GenerationVariant = {
   status: GenerationVariantStatus
   error: string | null
   result: GenerationResult | null
+  reviewStatus: GenerationReviewStatus
+  reviewNotes: string | null
+  isHero: boolean
+  selectedForDelivery: boolean
+  createdAt: string | null
+  completedAt: string | null
 }
 
 export type GenerationRun = {
   runId: string | null
+  projectId: string | null
+  parentRunId: string | null
   workspace: WorkspaceTab | null
   provider: GenerationProvider | null
   model: string | null
   status: GenerationRunStatus
   startedAt: number | null
+  createdAt: string | null
+  completedAt: string | null
   error: string | null
+  cancelRequestedAt: string | null
   uploadedAssets: UploadedAssetDescriptor[]
   variants: GenerationVariant[]
   selectedVariantId: string | null
@@ -114,6 +153,11 @@ export type GenerationSnapshot = {
   productCategory: ProductCategory
   creativeStyle: CreativeStyle
   subjectMode: SubjectMode
+  shotEnvironment: ShotEnvironment
+  characterGender: CharacterGender
+  characterAgeGroup: CharacterAgeGroup
+  characterEthnicity: CharacterEthnicity
+  figureArtDirection: FigureArtDirection
   batchSize: BatchSize
   textPrompt: string
   videoDuration: VideoDuration
@@ -139,11 +183,17 @@ export type UploadedAssetDescriptor = SubmittedAssetDescriptor & {
 
 export type RunSubmissionResponse = {
   runId: string
+  projectId: string
+  parentRunId: string | null
   model: string
   provider: GenerationProvider
   uploadedAssets: UploadedAssetDescriptor[]
   variants: GenerationVariant[]
   workspace: WorkspaceTab
+  status: Exclude<GenerationRunStatus, 'idle'>
+  createdAt: string
+  completedAt: string | null
+  cancelRequestedAt: string | null
 }
 
 export type TaskPollResponse = {
