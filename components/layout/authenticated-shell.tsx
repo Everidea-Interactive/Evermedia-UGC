@@ -21,7 +21,7 @@ export function AuthenticatedShell({
               Evermedia UGC
             </Link>
             <p className="mt-1 text-sm text-muted-foreground">
-              Authenticated studio with project history and reusable assets.
+              Authenticated studio with run history and reusable outputs.
             </p>
           </div>
 

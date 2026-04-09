@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
-import {
-  listProjectAssetsForUser,
-  requestGenerationRunCancellation,
-} from '@/lib/persistence/repository'
+import { requestGenerationRunCancellation } from '@/lib/persistence/repository'
 import { createGenerationRunState } from '@/lib/persistence/serialization'
 
 export const runtime = 'nodejs'
 
 export async function POST(
   _request: Request,
-  context: { params: Promise<{ projectId: string; runId: string }> },
+  context: { params: Promise<{ runId: string }> },
 ) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -19,23 +16,17 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { projectId, runId } = await context.params
-  const run = await requestGenerationRunCancellation({
-    projectId,
+  const { runId } = await context.params
+  const bundle = await requestGenerationRunCancellation({
     runId,
     userId: user.id,
   })
 
-  if (!run) {
+  if (!bundle) {
     return NextResponse.json({ error: 'Run not found' }, { status: 404 })
   }
 
-  const assets = await listProjectAssetsForUser(user.id, projectId)
-
   return NextResponse.json({
-    run: createGenerationRunState(
-      run,
-      assets.filter((asset) => asset.kind === 'output'),
-    ),
+    run: createGenerationRunState(bundle.run, bundle.outputs),
   })
 }

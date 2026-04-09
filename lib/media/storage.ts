@@ -28,30 +28,28 @@ export function getMediaStorageRoot() {
 
 function buildStoragePath(input: {
   fileName: string
-  folder: 'references' | 'outputs'
-  projectId: string
+  runId: string
   userId: string
 }) {
   const safeName = sanitizeSegment(input.fileName || 'asset.bin')
-  const relativePath = path.join(
+
+  return path.join(
     sanitizeSegment(input.userId),
-    sanitizeSegment(input.projectId),
-    input.folder,
+    'runs',
+    sanitizeSegment(input.runId),
+    'outputs',
     `${Date.now()}-${createId('file')}-${safeName}`,
   )
-
-  return relativePath
 }
 
 export function resolveAbsoluteStoragePath(storagePath: string) {
   return path.join(getMediaStorageRoot(), storagePath)
 }
 
-export async function saveFileToDisk(input: {
+export async function saveOutputFileToDisk(input: {
   file: Blob
   fileName: string
-  folder: 'references' | 'outputs'
-  projectId: string
+  runId: string
   userId: string
 }) {
   const storagePath = buildStoragePath(input)
@@ -63,26 +61,6 @@ export async function saveFileToDisk(input: {
   return {
     absolutePath,
     storagePath,
-  }
-}
-
-export async function duplicateStoredFile(input: {
-  fileName: string
-  folder: 'references' | 'outputs'
-  projectId: string
-  sourceStoragePath: string
-  userId: string
-}) {
-  const sourcePath = resolveAbsoluteStoragePath(input.sourceStoragePath)
-  const target = buildStoragePath(input)
-  const targetPath = resolveAbsoluteStoragePath(target)
-
-  await mkdir(path.dirname(targetPath), { recursive: true })
-  await writeFile(targetPath, await readFile(sourcePath))
-
-  return {
-    absolutePath: targetPath,
-    storagePath: target,
   }
 }
 
@@ -102,9 +80,13 @@ export async function deleteStoredFile(storagePath: string | null | undefined) {
   }
 }
 
-export async function deleteProjectDirectory(userId: string, projectId: string) {
+export async function deleteRunDirectory(userId: string, runId: string) {
   const absolutePath = resolveAbsoluteStoragePath(
-    path.join(sanitizeSegment(userId), sanitizeSegment(projectId)),
+    path.join(
+      sanitizeSegment(userId),
+      'runs',
+      sanitizeSegment(runId),
+    ),
   )
 
   try {

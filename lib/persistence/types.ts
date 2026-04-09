@@ -5,20 +5,15 @@ import type {
   CreativeStyle,
   FigureArtDirection,
   GenerationProvider,
-  GenerationReviewStatus,
   GenerationRunStatus,
   GenerationVariantStatus,
   ImageModelOption,
-  NamedAssetKey,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
-  SubmittedAssetDescriptor,
-  SubjectMode,
-  UploadedAssetDescriptor,
+  WorkspaceTab,
   VideoDuration,
   VideoModelOption,
-  WorkspaceTab,
 } from '@/lib/generation/types'
 
 export type AuthenticatedUserSummary = {
@@ -26,11 +21,7 @@ export type AuthenticatedUserSummary = {
   id: string
 }
 
-export type ProjectAssetKind = 'reference' | 'output'
-export type ProductSlotKey = 'product-1' | 'product-2'
-export type ProjectSlotKey = NamedAssetKey | ProductSlotKey
-
-export type ProjectConfigSnapshot = {
+export type GenerationConfigSnapshot = {
   activeTab: WorkspaceTab
   batchSize: 1 | 2 | 3 | 4
   cameraMovement: CameraMovement | null
@@ -42,32 +33,22 @@ export type ProjectConfigSnapshot = {
   outputQuality: OutputQuality
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
-  subjectMode: SubjectMode
+  subjectMode: 'product-only' | 'lifestyle'
   textPrompt: string
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }
 
-export type ProjectRecord = {
-  configSnapshot: ProjectConfigSnapshot
-  createdAt: string
-  id: string
-  lastOpenedAt: string | null
-  name: string
-  updatedAt: string
-  userId: string
-}
+export type ProjectConfigSnapshot = GenerationConfigSnapshot
 
-export type ProjectAssetRecord = {
+export type SavedOutputRecord = {
   createdAt: string
   fileSize: number
   id: string
-  kind: ProjectAssetKind
   label: string
   mimeType: string
   originalName: string
-  projectId: string
-  slotKey: ProjectSlotKey | null
+  runId: string
   storagePath: string
   userId: string
 }
@@ -77,51 +58,42 @@ export type GenerationVariantRecord = {
   createdAt: string
   error: string | null
   id: string
-  isHero: boolean
   profile: string
   prompt: string
-  reviewNotes: string | null
-  reviewStatus: GenerationReviewStatus
   resultAssetId: string | null
   runId: string
-  selectedForDelivery: boolean
   status: GenerationVariantStatus
   taskId: string | null
   variantIndex: 1 | 2 | 3 | 4
 }
 
 export type GenerationRunRecord = {
-  assetManifest: SubmittedAssetDescriptor[]
-  attemptCount: number
-  cancelRequestedAt: string | null
   completedAt: string | null
-  configSnapshot: ProjectConfigSnapshot
+  configSnapshot: GenerationConfigSnapshot
   createdAt: string
   id: string
-  lastHeartbeatAt: string | null
-  leaseExpiresAt: string | null
-  leaseOwner: string | null
   model: string
-  parentRunId: string | null
-  projectId: string
   promptSnapshot: string
   provider: GenerationProvider
   status: GenerationRunStatus
-  uploadedAssets: UploadedAssetDescriptor[]
   userId: string
   variants: GenerationVariantRecord[]
   workspace: WorkspaceTab
 }
 
-export type ProjectLibraryRecord = {
-  assets: ProjectAssetRecord[]
-  project: ProjectRecord
-  runs: GenerationRunRecord[]
+export type GenerationRunBundle = {
+  outputs: SavedOutputRecord[]
+  run: GenerationRunRecord
 }
 
-export type StudioProjectRecord = {
-  outputAssets: ProjectAssetRecord[]
-  project: ProjectRecord
-  referenceAssets: ProjectAssetRecord[]
-  runs: GenerationRunRecord[]
+export type SavedOutputHistoryEntry = {
+  output: SavedOutputRecord
+  run: Pick<
+    GenerationRunRecord,
+    'completedAt' | 'createdAt' | 'id' | 'model' | 'promptSnapshot' | 'provider' | 'status' | 'workspace'
+  >
+  variant: Pick<
+    GenerationVariantRecord,
+    'completedAt' | 'createdAt' | 'error' | 'id' | 'profile' | 'prompt' | 'status' | 'taskId' | 'variantIndex'
+  >
 }

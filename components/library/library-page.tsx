@@ -1,19 +1,27 @@
 'use client'
 
-import { useMemo, useTransition } from 'react'
 import Link from 'next/link'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
+import { formatBytes } from '@/lib/generation/client'
 import { isImageMimeType } from '@/lib/media/image-preview'
-import type {
-  ProjectLibraryRecord,
-  ProjectRecord,
-} from '@/lib/persistence/types'
+import type { SavedOutputHistoryEntry } from '@/lib/persistence/types'
+
+type RunGroup = {
+  id: string
+  outputs: SavedOutputHistoryEntry[]
+  run: SavedOutputHistoryEntry['run']
+}
 
 function getAssetMediaUrl(assetId: string) {
   return `/api/media/${assetId}`
+}
+
+function getAssetDownloadUrl(assetId: string) {
+  return `/api/media/${assetId}?download=1`
 }
 
 function AssetCardMedia({
@@ -88,88 +96,73 @@ function AssetPreviewButton({
   )
 }
 
-export function LibraryPage({
-  projects,
-  selectedProject,
-}: {
-  projects: ProjectRecord[]
-  selectedProject: ProjectLibraryRecord | null
-}) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
+  const groups = new Map<string, RunGroup>()
 
-  const selectedProjectId = selectedProject?.project.id ?? projects[0]?.id ?? null
-  const outputAssetMap = useMemo(
-    () =>
-      new Map(
-        (selectedProject?.assets ?? [])
-          .filter((asset) => asset.kind === 'output')
-          .map((asset) => [asset.id, asset] as const),
-      ),
-    [selectedProject?.assets],
-  )
-  const deliverables = useMemo(
-    () =>
-      (selectedProject?.runs ?? []).flatMap((run) =>
-        run.variants
-          .filter(
-            (variant) =>
-              Boolean(variant.resultAssetId) &&
-              (variant.selectedForDelivery ||
-                variant.isHero ||
-                variant.reviewStatus === 'approved'),
-          )
-          .map((variant) => {
-            const asset = variant.resultAssetId
-              ? outputAssetMap.get(variant.resultAssetId)
-              : null
+  for (const entry of outputs) {
+    const existing = groups.get(entry.run.id)
 
-            if (!asset) {
-              return null
-            }
+    if (existing) {
+      existing.outputs.push(entry)
+      continue
+    }
 
-            return {
-              asset,
-              run,
-              variant,
-            }
-          })
-          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
-      ),
-    [outputAssetMap, selectedProject?.runs],
-  )
-  const heroOutputs = deliverables.filter((entry) => entry.variant.isHero)
-  const rejectedHistory = useMemo(
-    () =>
-      (selectedProject?.runs ?? []).flatMap((run) =>
-        run.variants
-          .filter(
-            (variant) =>
-              variant.reviewStatus === 'rejected' || variant.status === 'error',
-          )
-          .map((variant) => ({
-            run,
-            variant,
-          })),
-      ),
-    [selectedProject?.runs],
-  )
-
-  const duplicateProject = async (projectId: string) => {
-    await fetch(`/api/projects/${projectId}/duplicate`, {
-      method: 'POST',
-    })
-    startTransition(() => {
-      router.refresh()
+    groups.set(entry.run.id, {
+      id: entry.run.id,
+      outputs: [entry],
+      run: entry.run,
     })
   }
 
-  const deleteProject = async (projectId: string) => {
-    await fetch(`/api/projects/${projectId}`, {
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      outputs: group.outputs.toSorted(
+        (left, right) =>
+          new Date(right.output.createdAt).getTime() -
+          new Date(left.output.createdAt).getTime(),
+      ),
+    }))
+    .toSorted(
+      (left, right) =>
+        new Date(right.outputs[0]?.output.createdAt ?? right.run.createdAt).getTime() -
+        new Date(left.outputs[0]?.output.createdAt ?? left.run.createdAt).getTime(),
+    )
+}
+
+export function LibraryPage({
+  outputs,
+}: {
+  outputs: SavedOutputHistoryEntry[]
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null)
+
+  const runGroups = useMemo(() => buildRunGroups(outputs), [outputs])
+  const archiveStats = useMemo(
+    () => ({
+      latestSavedAt: outputs[0]?.output.createdAt ?? null,
+      totalOutputs: outputs.length,
+      totalSize: outputs.reduce((sum, entry) => sum + entry.output.fileSize, 0),
+      workspaceCount: new Set(outputs.map((entry) => entry.run.workspace)).size,
+    }),
+    [outputs],
+  )
+
+  const activeRun = runGroups.find((run) => run.id === selectedRunId) ?? runGroups[0] ?? null
+  const selectedEntry =
+    activeRun?.outputs.find((entry) => entry.output.id === selectedOutputId) ??
+    activeRun?.outputs[0] ??
+    null
+
+  const deleteOutput = async (outputId: string) => {
+    await fetch(`/api/outputs/${outputId}`, {
       method: 'DELETE',
     })
+
     startTransition(() => {
-      router.replace('/library')
       router.refresh()
     })
   }
@@ -181,44 +174,47 @@ export function LibraryPage({
           Library
         </p>
         <h1 className="mt-2 font-display text-2xl font-semibold">
-          Projects, history, and reusable outputs
+          Runs, history, and reusable outputs
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Review saved projects, inspect run history, and open any project back in
-          the studio with its persisted references and generated media intact.
+          Inspect saved runs, review output history, and open the studio whenever
+          you want to generate a fresh batch from the current workflow.
         </p>
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1.1fr)]">
         <section className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Projects
+            Sessions
           </p>
           <div className="mt-4 grid gap-3">
-            {projects.length === 0 ? (
+            {runGroups.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No projects exist yet. Open the studio and create one to start
-                building a reusable library.
+                No saved runs exist yet. Open the studio and finish a successful
+                batch to populate this library.
               </p>
             ) : null}
-            {projects.map((project) => (
+            {runGroups.map((run) => (
               <button
-                key={project.id}
+                key={run.id}
                 className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                  project.id === selectedProjectId
+                  run.id === activeRun?.id
                     ? 'border-foreground/35 bg-secondary'
                     : 'border-border bg-background hover:border-foreground/20'
                 }`}
                 onClick={() => {
-                  startTransition(() => {
-                    router.replace(`/library?project=${project.id}`)
-                  })
+                  setSelectedRunId(run.id)
+                  setSelectedOutputId(null)
                 }}
                 type="button"
               >
-                <p className="font-medium text-foreground">{project.name}</p>
+                <p className="font-medium text-foreground">
+                  {run.run.workspace === 'video' ? 'Video session' : 'Image session'}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Updated {new Date(project.updatedAt).toLocaleString()}
+                  {run.outputs.length} saved variation
+                  {run.outputs.length === 1 ? '' : 's'} ·{' '}
+                  {new Date(run.outputs[0]?.output.createdAt ?? run.run.createdAt).toLocaleString()}
                 </p>
               </button>
             ))}
@@ -232,94 +228,77 @@ export function LibraryPage({
                 Run History
               </p>
               <h2 className="mt-2 text-lg font-semibold">
-                {selectedProject?.project.name ?? 'No project selected'}
+                {activeRun
+                  ? activeRun.run.workspace === 'video'
+                    ? 'Video session'
+                    : 'Image session'
+                  : 'No session selected'}
               </h2>
             </div>
 
-            {selectedProject ? (
+            {activeRun ? (
               <div className="flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="secondary">
-                  <Link href={`/?project=${selectedProject.project.id}`}>
-                    Open in Studio
-                  </Link>
-                </Button>
-                <Button
-                  disabled={isPending}
-                  onClick={() => {
-                    void duplicateProject(selectedProject.project.id)
-                  }}
-                  size="sm"
-                  variant="secondary"
-                >
-                  Duplicate
-                </Button>
-                <Button
-                  disabled={isPending}
-                  onClick={() => {
-                    void deleteProject(selectedProject.project.id)
-                  }}
-                  size="sm"
-                  variant="ghost"
-                >
-                  Delete
+                  <Link href="/">Open Studio</Link>
                 </Button>
               </div>
             ) : null}
           </div>
 
           <div className="mt-4 grid gap-3">
-            {selectedProject?.runs.length ? (
-              selectedProject.runs.map((run) => (
-                <div
-                  key={run.id}
-                  className="rounded-xl border border-border bg-background p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {run.workspace === 'video' ? 'Video run' : 'Image run'}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {run.model} · {run.status}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(run.createdAt).toLocaleString()}
+            {activeRun ? (
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {activeRun.run.workspace === 'video' ? 'Video run' : 'Image run'}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {activeRun.run.model} · {activeRun.run.status}
                     </p>
                   </div>
-                  <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                    {run.promptSnapshot}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(activeRun.run.createdAt).toLocaleString()}
                   </p>
-                  <div className="mt-3 grid gap-2">
-                    {run.variants.map((variant) => (
-                      <div
-                        key={variant.id}
-                        className="rounded-lg border border-border/80 bg-card px-3 py-2 text-sm"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">
-                            Variation {variant.variantIndex}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {variant.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {variant.taskId ?? variant.error ?? 'Awaiting provider task'}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                          <span>Review: {variant.reviewStatus}</span>
-                          {variant.isHero ? <span>Hero</span> : null}
-                          {variant.selectedForDelivery ? <span>Deliverable</span> : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                  {activeRun.run.promptSnapshot}
+                </p>
+              </div>
+            ) : null}
+
+            {activeRun?.outputs.length ? (
+              activeRun.outputs.map((entry) => (
+                <button
+                  key={entry.output.id}
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    entry.output.id === selectedEntry?.output.id
+                      ? 'border-foreground/35 bg-secondary'
+                      : 'border-border bg-background hover:border-foreground/20'
+                  }`}
+                  onClick={() => setSelectedOutputId(entry.output.id)}
+                  type="button"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-foreground">
+                      Variation {entry.variant.variantIndex}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {entry.variant.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                    {entry.variant.profile}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    <span>{new Date(entry.output.createdAt).toLocaleString()}</span>
+                    {entry.variant.taskId ? <span>Task {entry.variant.taskId}</span> : null}
+                  </div>
+                </button>
               ))
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                No runs recorded for this project yet.
+                No saved outputs exist for this run yet.
               </p>
             )}
           </div>
@@ -327,94 +306,73 @@ export function LibraryPage({
 
         <section className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Deliverables & Assets
+            Outputs & Archive
           </p>
 
           <div className="mt-4 space-y-5">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-foreground">
-                  Approved deliverables
+                  Selected output
                 </h3>
                 <span className="text-xs text-muted-foreground">
-                  {deliverables.length} selected
+                  {selectedEntry ? 'Preview ready' : 'No output selected'}
                 </span>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {deliverables.length ? (
-                  deliverables.map(({ asset, run, variant }) => (
-                    <article
-                      key={asset.id}
-                      className="overflow-hidden rounded-xl border border-border bg-background"
-                    >
-                      <AssetCardMedia
-                        alt={asset.label}
-                        label={asset.label}
-                        mimeType={asset.mimeType}
-                        src={getAssetMediaUrl(asset.id)}
-                      />
-                      <div className="p-3">
-                        <p className="font-medium text-foreground">{asset.label}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Run {run.workspace} · Variation {variant.variantIndex}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                          <span>{variant.reviewStatus}</span>
-                          {variant.isHero ? <span>Hero</span> : null}
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <AssetPreviewButton
-                            alt={asset.label}
-                            label={asset.label}
-                            mimeType={asset.mimeType}
-                            src={getAssetMediaUrl(asset.id)}
-                          />
-                          <Button asChild size="sm" variant="ghost">
-                            <Link href={`/?project=${asset.projectId}`}>Open in Studio</Link>
-                          </Button>
-                        </div>
+              <div className="mt-3">
+                {selectedEntry ? (
+                  <article className="overflow-hidden rounded-xl border border-border bg-background">
+                    <AssetCardMedia
+                      alt={selectedEntry.output.label}
+                      label={selectedEntry.output.label}
+                      mimeType={selectedEntry.output.mimeType}
+                      src={getAssetMediaUrl(selectedEntry.output.id)}
+                    />
+                    <div className="p-3">
+                      <p className="font-medium text-foreground">
+                        {selectedEntry.output.label}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Run {selectedEntry.run.workspace} · Variation{' '}
+                        {selectedEntry.variant.variantIndex}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {selectedEntry.variant.profile}
+                      </p>
+                      <p className="mt-2 line-clamp-4 text-sm leading-6 text-muted-foreground">
+                        {selectedEntry.variant.prompt}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <AssetPreviewButton
+                          alt={selectedEntry.output.label}
+                          label={selectedEntry.output.label}
+                          mimeType={selectedEntry.output.mimeType}
+                          src={getAssetMediaUrl(selectedEntry.output.id)}
+                        />
+                        <Button asChild size="sm" variant="secondary">
+                          <a
+                            download={selectedEntry.output.originalName}
+                            href={getAssetDownloadUrl(selectedEntry.output.id)}
+                          >
+                            Download
+                          </a>
+                        </Button>
+                        <Button
+                          disabled={isPending}
+                          onClick={() => {
+                            void deleteOutput(selectedEntry.output.id)
+                          }}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          Delete
+                        </Button>
                       </div>
-                    </article>
-                  ))
+                    </div>
+                  </article>
                 ) : (
                   <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                    No approved deliverables have been promoted from this project yet.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-foreground">Hero outputs</h3>
-                <span className="text-xs text-muted-foreground">
-                  {heroOutputs.length} hero pick{heroOutputs.length === 1 ? '' : 's'}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {heroOutputs.length ? (
-                  heroOutputs.map(({ asset, variant }) => (
-                    <article
-                      key={`${asset.id}-hero`}
-                      className="overflow-hidden rounded-xl border border-border bg-background"
-                    >
-                      <AssetCardMedia
-                        alt={asset.label}
-                        label={asset.label}
-                        mimeType={asset.mimeType}
-                        src={getAssetMediaUrl(asset.id)}
-                      />
-                      <div className="p-3">
-                        <p className="font-medium text-foreground">{asset.label}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Variation {variant.variantIndex} hero selection
-                        </p>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                    No hero output has been chosen for this project yet.
+                    Select a saved output from the run history to inspect it here.
                   </p>
                 )}
               </div>
@@ -423,72 +381,44 @@ export function LibraryPage({
             <div>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-foreground">
-                  Rejected & failed history
+                  Run outputs
                 </h3>
                 <span className="text-xs text-muted-foreground">
-                  {rejectedHistory.length} entries
+                  {activeRun?.outputs.length ?? 0} saved
                 </span>
               </div>
-              <div className="mt-3 grid gap-3">
-                {rejectedHistory.length ? (
-                  rejectedHistory.map(({ run, variant }) => (
-                    <div
-                      key={`${run.id}-${variant.id}-history`}
-                      className="rounded-xl border border-border bg-background p-3"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium text-foreground">
-                          Run {run.workspace} · Variation {variant.variantIndex}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {variant.reviewStatus} / {variant.status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {variant.reviewNotes ?? variant.error ?? 'Stored for audit trail.'}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                    No rejected or failed history has accumulated for this project yet.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">All assets</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {selectedProject?.assets.length ? (
-                  selectedProject.assets.map((asset) => (
+                {activeRun?.outputs.length ? (
+                  activeRun.outputs.map((entry) => (
                     <article
-                      key={asset.id}
+                      key={`${entry.output.id}-asset`}
                       className="overflow-hidden rounded-xl border border-border bg-background"
                     >
                       <AssetCardMedia
-                        alt={asset.label}
-                        label={asset.label}
-                        mimeType={asset.mimeType}
-                        src={getAssetMediaUrl(asset.id)}
+                        alt={entry.output.label}
+                        label={entry.output.label}
+                        mimeType={entry.output.mimeType}
+                        src={getAssetMediaUrl(entry.output.id)}
                       />
                       <div className="p-3">
-                        <p className="font-medium text-foreground">{asset.label}</p>
+                        <p className="font-medium text-foreground">{entry.output.label}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {asset.kind === 'output' ? 'Generated output' : 'Reference'} ·{' '}
-                          {asset.slotKey ?? 'unbound'}
+                          Variation {entry.variant.variantIndex} ·{' '}
+                          {formatBytes(entry.output.fileSize) ?? 'Unknown size'}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {asset.kind === 'output' ? (
-                            <AssetPreviewButton
-                              alt={asset.label}
-                              label={asset.label}
-                              mimeType={asset.mimeType}
-                              src={getAssetMediaUrl(asset.id)}
-                            />
-                          ) : null}
-                          <Button asChild size="sm" variant="ghost">
-                            <Link href={`/?project=${asset.projectId}`}>Reuse in Studio</Link>
+                          <AssetPreviewButton
+                            alt={entry.output.label}
+                            label={entry.output.label}
+                            mimeType={entry.output.mimeType}
+                            src={getAssetMediaUrl(entry.output.id)}
+                          />
+                          <Button
+                            onClick={() => setSelectedOutputId(entry.output.id)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            Inspect
                           </Button>
                         </div>
                       </div>
@@ -496,9 +426,49 @@ export function LibraryPage({
                   ))
                 ) : (
                   <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                    No persisted references or outputs are attached to this project yet.
+                    No saved outputs have been attached to the selected run yet.
                   </p>
                 )}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Archive summary</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Saved outputs
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {archiveStats.totalOutputs}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Workspaces
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {archiveStats.workspaceCount}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Archive size
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {formatBytes(archiveStats.totalSize) ?? '0 KB'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Latest save
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {archiveStats.latestSavedAt
+                      ? new Date(archiveStats.latestSavedAt).toLocaleString()
+                      : 'No saved outputs yet'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

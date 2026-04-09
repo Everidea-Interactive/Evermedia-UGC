@@ -1,19 +1,16 @@
-import { after, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
-  getQueuedVariantPlan,
   parseGenerationFormData,
-  stripAssetFiles,
+  submitGenerationRequest,
 } from '@/lib/generation/kie'
-import { runGenerationWorkerCycle } from '@/lib/generation/worker'
 import {
   createGenerationRunForUser,
   createGenerationVariantsForRun,
-  getProjectForUser,
-  getProjectGenerationRunForUser,
+  getGenerationRunBundleForUser,
 } from '@/lib/persistence/repository'
 import {
   createGenerationRunState,
@@ -21,14 +18,6 @@ import {
 } from '@/lib/persistence/serialization'
 
 export const runtime = 'nodejs'
-
-function inferProvider(input: ReturnType<typeof parseGenerationFormData>) {
-  if (input.workspace === 'video' && input.videoModel === 'veo-3.1') {
-    return 'veo' as const
-  }
-
-  return 'market' as const
-}
 
 function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>) {
   return normalizeProjectConfigSnapshot({
@@ -50,10 +39,6 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
   })
 }
 
-function createEphemeralWorkerId(runId: string) {
-  return `web-${runId}`
-}
-
 export async function POST(request: Request) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -64,57 +49,46 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const parsedRequest = parseGenerationFormData(formData)
-    const project = await getProjectForUser(user.id, parsedRequest.projectId)
-
-    if (!project) {
-      throw new Error('Active project could not be found.')
-    }
-
     const runId = createRunId()
     const promptSnapshot = buildPromptSnapshot(parsedRequest)
-    const assetManifest = stripAssetFiles(parsedRequest.assetDescriptors)
-
-    if (assetManifest.some((descriptor) => !descriptor.persistedAssetId)) {
-      throw new Error(
-        'Wait for project asset sync to finish before starting generation.',
-      )
-    }
+    const submission = await submitGenerationRequest(parsedRequest, {
+      basePrompt: promptSnapshot,
+      runId,
+    })
 
     await createGenerationRunForUser({
-      assetManifest,
       configSnapshot: createConfigSnapshot(parsedRequest),
-      model: String(parsedRequest.activeModel),
-      projectId: parsedRequest.projectId,
+      model: submission.model,
       promptSnapshot,
-      provider: inferProvider(parsedRequest),
+      provider: submission.provider,
       runId,
-      status: 'queued',
+      status: submission.status,
       userId: user.id,
-      workspace: parsedRequest.workspace,
+      workspace: submission.workspace,
     })
 
     await createGenerationVariantsForRun(
       runId,
-      getQueuedVariantPlan(parsedRequest, {
-        basePrompt: promptSnapshot,
-        runId,
-      }),
+      submission.variants.map((variant) => ({
+        error: variant.error,
+        id: variant.variantId,
+        profile: variant.profile,
+        prompt: variant.prompt,
+        status: variant.status,
+        taskId: variant.taskId,
+        variantIndex: variant.index,
+      })),
     )
-    const persistedRun = await getProjectGenerationRunForUser({
-      projectId: parsedRequest.projectId,
-      runId,
-      userId: user.id,
-    })
+
+    const persistedRun = await getGenerationRunBundleForUser(user.id, runId)
 
     if (!persistedRun) {
-      throw new Error('Queued generation run could not be reloaded.')
+      throw new Error('Submitted generation run could not be reloaded.')
     }
 
-    after(async () => {
-      await runGenerationWorkerCycle(createEphemeralWorkerId(runId)).catch(() => undefined)
-    })
-
-    return NextResponse.json(createGenerationRunState(persistedRun, []))
+    return NextResponse.json(
+      createGenerationRunState(persistedRun.run, persistedRun.outputs),
+    )
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unable to start generation.'

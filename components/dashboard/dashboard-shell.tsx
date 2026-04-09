@@ -1,9 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
@@ -12,9 +12,8 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
-  Check,
-  CircleSlash,
   Brush,
+  CircleSlash,
   Clapperboard,
   CupSoda,
   Film,
@@ -29,8 +28,6 @@ import {
   ScanLine,
   Shirt,
   Sparkles,
-  Star,
-  Truck,
   Upload,
   UserRound,
   WandSparkles,
@@ -40,7 +37,6 @@ import {
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useOptionalStudioProjectContext } from '@/components/dashboard/studio-project-context'
 import { Select } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -50,14 +46,12 @@ import {
   getAssetPreviewUrl,
   getGenerationValidation,
 } from '@/lib/generation/client'
-import { isImageMimeType } from '@/lib/media/image-preview'
 import {
   getActiveTaskCount,
   getCompletedVariantCount,
   getFailedVariantCount,
   getGenerateButtonLabel,
   getGenerationHelperMessage,
-  getRunBodyCopy,
   getRunHeadline,
 } from '@/lib/generation/run-copy'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
@@ -70,11 +64,9 @@ import type {
   CreativeStyle,
   FigureArtDirection,
   GenerationRun,
-  GenerationRunStatus,
-  KieStatusResponse,
   GenerationVariant,
-  GenerationReviewStatus,
   ImageModelOption,
+  KieStatusResponse,
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
@@ -85,180 +77,181 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 const workspaceTabs: Array<{
-  value: WorkspaceTab
-  label: string
   helper: string
   icon: LucideIcon
+  label: string
+  value: WorkspaceTab
 }> = [
   {
-    value: 'image',
-    label: 'Image',
     helper: 'Still renders',
     icon: ImageIcon,
+    label: 'Image',
+    value: 'image',
   },
   {
-    value: 'video',
-    label: 'Video',
     helper: 'Motion renders',
     icon: Film,
+    label: 'Video',
+    value: 'video',
   },
 ]
 
 const productCategories: Array<{
-  value: ProductCategory
-  label: string
   icon: LucideIcon
+  label: string
+  value: ProductCategory
 }> = [
-  { value: 'food-drink', label: 'Food & Drink', icon: CupSoda },
-  { value: 'jewelry', label: 'Jewelry', icon: Gem },
-  { value: 'cosmetics', label: 'Cosmetics & Beauty', icon: Sparkles },
-  { value: 'electronics', label: 'Electronics & Tech', icon: Laptop },
-  { value: 'clothing', label: 'Clothing & Fashion', icon: Shirt },
-  { value: 'miscellaneous', label: 'Miscellaneous', icon: Package2 },
+  { icon: CupSoda, label: 'Food & Drink', value: 'food-drink' },
+  { icon: Gem, label: 'Jewelry', value: 'jewelry' },
+  { icon: Sparkles, label: 'Cosmetics & Beauty', value: 'cosmetics' },
+  { icon: Laptop, label: 'Electronics & Tech', value: 'electronics' },
+  { icon: Shirt, label: 'Clothing & Fashion', value: 'clothing' },
+  { icon: Package2, label: 'Miscellaneous', value: 'miscellaneous' },
 ]
 
 const creativeStyles: Array<{
-  value: CreativeStyle
   label: string
+  value: CreativeStyle
 }> = [
-  { value: 'ugc-lifestyle', label: 'UGC / Lifestyle' },
-  { value: 'cinematic', label: 'Hollywood Cinematic' },
-  { value: 'tv-commercial', label: 'TV Commercial' },
+  { label: 'UGC / Lifestyle', value: 'ugc-lifestyle' },
+  { label: 'Hollywood Cinematic', value: 'cinematic' },
+  { label: 'TV Commercial', value: 'tv-commercial' },
   {
-    value: 'elite-product-commercial',
     label: 'Elite Product Commercial',
+    value: 'elite-product-commercial',
   },
 ]
 
 const subjectModes: Array<{
-  value: SubjectMode
-  label: string
   description: string
+  label: string
+  value: SubjectMode
 }> = [
   {
-    value: 'lifestyle',
-    label: 'Lifestyle',
     description:
       'Lifestyle image with a person naturally interacting with the product.',
+    label: 'Lifestyle',
+    value: 'lifestyle',
   },
   {
-    value: 'product-only',
-    label: 'Product Only',
     description: 'Keep the product as the sole hero subject with no visible person.',
+    label: 'Product Only',
+    value: 'product-only',
   },
 ]
 
 const shotEnvironments: Array<{
-  value: ShotEnvironment
-  label: string
   description: string
   icon: LucideIcon
+  label: string
+  value: ShotEnvironment
 }> = [
   {
-    value: 'indoor',
-    label: 'Indoor',
     description: 'Studio, interior, curated indoor environment.',
     icon: House,
+    label: 'Indoor',
+    value: 'indoor',
   },
   {
-    value: 'outdoor',
-    label: 'Outdoor',
     description: 'Exterior location with natural environmental context.',
     icon: Leaf,
+    label: 'Outdoor',
+    value: 'outdoor',
   },
 ]
 
 const characterGenders: Array<{
-  value: CharacterGender
   label: string
+  value: CharacterGender
 }> = [
-  { value: 'any', label: 'Any' },
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-  { value: 'non-binary', label: 'Non-Binary' },
+  { label: 'Any', value: 'any' },
+  { label: 'Female', value: 'female' },
+  { label: 'Male', value: 'male' },
+  { label: 'Non-Binary', value: 'non-binary' },
 ]
 
 const characterAgeGroups: Array<{
-  value: CharacterAgeGroup
   label: string
+  value: CharacterAgeGroup
 }> = [
-  { value: 'any', label: 'Any' },
-  { value: 'young-adult', label: 'Young Adult' },
-  { value: 'adult', label: 'Adult' },
-  { value: 'middle-aged', label: 'Middle Aged' },
-  { value: 'senior', label: 'Senior' },
+  { label: 'Any', value: 'any' },
+  { label: 'Young Adult', value: 'young-adult' },
+  { label: 'Adult', value: 'adult' },
+  { label: 'Middle Aged', value: 'middle-aged' },
+  { label: 'Senior', value: 'senior' },
 ]
 
 const figureArtDirections: Array<{
-  value: FigureArtDirection
-  label: string
   description: string
+  label: string
+  value: FigureArtDirection
 }> = [
   {
-    value: 'none',
-    label: 'None',
     description: 'Default',
+    label: 'None',
+    value: 'none',
   },
   {
-    value: 'curvaceous-editorial',
-    label: 'Curvaceous',
     description: 'Full figure, dramatic curves, fashion-forward.',
+    label: 'Curvaceous',
+    value: 'curvaceous-editorial',
   },
 ]
 
 const batchSizes: BatchSize[] = [1, 2, 3, 4]
 
 const cameraMovements: Array<{
-  value: CameraMovement
   label: string
+  value: CameraMovement
 }> = [
-  { value: 'orbit', label: 'Orbit' },
-  { value: 'dolly', label: 'Dolly' },
-  { value: 'drone', label: 'Drone' },
-  { value: 'crash-zoom', label: 'Crash Zoom' },
-  { value: 'macro', label: 'Macro' },
+  { label: 'Orbit', value: 'orbit' },
+  { label: 'Dolly', value: 'dolly' },
+  { label: 'Drone', value: 'drone' },
+  { label: 'Crash Zoom', value: 'crash-zoom' },
+  { label: 'Macro', value: 'macro' },
 ]
 
 const imageModels: Array<{
-  value: ImageModelOption
-  label: string
   helper: string
+  label: string
+  value: ImageModelOption
 }> = [
   {
-    value: 'nano-banana',
-    label: 'Nano Banana 2',
     helper: 'Google image generation with direct reference input',
+    label: 'Nano Banana 2',
+    value: 'nano-banana',
   },
   {
-    value: 'grok-imagine',
-    label: 'Grok Imagine',
     helper: 'Text and image-led still renders',
+    label: 'Grok Imagine',
+    value: 'grok-imagine',
   },
 ]
 
 const videoModels: Array<{
-  value: VideoModelOption
-  label: string
   helper: string
+  label: string
+  value: VideoModelOption
 }> = [
   {
-    value: 'veo-3.1',
-    label: 'Veo 3.1',
     helper: 'Reference and end-frame video renders',
+    label: 'Veo 3.1',
+    value: 'veo-3.1',
   },
   {
-    value: 'kling',
-    label: 'Kling',
     helper: 'Market-model text or image video',
+    label: 'Kling',
+    value: 'kling',
   },
   {
-    value: 'grok-imagine',
-    label: 'Grok Imagine',
     helper: 'Prompt-led short motion clips',
+    label: 'Grok Imagine',
+    value: 'grok-imagine',
   },
 ]
 
@@ -266,36 +259,36 @@ const qualities: OutputQuality[] = ['720p', '1080p', '4k']
 const durations: VideoDuration[] = ['base', 'extended']
 
 const peopleReferenceCards: Array<{
+  icon: LucideIcon
   key: Extract<NamedAssetKey, 'face1' | 'face2'>
   label: string
-  icon: LucideIcon
 }> = [
   {
+    icon: UserRound,
     key: 'face1',
     label: 'Face 1',
-    icon: UserRound,
   },
   {
+    icon: UserRound,
     key: 'face2',
     label: 'Face 2',
-    icon: UserRound,
   },
 ]
 
 const styleReferenceCards: Array<{
+  icon: LucideIcon
   key: Extract<NamedAssetKey, 'clothing' | 'location'>
   label: string
-  icon: LucideIcon
 }> = [
   {
+    icon: Brush,
     key: 'clothing',
     label: 'Clothing',
-    icon: Brush,
   },
   {
+    icon: MapPin,
     key: 'location',
     label: 'Location',
-    icon: MapPin,
   },
 ]
 
@@ -312,12 +305,8 @@ const presetGroupClassName =
   'rounded-xl border border-border/80 bg-background/70 p-3.5 sm:p-4'
 const presetSubgroupClassName =
   'rounded-lg border border-border/70 bg-secondary/35 p-3'
-const imageAccept = 'image/png,image/jpeg,image/webp,image/jpg'
-const projectRunPollIntervalMs = 2_500
-
-function getMediaAssetUrl(assetId: string) {
-  return `/api/media/${assetId}`
-}
+const assetAccept = 'image/*,video/*'
+const runPollIntervalMs = 2_500
 
 function ImagePreviewTrigger({
   alt,
@@ -348,51 +337,17 @@ function ImagePreviewTrigger({
   )
 }
 
-function StudioDeliverableMedia({
-  alt,
-  label,
-  mimeType,
-  src,
-}: {
-  alt: string
-  label: string
-  mimeType: string
-  src: string
-}) {
-  if (isImageMimeType(mimeType)) {
-    return (
-      <ImagePreviewTrigger
-        alt={alt}
-        className="block w-full overflow-hidden bg-black/20"
-        label={label}
-        src={src}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={alt}
-          className="aspect-[4/3] w-full object-cover"
-          loading="lazy"
-          src={src}
-        />
-      </ImagePreviewTrigger>
-    )
-  }
-
-  return (
-    <video
-      className="aspect-[4/3] w-full bg-black object-cover"
-      controls
-      playsInline
-      preload="metadata"
-      src={src}
-    />
-  )
-}
-
 export function DashboardShell() {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
+  const generationRun = useGenerationStore((state) => state.generationRun)
   const controller = useGenerationController()
+  const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
+  const resolvedPreviewVariantId = generationRun.variants.some(
+    (variant) => variant.variantId === previewVariantId,
+  )
+    ? previewVariantId
+    : null
 
   useEffect(() => {
     return () => {
@@ -410,13 +365,13 @@ export function DashboardShell() {
       </a>
 
       <main
-        id="dashboard-main"
         className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6"
+        id="dashboard-main"
       >
         <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
           className="flex flex-1 flex-col gap-4"
+          onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+          value={activeTab}
         >
           <TopBar />
 
@@ -438,19 +393,14 @@ export function DashboardShell() {
 
                   return (
                     <TabsTrigger
+                      className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
                       key={tab.value}
                       value={tab.value}
-                      className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
                     >
                       <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                        <Icon
-                          suppressHydrationWarning
-                          className="size-5 shrink-0"
-                        />
+                        <Icon className="size-5 shrink-0" suppressHydrationWarning />
                         <span className="flex min-w-0 flex-col">
-                          <span className="text-base font-semibold">
-                            {tab.label}
-                          </span>
+                          <span className="text-base font-semibold">{tab.label}</span>
                           <span className="text-xs font-normal text-current/72">
                             {tab.helper}
                           </span>
@@ -467,12 +417,16 @@ export function DashboardShell() {
             <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
             <PreviewCanvas
               canGenerate={controller.canGenerate}
+              className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
               disabledReason={controller.disabledReason}
               isBusy={controller.isBusy}
               onCancelRun={controller.handleCancel}
-              onGenerate={controller.handleGenerate}
-              onReviewUpdate={controller.handleReviewUpdate}
-              className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
+              onGenerate={async () => {
+                setPreviewVariantId(null)
+                await controller.handleGenerate()
+              }}
+              previewVariantId={resolvedPreviewVariantId}
+              setPreviewVariantId={setPreviewVariantId}
             />
             <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
             {activeTab === 'video' ? (
@@ -495,7 +449,7 @@ function TopBar() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background text-foreground">
-            <Clapperboard suppressHydrationWarning className="size-5" />
+            <Clapperboard className="size-5" suppressHydrationWarning />
           </div>
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold">Evermedia UGC</p>
@@ -535,10 +489,7 @@ function HeaderMetricCard({
       <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">
         {value}
       </p>
-      <p
-        className="mt-1 truncate text-xs text-muted-foreground"
-        title={helper}
-      >
+      <p className="mt-1 truncate text-xs text-muted-foreground" title={helper}>
         {helper}
       </p>
     </div>
@@ -548,16 +499,15 @@ function HeaderMetricCard({
 function ReferenceWorkspaceSection({ className }: { className?: string }) {
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
-  const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
+  const clearProductSlot = useGenerationStore((state) => state.clearProductSlot)
   const resetGenerationState = useGenerationStore(
     (state) => state.resetGenerationState,
   )
+  const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
   const setProductSlotFile = useGenerationStore(
     (state) => state.setProductSlotFile,
   )
-  const clearProductSlot = useGenerationStore((state) => state.clearProductSlot)
-  const projectContext = useOptionalStudioProjectContext()
   const productSlots = products.slice(0, 2)
 
   return (
@@ -565,19 +515,12 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <SectionHeader
+            description="Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan."
             eyebrow="Reference board"
             title="Build the input set"
-            description="Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan."
           />
           <Button
-            onClick={() => {
-              if (projectContext) {
-                void projectContext.resetProjectBoard()
-                return
-              }
-
-              resetGenerationState()
-            }}
+            onClick={() => resetGenerationState()}
             size="sm"
             variant="ghost"
           >
@@ -590,26 +533,12 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
             <ReferenceCardGroup title="People">
               {peopleReferenceCards.map((asset) => (
                 <ReferenceCard
-                  key={asset.key}
                   icon={asset.icon}
                   inputId={`asset-${asset.key}`}
+                  key={asset.key}
+                  onClear={() => clearNamedAsset(asset.key)}
+                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
                   slot={assets[asset.key]}
-                  onClear={() => {
-                    if (projectContext) {
-                      void projectContext.clearNamedAsset(asset.key)
-                      return
-                    }
-
-                    clearNamedAsset(asset.key)
-                  }}
-                  onSelect={(file) => {
-                    if (projectContext) {
-                      void projectContext.stageNamedAsset(asset.key, file)
-                      return
-                    }
-
-                    setNamedAssetFile(asset.key, file)
-                  }}
                 />
               ))}
             </ReferenceCardGroup>
@@ -617,54 +546,26 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
             <ReferenceCardGroup title="Style & Environment">
               {styleReferenceCards.map((asset) => (
                 <ReferenceCard
-                  key={asset.key}
                   icon={asset.icon}
                   inputId={`asset-${asset.key}`}
+                  key={asset.key}
+                  onClear={() => clearNamedAsset(asset.key)}
+                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
                   slot={assets[asset.key]}
-                  onClear={() => {
-                    if (projectContext) {
-                      void projectContext.clearNamedAsset(asset.key)
-                      return
-                    }
-
-                    clearNamedAsset(asset.key)
-                  }}
-                  onSelect={(file) => {
-                    if (projectContext) {
-                      void projectContext.stageNamedAsset(asset.key, file)
-                      return
-                    }
-
-                    setNamedAssetFile(asset.key, file)
-                  }}
                 />
               ))}
             </ReferenceCardGroup>
           </div>
 
-          <ReferenceCardGroup title="Products" className="xl:self-start">
+          <ReferenceCardGroup className="xl:self-start" title="Products">
             {productSlots.map((product) => (
               <ReferenceCard
-                key={product.id}
                 icon={Package2}
                 inputId={`product-${product.id}`}
+                key={product.id}
+                onClear={() => clearProductSlot(product.id)}
+                onSelect={(file) => setProductSlotFile(product.id, file)}
                 slot={product}
-                onClear={() => {
-                  if (projectContext) {
-                    void projectContext.clearProductAsset(product.id)
-                    return
-                  }
-
-                  clearProductSlot(product.id)
-                }}
-                onSelect={(file) => {
-                  if (projectContext) {
-                    void projectContext.stageProductAsset(product.id, file)
-                    return
-                  }
-
-                  setProductSlotFile(product.id, file)
-                }}
               />
             ))}
           </ReferenceCardGroup>
@@ -676,12 +577,12 @@ function ReferenceWorkspaceSection({ className }: { className?: string }) {
 
 function RefineRenderSection({ className }: { className?: string }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
+  const creativeStyle = useGenerationStore((state) => state.creativeStyle)
+  const setCreativeStyle = useGenerationStore((state) => state.setCreativeStyle)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const setProductCategory = useGenerationStore(
     (state) => state.setProductCategory,
   )
-  const creativeStyle = useGenerationStore((state) => state.creativeStyle)
-  const setCreativeStyle = useGenerationStore((state) => state.setCreativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
   const setSubjectMode = useGenerationStore((state) => state.setSubjectMode)
   const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
@@ -712,33 +613,33 @@ function RefineRenderSection({ className }: { className?: string }) {
     <section className={cn(panelClassName, 'preset-surface p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-3">
         <SectionHeader
+          description="Set the structured preset first, then add any optional free-form direction."
           eyebrow="Preset"
           title="Build the generation preset"
-          description="Set the structured preset first, then add any optional free-form direction."
         />
 
         <div className="grid gap-4 xl:grid-cols-12 xl:gap-x-4">
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-4')}
-            title="Subject Configuration"
             description="Person present or product-only."
+            title="Subject Configuration"
           >
             <ToggleGroup
               aria-label="Subject Configuration"
-              type="single"
-              value={subjectMode}
               className="grid w-full grid-cols-2 gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setSubjectMode(value as SubjectMode)
                 }
               }}
+              type="single"
+              value={subjectMode}
             >
               {subjectModes.map((mode) => (
                 <ToggleGroupItem
+                  className={presetCompactTileClassName}
                   key={mode.value}
                   value={mode.value}
-                  className={presetCompactTileClassName}
                 >
                   {mode.label}
                 </ToggleGroupItem>
@@ -752,25 +653,25 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-4')}
-            title="Photography Style"
             description="High-level visual language."
+            title="Photography Style"
           >
             <ToggleGroup
               aria-label="Creative Style"
-              type="single"
-              value={creativeStyle}
               className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setCreativeStyle(value as CreativeStyle)
                 }
               }}
+              type="single"
+              value={creativeStyle}
             >
               {creativeStyles.map((style) => (
                 <ToggleGroupItem
+                  className={presetCompactTileClassName}
                   key={style.value}
                   value={style.value}
-                  className={presetCompactTileClassName}
                 >
                   {style.label}
                 </ToggleGroupItem>
@@ -780,30 +681,30 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-4')}
-            title="Shot Environment"
             description="Indoor or outdoor context."
+            title="Shot Environment"
           >
             <ToggleGroup
               aria-label="Shot Environment"
-              type="single"
-              value={shotEnvironment}
               className="grid grid-cols-2 gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setShotEnvironment(value as ShotEnvironment)
                 }
               }}
+              type="single"
+              value={shotEnvironment}
             >
               {shotEnvironments.map((environment) => {
                 const Icon = environment.icon
 
                 return (
                   <ToggleGroupItem
+                    className={cn(presetCompactTileClassName, 'gap-2')}
                     key={environment.value}
                     value={environment.value}
-                    className={cn(presetCompactTileClassName, 'gap-2')}
                   >
-                    <Icon suppressHydrationWarning className="size-4" />
+                    <Icon className="size-4" suppressHydrationWarning />
                     <span>{environment.label}</span>
                   </ToggleGroupItem>
                 )
@@ -817,30 +718,33 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-8')}
-            title="Product Category"
             description="Campaign context for the generated prompt."
+            title="Product Category"
           >
             <ToggleGroup
               aria-label="Product Category"
-              type="single"
-              value={productCategory}
               className="grid grid-cols-[repeat(auto-fit,minmax(11.5rem,1fr))] gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setProductCategory(value as ProductCategory)
                 }
               }}
+              type="single"
+              value={productCategory}
             >
               {productCategories.map((category) => {
                 const Icon = category.icon
 
                 return (
                   <ToggleGroupItem
+                    className={cn(
+                      presetTileClassName,
+                      'justify-start gap-2 text-left',
+                    )}
                     key={category.value}
                     value={category.value}
-                    className={cn(presetTileClassName, 'justify-start gap-2 text-left')}
                   >
-                    <Icon suppressHydrationWarning className="size-4" />
+                    <Icon className="size-4" suppressHydrationWarning />
                     {category.label}
                   </ToggleGroupItem>
                 )
@@ -850,35 +754,34 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-4')}
-            title="Figure Art Direction"
             description="Editorial direction when a person is present."
+            title="Figure Art Direction"
           >
             <ToggleGroup
               aria-label="Figure Art Direction"
-              type="single"
-              value={figureArtDirection}
               className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setFigureArtDirection(value as FigureArtDirection)
                 }
               }}
+              type="single"
+              value={figureArtDirection}
             >
               {figureArtDirections.map((option) => (
                 <ToggleGroupItem
+                  className={presetCompactTileClassName}
+                  disabled={!isLifestyle}
                   key={option.value}
                   value={option.value}
-                  disabled={!isLifestyle}
-                  className={presetCompactTileClassName}
                 >
                   {option.label}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
             <p className="text-xs text-muted-foreground">
-              {figureArtDirections.find(
-                (option) => option.value === figureArtDirection,
-              )?.description ?? 'Choose the figure styling direction.'}
+              {figureArtDirections.find((option) => option.value === figureArtDirection)
+                ?.description ?? 'Choose the figure styling direction.'}
             </p>
             {!isLifestyle ? (
               <p className="text-xs text-muted-foreground">
@@ -889,8 +792,8 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-12')}
-            title="Character Demographics (Auto-Prompt)"
             description="Lifestyle presets can bias cast attributes without changing the reference board."
+            title="Character Demographics (Auto-Prompt)"
           >
             <div
               className={cn(
@@ -902,21 +805,21 @@ function RefineRenderSection({ className }: { className?: string }) {
                 <PresetGroupLabel>Gender</PresetGroupLabel>
                 <ToggleGroup
                   aria-label="Character Gender"
-                  type="single"
-                  value={characterGender}
                   className="grid grid-cols-[repeat(auto-fit,minmax(6.75rem,1fr))] gap-2"
                   onValueChange={(value) => {
                     if (value) {
                       setCharacterGender(value as CharacterGender)
                     }
                   }}
+                  type="single"
+                  value={characterGender}
                 >
                   {characterGenders.map((option) => (
                     <ToggleGroupItem
+                      className={presetCompactTileClassName}
+                      disabled={!isLifestyle}
                       key={option.value}
                       value={option.value}
-                      disabled={!isLifestyle}
-                      className={presetCompactTileClassName}
                     >
                       {option.label}
                     </ToggleGroupItem>
@@ -928,28 +831,27 @@ function RefineRenderSection({ className }: { className?: string }) {
                 <PresetGroupLabel>Age Group</PresetGroupLabel>
                 <ToggleGroup
                   aria-label="Character Age Group"
-                  type="single"
-                  value={characterAgeGroup}
                   className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2"
                   onValueChange={(value) => {
                     if (value) {
                       setCharacterAgeGroup(value as CharacterAgeGroup)
                     }
                   }}
+                  type="single"
+                  value={characterAgeGroup}
                 >
                   {characterAgeGroups.map((option) => (
                     <ToggleGroupItem
+                      className={presetCompactTileClassName}
+                      disabled={!isLifestyle}
                       key={option.value}
                       value={option.value}
-                      disabled={!isLifestyle}
-                      className={presetCompactTileClassName}
                     >
                       {option.label}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
               </div>
-
             </div>
             {!isLifestyle ? (
               <p className="text-xs text-muted-foreground">
@@ -960,8 +862,8 @@ function RefineRenderSection({ className }: { className?: string }) {
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-12')}
-            title="Additional Instructions"
             description="Optional free-form direction appended after the structured preset."
+            title="Additional Instructions"
           >
             <Textarea
               aria-label={
@@ -971,9 +873,9 @@ function RefineRenderSection({ className }: { className?: string }) {
               }
               autoComplete="off"
               className="preset-textarea"
+              onChange={(event) => setTextPrompt(event.target.value)}
               placeholder="Add any extra creative direction, for example: dramatic backlight, golden hour, neon rim light…"
               value={textPrompt}
-              onChange={(event) => setTextPrompt(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               Use this only for direction that does not fit the preset controls.
@@ -1004,40 +906,39 @@ function MotionControlsSection({ className }: { className?: string }) {
     (state) => state.setCameraMovement,
   )
   const endFrame = useGenerationStore((state) => state.assets.endFrame)
-  const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
-  const projectContext = useOptionalStudioProjectContext()
+  const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-5">
         <SectionHeader
+          description="These settings stay after the reference board because they only matter once the input set and brief are established."
           eyebrow="Motion controls"
           title="Tune video behavior"
-          description="These settings stay after the reference board because they only matter once the input set and brief are established."
         />
 
         <div className="grid gap-5">
           <ControlGroup
-            title="Clip length"
             description="Maps into the selected provider&apos;s supported duration range."
+            title="Clip length"
           >
             <ToggleGroup
               aria-label="Video Duration"
-              type="single"
-              value={videoDuration}
               className="grid grid-cols-1 gap-2 sm:grid-cols-2"
               onValueChange={(value) => {
                 if (value) {
                   setVideoDuration(value as VideoDuration)
                 }
               }}
+              type="single"
+              value={videoDuration}
             >
               {durations.map((duration) => (
                 <ToggleGroupItem
+                  className={tileClassName}
                   key={duration}
                   value={duration}
-                  className={tileClassName}
                 >
                   {duration === 'base' ? 'Base (~5-8s)' : 'Extended (+7s)'}
                 </ToggleGroupItem>
@@ -1046,25 +947,25 @@ function MotionControlsSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            title="Output resolution"
             description="Resolution preferences are passed through when the model supports them directly."
+            title="Output resolution"
           >
             <ToggleGroup
               aria-label="Output Quality"
-              type="single"
-              value={outputQuality}
               className="grid grid-cols-3 gap-2"
               onValueChange={(value) => {
                 if (value) {
                   setOutputQuality(value as OutputQuality)
                 }
               }}
+              type="single"
+              value={outputQuality}
             >
               {qualities.map((quality) => (
                 <ToggleGroupItem
+                  className={tileClassName}
                   key={quality}
                   value={quality}
-                  className={tileClassName}
                 >
                   {quality}
                 </ToggleGroupItem>
@@ -1079,23 +980,23 @@ function MotionControlsSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            title="Movement language"
             description="Camera movement is treated as a structured prompt modifier."
+            title="Movement language"
           >
             <ToggleGroup
               aria-label="Camera Movement"
-              type="single"
-              value={cameraMovement ?? ''}
               className="grid grid-cols-2 gap-2"
               onValueChange={(value) =>
                 setCameraMovement(value ? (value as CameraMovement) : null)
               }
+              type="single"
+              value={cameraMovement ?? ''}
             >
               {cameraMovements.map((movement) => (
                 <ToggleGroupItem
+                  className={tileClassName}
                   key={movement.value}
                   value={movement.value}
-                  className={tileClassName}
                 >
                   {movement.label}
                 </ToggleGroupItem>
@@ -1104,30 +1005,16 @@ function MotionControlsSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            title="End frame reference"
             description="Only Veo uses end-frame guidance in Phase 2. Other models ignore this slot."
+            title="End frame reference"
           >
             <ReferenceCard
-              className="self-start w-full max-w-[13rem] sm:max-w-[15rem]"
+              className="w-full self-start sm:max-w-[15rem]"
               icon={ScanLine}
               inputId="asset-end-frame"
+              onClear={() => clearNamedAsset('endFrame')}
+              onSelect={(file) => setNamedAssetFile('endFrame', file)}
               slot={endFrame}
-              onClear={() => {
-                if (projectContext) {
-                  void projectContext.clearNamedAsset('endFrame')
-                  return
-                }
-
-                clearNamedAsset('endFrame')
-              }}
-              onSelect={(file) => {
-                if (projectContext) {
-                  void projectContext.stageNamedAsset('endFrame', file)
-                  return
-                }
-
-                setNamedAssetFile('endFrame', file)
-              }}
             />
           </ControlGroup>
         </div>
@@ -1159,20 +1046,19 @@ function ReferenceCard({
   className,
   icon: Icon,
   inputId,
-  slot,
   onClear,
   onSelect,
+  slot,
 }: {
   className?: string
   icon: LucideIcon
   inputId: string
-  slot: AssetSlot
   onClear: () => void
   onSelect: (file: File | null) => void
+  slot: AssetSlot
 }) {
   const previewSrc = getAssetPreviewUrl(slot)
   const hasMedia = Boolean(previewSrc)
-  const isUploading = slot.uploadStatus === 'uploading'
   const errorLabel = getReferenceCardErrorLabel(slot)
 
   return (
@@ -1186,35 +1072,47 @@ function ReferenceCard({
       )}
     >
       <input
-        id={inputId}
-        type="file"
-        accept={imageAccept}
+        accept={assetAccept}
         className="sr-only"
+        id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}
+        type="file"
       />
 
       {previewSrc ? (
-        <ImagePreviewTrigger
-          alt={`${slot.label} reference preview`}
-          className="absolute inset-0 rounded-[1rem]"
-          label={slot.label}
-          src={previewSrc}
-        >
+        slot.mimeType && isImageMimeType(slot.mimeType) ? (
+          <ImagePreviewTrigger
+            alt={`${slot.label} reference preview`}
+            className="absolute inset-0 rounded-[1rem]"
+            label={slot.label}
+            src={previewSrc}
+          >
+            <div className="absolute inset-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={`${slot.label} reference preview`}
+                className="h-full w-full object-contain p-2.5"
+                loading="lazy"
+                src={previewSrc}
+              />
+            </div>
+          </ImagePreviewTrigger>
+        ) : (
           <div className="absolute inset-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt={`${slot.label} reference preview`}
+            <video
               className="h-full w-full object-contain p-2.5"
-              loading="lazy"
+              controls
+              playsInline
+              preload="metadata"
               src={previewSrc}
             />
           </div>
-        </ImagePreviewTrigger>
+        )
       ) : (
         <div className="absolute inset-0">
           <div className="flex h-full flex-col items-center justify-center gap-2.5 px-3 text-center">
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-secondary/80 text-muted-foreground">
-              <Icon suppressHydrationWarning className="size-4.5" />
+              <Icon className="size-4.5" suppressHydrationWarning />
             </div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/88">
               {slot.label}
@@ -1234,46 +1132,34 @@ function ReferenceCard({
       {hasMedia ? (
         <Button
           aria-label={`Clear ${slot.label}`}
+          className="absolute right-2.5 top-2.5 z-10 size-7 rounded-full border border-border/80 bg-background/92 shadow-sm backdrop-blur hover:bg-background"
           onClick={onClear}
           size="icon"
           type="button"
           variant="secondary"
-          className="absolute right-2.5 top-2.5 z-10 size-7 rounded-full border border-border/80 bg-background/92 shadow-sm backdrop-blur hover:bg-background"
         >
-          <X suppressHydrationWarning className="size-3.5" />
+          <X className="size-3.5" suppressHydrationWarning />
         </Button>
       ) : (
         <div className="absolute inset-x-2.5 bottom-2.5 flex justify-center">
           <Button
             asChild
+            className="reference-upload-chip h-8 rounded-full border border-border/80 bg-background/92 px-3.5 text-xs shadow-sm backdrop-blur"
             size="sm"
             variant="secondary"
-            className="reference-upload-chip h-8 rounded-full border border-border/80 bg-background/92 px-3.5 text-xs shadow-sm backdrop-blur"
           >
             <label
               htmlFor={inputId}
+              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
               role="button"
               tabIndex={0}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
             >
-              <Upload suppressHydrationWarning data-icon="inline-start" />
+              <Upload data-icon="inline-start" suppressHydrationWarning />
               Upload
             </label>
           </Button>
         </div>
       )}
-
-      {isUploading ? (
-        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-background/78 backdrop-blur-sm">
-          <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm">
-            <LoaderCircle
-              suppressHydrationWarning
-              className="size-3.5 animate-spin"
-            />
-            Uploading
-          </div>
-        </div>
-      ) : null}
 
       {errorLabel ? (
         <div className="absolute left-2.5 top-2.5 z-[1]">
@@ -1291,28 +1177,28 @@ function ReferenceCard({
 
 function PreviewCanvas({
   canGenerate,
+  className,
   disabledReason,
   isBusy,
   onCancelRun,
   onGenerate,
-  onReviewUpdate,
-  className,
+  previewVariantId,
+  setPreviewVariantId,
 }: {
   canGenerate: boolean
+  className?: string
   disabledReason: string | null
   isBusy: boolean
   onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
-  onReviewUpdate: (input: {
-    reviewNotes?: string | null
-    reviewStatus?: GenerationReviewStatus
-    selectedForDelivery?: boolean
-    setHero?: boolean
-    variantId: string
-  }) => Promise<void>
-  className?: string
+  previewVariantId: string | null
+  setPreviewVariantId: (variantId: string | null) => void
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
+  const assets = useGenerationStore((state) => state.assets)
+  const products = useGenerationStore((state) => state.products)
+  const batchSize = useGenerationStore((state) => state.batchSize)
+  const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
   const videoModel = useGenerationStore((state) => state.videoModel)
@@ -1328,11 +1214,7 @@ function PreviewCanvas({
   const figureArtDirection = useGenerationStore(
     (state) => state.figureArtDirection,
   )
-  const batchSize = useGenerationStore((state) => state.batchSize)
-  const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
-  const assets = useGenerationStore((state) => state.assets)
-  const products = useGenerationStore((state) => state.products)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const generationRun = useGenerationStore((state) => state.generationRun)
 
@@ -1348,9 +1230,9 @@ function PreviewCanvas({
       ? getImageModelLabel(imageModel)
       : getVideoModelLabel(videoModel)
   const primaryInputLabel = getPrimaryInputSummary({
-    subjectMode,
     assets,
     products,
+    subjectMode,
     textPrompt,
   })
   const characterPresetLabel = getCharacterPresetSummary({
@@ -1360,8 +1242,7 @@ function PreviewCanvas({
     subjectMode,
   })
   const runMatchesWorkspace = generationRun.workspace === activeTab
-  const activeRunInWorkspace =
-    runMatchesWorkspace && hasActiveGeneration(generationRun)
+  const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
   const generationFooterMessage =
     !runMatchesWorkspace || generationRun.status === 'idle'
       ? getGenerationHelperMessage(disabledReason, generationRun)
@@ -1436,9 +1317,10 @@ function PreviewCanvas({
               <PreviewStage
                 activeTab={activeTab}
                 loadedAssets={loadedAssets.length}
-                onReviewUpdate={onReviewUpdate}
+                previewVariantId={previewVariantId}
                 runMatchesWorkspace={runMatchesWorkspace}
                 runState={generationRun}
+                setPreviewVariantId={setPreviewVariantId}
               />
             </div>
           </div>
@@ -1455,20 +1337,20 @@ function PreviewCanvas({
                 </p>
                 <ToggleGroup
                   aria-label="Batch Size"
-                  type="single"
-                  value={String(batchSize)}
                   className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
                   onValueChange={(value) => {
                     if (value) {
                       setBatchSize(Number(value) as BatchSize)
                     }
                   }}
+                  type="single"
+                  value={String(batchSize)}
                 >
                   {batchSizes.map((size) => (
                     <ToggleGroupItem
+                      className="min-h-14 w-full justify-center px-2.5"
                       key={size}
                       value={String(size)}
-                      className="min-h-14 w-full justify-center px-2.5"
                     >
                       <span className="flex flex-col items-center gap-0.5">
                         <span className="text-sm font-semibold">{size}x</span>
@@ -1493,7 +1375,9 @@ function PreviewCanvas({
                   </p>
                 ) : null}
 
-                <div className={cn(generationFooterMessage ? 'mt-4' : 'mt-2', 'grid gap-2.5')}>
+                <div
+                  className={cn(generationFooterMessage ? 'mt-4' : 'mt-2', 'grid gap-2.5')}
+                >
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       {activeTab === 'image' ? 'Image model' : 'Video model'}
@@ -1506,10 +1390,10 @@ function PreviewCanvas({
                   {activeTab === 'image' ? (
                     <Select
                       aria-label="Image Model"
-                      value={imageModel}
                       onChange={(event) =>
                         setImageModel(event.target.value as ImageModelOption)
                       }
+                      value={imageModel}
                     >
                       {imageModels.map((model) => (
                         <option key={model.value} value={model.value}>
@@ -1520,10 +1404,10 @@ function PreviewCanvas({
                   ) : (
                     <Select
                       aria-label="Video Model"
-                      value={videoModel}
                       onChange={(event) =>
                         setVideoModel(event.target.value as VideoModelOption)
                       }
+                      value={videoModel}
                     >
                       {videoModels.map((model) => (
                         <option key={model.value} value={model.value}>
@@ -1550,10 +1434,7 @@ function PreviewCanvas({
                       size="sm"
                       variant="ghost"
                     >
-                      <CircleSlash
-                        suppressHydrationWarning
-                        data-icon="inline-start"
-                      />
+                      <CircleSlash data-icon="inline-start" suppressHydrationWarning />
                       Cancel Run
                     </Button>
                   ) : null}
@@ -1567,15 +1448,12 @@ function PreviewCanvas({
                   >
                     {isBusy ? (
                       <LoaderCircle
-                        suppressHydrationWarning
-                        data-icon="inline-start"
                         className="animate-spin"
+                        data-icon="inline-start"
+                        suppressHydrationWarning
                       />
                     ) : (
-                      <WandSparkles
-                        suppressHydrationWarning
-                        data-icon="inline-start"
-                      />
+                      <WandSparkles data-icon="inline-start" suppressHydrationWarning />
                     )}
                     {getGenerateButtonLabel(generationRun, batchSize)}
                   </Button>
@@ -1592,136 +1470,43 @@ function PreviewCanvas({
 function PreviewStage({
   activeTab,
   loadedAssets,
-  onReviewUpdate,
+  previewVariantId,
   runMatchesWorkspace,
   runState,
+  setPreviewVariantId,
 }: {
   activeTab: WorkspaceTab
   loadedAssets: number
-  onReviewUpdate: (input: {
-    reviewNotes?: string | null
-    reviewStatus?: GenerationReviewStatus
-    selectedForDelivery?: boolean
-    setHero?: boolean
-    variantId: string
-  }) => Promise<void>
+  previewVariantId: string | null
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
+  setPreviewVariantId: (variantId: string | null) => void
 }) {
-  const projectContext = useOptionalStudioProjectContext()
   const selectGenerationVariant = useGenerationStore(
     (state) => state.selectGenerationVariant,
   )
-  const [reviewFilter, setReviewFilter] = useState<'all' | GenerationReviewStatus>(
-    'all',
-  )
-  const [detailPanel, setDetailPanel] = useState<'prompt' | 'notes'>('prompt')
-  const [noteEditor, setNoteEditor] = useState<{
-    text: string
-    variantId: string | null
-  }>({
-    text: '',
-    variantId: null,
-  })
   const selectedVariant = runMatchesWorkspace
-    ? getSelectedRunVariant(runState)
+    ? getSelectedRunVariant(runState, previewVariantId)
     : null
   const totalVariants = runState.variants.length
   const completedVariants = getCompletedVariantCount(runState)
   const failedVariants = getFailedVariantCount(runState)
   const activeTaskCount = getActiveTaskCount(runState)
   const runSummaryItems = [`${completedVariants}/${totalVariants} complete`]
+
   if (failedVariants > 0) {
     runSummaryItems.push(`${failedVariants} failed`)
   }
+
   if (activeTaskCount > 0) {
     runSummaryItems.push(`${activeTaskCount} active`)
-  }
-  const filteredVariants = runState.variants.filter((variant) => {
-    if (reviewFilter === 'all') {
-      return true
-    }
-
-    if (reviewFilter === 'rejected') {
-      return (
-        variant.reviewStatus === 'rejected' ||
-        variant.status === 'error' ||
-        variant.status === 'cancelled'
-      )
-    }
-
-    return variant.status === 'success' && variant.reviewStatus === reviewFilter
-  })
-  const deliverables = useMemo(() => {
-    const currentProject = projectContext?.currentProject
-
-    if (!currentProject) {
-      return []
-    }
-
-    const outputMap = new Map(
-      currentProject.outputAssets.map((asset) => [asset.id, asset] as const),
-    )
-
-    return currentProject.runs.flatMap((run) =>
-      run.variants
-        .filter(
-          (variant) =>
-            Boolean(variant.resultAssetId) &&
-            (variant.selectedForDelivery || variant.isHero || variant.reviewStatus === 'approved'),
-        )
-        .map((variant) => {
-          const asset = variant.resultAssetId
-            ? outputMap.get(variant.resultAssetId)
-            : null
-
-          if (!asset) {
-            return null
-          }
-
-          return {
-            assetId: asset.id,
-            isHero: variant.isHero,
-            label: asset.label,
-            mimeType: asset.mimeType,
-            reviewStatus: variant.reviewStatus,
-            variantIndex: variant.variantIndex,
-          }
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
-    )
-  }, [projectContext?.currentProject])
-  const noteDraft =
-    noteEditor.variantId === selectedVariant?.variantId
-      ? noteEditor.text
-      : (selectedVariant?.reviewNotes ?? '')
-
-  if (
-    runMatchesWorkspace &&
-    (runState.status === 'queued' ||
-      runState.status === 'uploading' ||
-      runState.status === 'submitting') &&
-    totalVariants === 0
-  ) {
-    return (
-      <PreviewStateCallout
-        body={getRunBodyCopy(runState)}
-        icon={
-          <LoaderCircle
-            suppressHydrationWarning
-            className="size-8 animate-spin"
-          />
-        }
-        title={getRunHeadline(runState)}
-      />
-    )
   }
 
   if (runMatchesWorkspace && totalVariants > 0) {
     return (
       <div className="flex flex-1 flex-col gap-4">
         <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-base font-semibold text-foreground">
                 {getRunHeadline(runState)}
@@ -1730,371 +1515,152 @@ function PreviewStage({
                 {runSummaryItems.join(' · ')}
               </p>
             </div>
-
-            <div>
-              <ToggleGroup
-                aria-label="Review Filter"
-                type="single"
-                value={reviewFilter}
-                onValueChange={(value) => {
-                  if (
-                    value === 'all' ||
-                    value === 'pending' ||
-                    value === 'approved' ||
-                    value === 'rejected'
-                  ) {
-                    setReviewFilter(value)
-                  }
-                }}
-              >
-                {(['all', 'pending', 'approved', 'rejected'] as const).map(
-                  (value) => (
-                    <ToggleGroupItem
-                      key={value}
-                      value={value}
-                      className="min-h-9 px-3"
-                    >
-                      {value === 'all' ? 'All' : getRunStatusLabel(value)}
-                    </ToggleGroupItem>
-                  ),
-                )}
-              </ToggleGroup>
-            </div>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/library">Open Library</Link>
+            </Button>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-background">
-          {selectedVariant?.result ? (
-            <div className="flex flex-col">
-              <div className="relative aspect-[4/5] min-h-[280px] bg-black/20 sm:aspect-video">
-                {selectedVariant.result.type === 'video' ? (
-                  <video
-                    autoPlay
-                    className="h-full w-full object-cover"
-                    controls
-                    loop
-                    playsInline
-                    poster={selectedVariant.result.thumbnailUrl}
-                    src={selectedVariant.result.url}
-                  />
-                ) : (
+        <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(240px,0.82fr)]">
+          <div className="flex min-h-0 flex-col gap-3">
+            {selectedVariant?.result ? (
+              <div className="overflow-hidden rounded-xl border border-border bg-background">
+                {selectedVariant.result.type === 'image' ? (
                   <ImagePreviewTrigger
                     alt={`Generated result for variation ${selectedVariant.index}`}
-                    className="h-full w-full overflow-hidden"
+                    className="block w-full"
                     label={`Variation ${selectedVariant.index}`}
                     src={selectedVariant.result.url}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt={`Generated result for variation ${selectedVariant.index}`}
-                      className="h-full w-full object-cover"
+                      className="aspect-[4/3] w-full object-cover"
                       src={selectedVariant.result.url}
                     />
                   </ImagePreviewTrigger>
-                )}
-              </div>
-
-              <div className="border-t border-border bg-background/95 px-4 py-4">
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Selected output
-                      </p>
-                      <p className="mt-1 text-base font-semibold">
-                        Variation {selectedVariant.index}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {selectedVariant.profile}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        {getRunStatusLabel(selectedVariant.reviewStatus)}
-                      </Badge>
-                      <Badge variant="outline">
-                        {selectedVariant.result.model}
-                      </Badge>
-                      <Badge variant="outline">
-                        Task {selectedVariant.result.taskId.slice(0, 18)}
-                      </Badge>
-                      {selectedVariant.isHero ? (
-                        <Badge variant="secondary">Hero</Badge>
-                      ) : null}
-                      {selectedVariant.selectedForDelivery ? (
-                        <Badge variant="secondary">Deliverable</Badge>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => {
-                        void onReviewUpdate({
-                          reviewStatus: 'approved',
-                          variantId: selectedVariant.variantId,
-                        })
-                      }}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      <Check suppressHydrationWarning data-icon="inline-start" />
-                      Approve
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        void onReviewUpdate({
-                          reviewStatus: 'rejected',
-                          variantId: selectedVariant.variantId,
-                        })
-                      }}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <X suppressHydrationWarning data-icon="inline-start" />
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        void onReviewUpdate({
-                          setHero: !selectedVariant.isHero,
-                          variantId: selectedVariant.variantId,
-                        })
-                      }}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <Star suppressHydrationWarning data-icon="inline-start" />
-                      {selectedVariant.isHero ? 'Hero Pick' : 'Mark Hero'}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        void onReviewUpdate({
-                          selectedForDelivery: !selectedVariant.selectedForDelivery,
-                          variantId: selectedVariant.variantId,
-                        })
-                      }}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <Truck suppressHydrationWarning data-icon="inline-start" />
-                      {selectedVariant.selectedForDelivery
-                        ? 'In Deliverables'
-                        : 'Add Deliverable'}
-                    </Button>
-                  </div>
-
-                  <div className="rounded-lg border border-border bg-secondary/50 p-3">
-                    <div className="flex flex-col gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          Variation details
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Keep the prompt and review notes attached to the selected
-                          output.
-                        </p>
-                      </div>
-
-                      <ToggleGroup
-                        aria-label="Detail View"
-                        type="single"
-                        value={detailPanel}
-                        onValueChange={(value) => {
-                          if (value === 'prompt' || value === 'notes') {
-                            setDetailPanel(value)
-                          }
-                        }}
-                      >
-                        <ToggleGroupItem value="prompt" className="min-h-9 px-3">
-                          Prompt
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="notes" className="min-h-9 px-3">
-                          Notes
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-
-                    {detailPanel === 'prompt' ? (
-                      <p className="mt-3 max-h-28 overflow-auto pr-1 text-sm leading-6 text-foreground/88">
-                        {selectedVariant.prompt}
-                      </p>
-                    ) : (
-                      <div className="mt-3">
-                        <Textarea
-                          className="min-h-24"
-                          value={noteDraft}
-                          onChange={(event) =>
-                            setNoteEditor({
-                              text: event.target.value,
-                              variantId: selectedVariant.variantId,
-                            })
-                          }
-                        />
-                        <div className="mt-3 flex justify-end">
-                          <Button
-                            onClick={() => {
-                              void onReviewUpdate({
-                                reviewNotes: noteDraft,
-                                variantId: selectedVariant.variantId,
-                              })
-                              setNoteEditor({
-                                text: noteDraft,
-                                variantId: selectedVariant.variantId,
-                              })
-                            }}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            Save Notes
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <PreviewStateCallout
-              body={getRunBodyCopy(runState)}
-              icon={
-                runState.status === 'error' ? (
-                  <AlertTriangle
-                    suppressHydrationWarning
-                    className="size-8"
-                  />
-                ) : runState.status === 'cancelled' ? (
-                  <CircleSlash
-                    suppressHydrationWarning
-                    className="size-8"
-                  />
                 ) : (
-                  <LoaderCircle
-                    suppressHydrationWarning
-                    className="size-8 animate-spin"
+                  <video
+                    className="aspect-[4/3] w-full bg-black object-cover"
+                    controls
+                    playsInline
+                    preload="metadata"
+                    src={selectedVariant.result.url}
                   />
-                )
-              }
-              tone={
-                runState.status === 'error' || runState.status === 'cancelled'
-                  ? 'destructive'
-                  : 'default'
-              }
-              title={getRunHeadline(runState)}
-            />
-          )}
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          {filteredVariants.map((variant) => {
-            const isSelected = selectedVariant?.variantId === variant.variantId
-            const isInteractive =
-              variant.status === 'success' && Boolean(variant.result)
-
-            return (
-              <button
-                key={variant.variantId}
-                className={cn(
-                  'flex min-h-28 w-full flex-col items-start rounded-lg border bg-background p-3 text-left transition-colors',
-                  isSelected
-                    ? 'border-foreground/45 bg-secondary'
-                    : 'border-border hover:border-foreground/25',
-                  !isInteractive ? 'cursor-default' : 'cursor-pointer',
                 )}
-                disabled={!isInteractive}
+              </div>
+            ) : selectedVariant ? (
+              <PreviewStateCallout
+                body={
+                  selectedVariant.error ??
+                  'This variation is still waiting on the provider. The panel refreshes automatically while generation is active.'
+                }
+                icon={
+                  runState.status === 'error' ? (
+                    <AlertTriangle className="size-8" suppressHydrationWarning />
+                  ) : (
+                    <LoaderCircle
+                      className={cn(
+                        'size-8',
+                        runState.status === 'rendering' && 'animate-spin',
+                      )}
+                      suppressHydrationWarning
+                    />
+                  )
+                }
+                title={`Variation ${selectedVariant.index}`}
+                tone={runState.status === 'error' ? 'destructive' : 'default'}
+              />
+            ) : null}
+
+            {selectedVariant ? (
+              <div className={cn(insetPanelClassName, 'p-3.5')}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Variation {selectedVariant.index}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {selectedVariant.result?.taskId ??
+                        selectedVariant.taskId ??
+                        'Awaiting provider task'}
+                    </p>
+                  </div>
+                  <Badge variant={getVariantBadgeVariant(selectedVariant.status)}>
+                    {humanize(selectedVariant.status)}
+                  </Badge>
+                </div>
+
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {selectedVariant.profile}
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <StatusPill
+                    label="Model"
+                    value={
+                      selectedVariant.result?.model ??
+                      runState.model ??
+                      (activeTab === 'image' ? 'Image run' : 'Video run')
+                    }
+                  />
+                  <StatusPill
+                    label="Status"
+                    value={humanize(selectedVariant.status)}
+                  />
+                </div>
+
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {selectedVariant.prompt}
+                </p>
+
+                {selectedVariant.error ? (
+                  <p className="mt-3 text-sm text-destructive">
+                    {selectedVariant.error}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-2">
+            {runState.variants.map((variant) => (
+              <button
+                className={cn(
+                  rowClassName,
+                  'p-3 text-left transition-colors',
+                  selectedVariant?.variantId === variant.variantId
+                    ? 'border-foreground/30 bg-secondary'
+                    : 'hover:border-foreground/20',
+                )}
+                key={variant.variantId}
                 onClick={() => {
+                  setPreviewVariantId(variant.variantId)
                   selectGenerationVariant(variant.variantId)
                 }}
                 type="button"
               >
-                <div className="flex w-full items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      Variation {variant.index}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {variant.profile}
-                    </p>
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-foreground">
+                    Variation {variant.index}
+                  </span>
                   <Badge variant={getVariantBadgeVariant(variant.status)}>
-                    {getRunStatusLabel(variant.status)}
+                    {humanize(variant.status)}
                   </Badge>
                 </div>
-
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {variant.taskId
-                    ? `Task ${variant.taskId.slice(0, 18)}`
-                    : variant.error ?? 'Task creation did not complete.'}
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {variant.profile}
                 </p>
-
-                <p className="mt-2 text-sm leading-6 text-foreground/86">
-                  {variant.status === 'success' && variant.result
-                    ? 'Ready to review in the spotlight.'
-                    : variant.status === 'queued'
-                      ? 'Queued for the background worker to claim.'
-                    : variant.status === 'error'
-                      ? variant.error ?? 'This variation failed upstream.'
-                      : variant.status === 'cancelled'
-                        ? 'This variation was cancelled before completion.'
-                        : 'Provider task is still rendering.'}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {variant.result?.taskId ??
+                    variant.taskId ??
+                    variant.error ??
+                    'Awaiting provider task'}
                 </p>
-                {variant.status === 'success' ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      {getRunStatusLabel(variant.reviewStatus)}
-                    </Badge>
-                    {variant.isHero ? <Badge variant="secondary">Hero</Badge> : null}
-                    {variant.selectedForDelivery ? (
-                      <Badge variant="secondary">Deliverable</Badge>
-                    ) : null}
-                  </div>
-                ) : null}
               </button>
-            )
-          })}
-        </div>
-
-        {deliverables.length > 0 ? (
-          <div className="rounded-xl border border-border bg-background p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Deliverables
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Approved outputs promoted from this project’s persisted run history.
-                </p>
-              </div>
-              <Badge variant="outline">{deliverables.length} selected</Badge>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {deliverables.map((deliverable) => (
-                <article
-                  key={deliverable.assetId}
-                  className="overflow-hidden rounded-xl border border-border bg-card"
-                >
-                  <StudioDeliverableMedia
-                    alt={deliverable.label}
-                    label={deliverable.label}
-                    mimeType={deliverable.mimeType}
-                    src={getMediaAssetUrl(deliverable.assetId)}
-                  />
-                  <div className="flex flex-wrap items-start justify-between gap-3 p-3">
-                    <div>
-                      <p className="font-medium text-foreground">{deliverable.label}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Variation {deliverable.variantIndex} · {getRunStatusLabel(deliverable.reviewStatus)}
-                      </p>
-                    </div>
-                    {deliverable.isHero ? <Badge variant="secondary">Hero</Badge> : null}
-                  </div>
-                </article>
-              ))}
-            </div>
+            ))}
           </div>
-        ) : null}
+        </div>
       </div>
     )
   }
@@ -2103,9 +1669,9 @@ function PreviewStage({
     return (
       <PreviewStateCallout
         body={runState.error ?? 'The provider rejected this request.'}
-        icon={<AlertTriangle suppressHydrationWarning className="size-8" />}
-        tone="destructive"
+        icon={<AlertTriangle className="size-8" suppressHydrationWarning />}
         title="Generation stopped before completion"
+        tone="destructive"
       />
     )
   }
@@ -2114,9 +1680,9 @@ function PreviewStage({
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="flex size-16 items-center justify-center rounded-xl border border-border bg-secondary text-foreground">
         {activeTab === 'video' ? (
-          <Film suppressHydrationWarning className="size-8" />
+          <Film className="size-8" suppressHydrationWarning />
         ) : (
-          <ImageIcon suppressHydrationWarning className="size-8" />
+          <ImageIcon className="size-8" suppressHydrationWarning />
         )}
       </div>
 
@@ -2163,9 +1729,7 @@ function PreviewStateCallout({
         <p className="text-balance font-display text-xl font-semibold sm:text-2xl">
           {title}
         </p>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {body}
-        </p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
       </div>
     </div>
   )
@@ -2228,13 +1792,13 @@ function ControlGroup({
 }
 
 function SectionHeader({
+  description,
   eyebrow,
   title,
-  description,
 }: {
+  description: string
   eyebrow: string
   title: string
-  description: string
 }) {
   return (
     <div className="min-w-0">
@@ -2252,33 +1816,34 @@ function SectionHeader({
 }
 
 function useGenerationController() {
-  const projectContext = useOptionalStudioProjectContext()
   const activeTab = useGenerationStore((state) => state.activeTab)
-  const imageModel = useGenerationStore((state) => state.imageModel)
-  const videoModel = useGenerationStore((state) => state.videoModel)
-  const productCategory = useGenerationStore((state) => state.productCategory)
-  const creativeStyle = useGenerationStore((state) => state.creativeStyle)
-  const subjectMode = useGenerationStore((state) => state.subjectMode)
-  const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
-  const characterGender = useGenerationStore((state) => state.characterGender)
+  const assets = useGenerationStore((state) => state.assets)
+  const batchSize = useGenerationStore((state) => state.batchSize)
+  const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const characterAgeGroup = useGenerationStore(
     (state) => state.characterAgeGroup,
   )
+  const characterGender = useGenerationStore((state) => state.characterGender)
+  const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const figureArtDirection = useGenerationStore(
     (state) => state.figureArtDirection,
   )
-  const batchSize = useGenerationStore((state) => state.batchSize)
-  const textPrompt = useGenerationStore((state) => state.textPrompt)
-  const videoDuration = useGenerationStore((state) => state.videoDuration)
-  const outputQuality = useGenerationStore((state) => state.outputQuality)
-  const cameraMovement = useGenerationStore((state) => state.cameraMovement)
-  const assets = useGenerationStore((state) => state.assets)
-  const products = useGenerationStore((state) => state.products)
   const generationRun = useGenerationStore((state) => state.generationRun)
   const hydrateGenerationRun = useGenerationStore(
     (state) => state.hydrateGenerationRun,
   )
-  const lastTerminalRefreshRef = useRef<string | null>(null)
+  const imageModel = useGenerationStore((state) => state.imageModel)
+  const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const productCategory = useGenerationStore((state) => state.productCategory)
+  const products = useGenerationStore((state) => state.products)
+  const setGenerationError = useGenerationStore(
+    (state) => state.setGenerationError,
+  )
+  const shotEnvironment = useGenerationStore((state) => state.shotEnvironment)
+  const subjectMode = useGenerationStore((state) => state.subjectMode)
+  const textPrompt = useGenerationStore((state) => state.textPrompt)
+  const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoModel = useGenerationStore((state) => state.videoModel)
 
   const validation = useMemo(
     () =>
@@ -2328,22 +1893,18 @@ function useGenerationController() {
     : validation.reason
 
   useEffect(() => {
-    if (
-      !generationRun.projectId ||
-      !generationRun.runId ||
-      !hasPollingRunStatus(generationRun.status)
-    ) {
+    const runId = generationRun.runId
+
+    if (!runId || generationRun.status !== 'rendering') {
       return
     }
 
     let isCancelled = false
-    const projectId = generationRun.projectId
-    const runId = generationRun.runId
 
     const pollRunState = async () => {
       try {
         const response = await fetch(
-          `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}`,
+          `/api/generation/runs/${encodeURIComponent(runId)}`,
           {
             cache: 'no-store',
           },
@@ -2355,40 +1916,23 @@ function useGenerationController() {
             }
           | null
 
-        if (!response.ok || !payload?.run) {
-          throw new Error(payload?.error ?? 'Unable to refresh run status.')
-        }
+        if (!response.ok || !payload?.run || isCancelled) {
+          if (!response.ok) {
+            throw new Error(payload?.error ?? 'Unable to refresh run status.')
+          }
 
-        if (isCancelled) {
           return
         }
 
-        if (payload.run.uploadedAssets.length > 0) {
-          applyUploadedAssetState(payload.run.uploadedAssets)
-        }
-
         hydrateGenerationRun(payload.run)
-
-        if (
-          projectContext &&
-          payload.run.projectId &&
-          isTerminalGenerationStatus(payload.run.status)
-        ) {
-          const terminalKey = `${payload.run.runId}:${payload.run.status}:${payload.run.completedAt ?? ''}`
-
-          if (lastTerminalRefreshRef.current !== terminalKey) {
-            lastTerminalRefreshRef.current = terminalKey
-            await projectContext.refreshProject(payload.run.projectId).catch(
-              () => undefined,
-            )
-          }
-        }
       } catch (error) {
-        useGenerationStore.getState().setGenerationError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to refresh run status.',
-        )
+        if (!isCancelled) {
+          setGenerationError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to refresh run status.',
+          )
+        }
       }
     }
 
@@ -2396,63 +1940,65 @@ function useGenerationController() {
 
     const interval = window.setInterval(() => {
       void pollRunState()
-    }, projectRunPollIntervalMs)
+    }, runPollIntervalMs)
 
     return () => {
       isCancelled = true
       window.clearInterval(interval)
     }
-  }, [
-    generationRun.projectId,
-    generationRun.runId,
-    generationRun.status,
-    hydrateGenerationRun,
-    projectContext,
-  ])
+  }, [generationRun.runId, generationRun.status, hydrateGenerationRun, setGenerationError])
 
   const handleGenerate = async () => {
     const state = useGenerationStore.getState()
-    const currentValidation = getGenerationValidation(state)
+    const currentValidation = getGenerationValidation({
+      activeTab: state.activeTab,
+      assets: state.assets,
+      batchSize: state.batchSize,
+      cameraMovement: state.cameraMovement,
+      characterAgeGroup: state.characterAgeGroup,
+      characterGender: state.characterGender,
+      creativeStyle: state.creativeStyle,
+      figureArtDirection: state.figureArtDirection,
+      imageModel: state.imageModel,
+      outputQuality: state.outputQuality,
+      productCategory: state.productCategory,
+      products: state.products,
+      shotEnvironment: state.shotEnvironment,
+      subjectMode: state.subjectMode,
+      textPrompt: state.textPrompt,
+      videoDuration: state.videoDuration,
+      videoModel: state.videoModel,
+    })
 
     if (!currentValidation.canGenerate) {
-      state.setGenerationError(
-        currentValidation.reason ?? 'Generation is blocked.',
-      )
+      setGenerationError(currentValidation.reason ?? 'Generation is blocked.')
       return
     }
 
-    const { assetManifest, formData } = buildGenerationFormData(state)
-    let projectId: string | null = null
-
-    if (projectContext) {
-      try {
-        projectId = await projectContext.ensureProjectId()
-      } catch (error) {
-        state.setGenerationError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to create or load the active project.',
-        )
-        return
-      }
-
-      if (!projectId) {
-        state.setGenerationError('Unable to create or load the active project.')
-        return
-      }
-    }
-
-    if (projectId) {
-      formData.append('projectId', projectId)
-    }
-
-    state.clearUploadMetadata()
-    markManifestState(assetManifest, 'uploading', null)
-
     try {
+      const { formData } = buildGenerationFormData({
+        activeTab: state.activeTab,
+        assets: state.assets,
+        batchSize: state.batchSize,
+        cameraMovement: state.cameraMovement,
+        characterAgeGroup: state.characterAgeGroup,
+        characterGender: state.characterGender,
+        creativeStyle: state.creativeStyle,
+        figureArtDirection: state.figureArtDirection,
+        imageModel: state.imageModel,
+        outputQuality: state.outputQuality,
+        productCategory: state.productCategory,
+        products: state.products,
+        shotEnvironment: state.shotEnvironment,
+        subjectMode: state.subjectMode,
+        textPrompt: state.textPrompt,
+        videoDuration: state.videoDuration,
+        videoModel: state.videoModel,
+      })
+
       const response = await fetch('/api/generation/run', {
-        method: 'POST',
         body: formData,
+        method: 'POST',
       })
       const payload = (await response.json()) as GenerationRun & {
         error?: string
@@ -2463,28 +2009,21 @@ function useGenerationController() {
       }
 
       hydrateGenerationRun(payload)
-      if (projectContext && projectId) {
-        await projectContext.refreshProject(projectId).catch(() => undefined)
-      }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to start generation.'
-
-      markManifestState(assetManifest, 'error', message)
-      state.setGenerationError(message)
+      setGenerationError(
+        error instanceof Error ? error.message : 'Unable to start generation.',
+      )
     }
   }
 
   const handleCancel = async () => {
-    if (!generationRun.projectId || !generationRun.runId) {
+    if (!generationRun.runId) {
       return
     }
-    const projectId = generationRun.projectId
-    const runId = generationRun.runId
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/cancel`,
+        `/api/generation/runs/${encodeURIComponent(generationRun.runId)}/cancel`,
         {
           method: 'POST',
         },
@@ -2501,54 +2040,9 @@ function useGenerationController() {
       }
 
       hydrateGenerationRun(payload.run)
-      await projectContext?.refreshProject(projectId).catch(() => undefined)
     } catch (error) {
-      useGenerationStore.getState().setGenerationError(
+      setGenerationError(
         error instanceof Error ? error.message : 'Unable to cancel the active run.',
-      )
-    }
-  }
-
-  const handleReviewUpdate = async (input: {
-    reviewNotes?: string | null
-    reviewStatus?: GenerationReviewStatus
-    selectedForDelivery?: boolean
-    setHero?: boolean
-    variantId: string
-  }) => {
-    if (!generationRun.projectId || !generationRun.runId) {
-      return
-    }
-    const projectId = generationRun.projectId
-    const runId = generationRun.runId
-
-    try {
-      const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/variants/${encodeURIComponent(input.variantId)}/review`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(input),
-        },
-      )
-      const payload = (await response.json()) as
-        | {
-            error?: string
-            run?: GenerationRun
-          }
-        | null
-
-      if (!response.ok || !payload?.run) {
-        throw new Error(payload?.error ?? 'Unable to update review state.')
-      }
-
-      hydrateGenerationRun(payload.run)
-      await projectContext?.refreshProject(projectId).catch(() => undefined)
-    } catch (error) {
-      useGenerationStore.getState().setGenerationError(
-        error instanceof Error ? error.message : 'Unable to update review state.',
       )
     }
   }
@@ -2558,62 +2052,7 @@ function useGenerationController() {
     disabledReason,
     handleCancel,
     handleGenerate,
-    handleReviewUpdate,
     isBusy,
-  }
-}
-
-function markManifestState(
-  assetManifest: Array<{
-    kind: 'named' | 'product'
-    key?: NamedAssetKey
-    productId?: string
-  }>,
-  uploadStatus: AssetSlot['uploadStatus'],
-  error: string | null,
-) {
-  const state = useGenerationStore.getState()
-
-  for (const asset of assetManifest) {
-    if (asset.kind === 'named' && asset.key) {
-      state.setNamedAssetRemoteState(asset.key, {
-        error,
-        remoteUrl: null,
-        uploadStatus,
-      })
-    }
-
-    if (asset.kind === 'product' && asset.productId) {
-      state.setProductSlotRemoteState(asset.productId, {
-        error,
-        remoteUrl: null,
-        uploadStatus,
-      })
-    }
-  }
-}
-
-function applyUploadedAssetState(
-  uploadedAssets: GenerationRun['uploadedAssets'],
-) {
-  const state = useGenerationStore.getState()
-
-  for (const asset of uploadedAssets) {
-    if (asset.kind === 'named' && asset.key) {
-      state.setNamedAssetRemoteState(asset.key, {
-        error: null,
-        remoteUrl: asset.remoteUrl,
-        uploadStatus: 'uploaded',
-      })
-    }
-
-    if (asset.kind === 'product' && asset.productId) {
-      state.setProductSlotRemoteState(asset.productId, {
-        error: null,
-        remoteUrl: asset.remoteUrl,
-        uploadStatus: 'uploaded',
-      })
-    }
   }
 }
 
@@ -2644,22 +2083,22 @@ function getReferenceCardErrorLabel(slot: AssetSlot) {
     return null
   }
 
-  return slot.uploadStatus === 'error' ? 'Upload Failed' : 'Error'
+  return 'Error'
 }
 
 function isSlotLoaded(slot: AssetSlot) {
-  return Boolean(slot.file || slot.previewUrl || slot.remoteUrl)
+  return Boolean(slot.file || slot.previewUrl)
 }
 
 function getPrimaryInputSummary({
-  subjectMode,
   assets,
   products,
+  subjectMode,
   textPrompt,
 }: {
-  subjectMode: SubjectMode
   assets: NamedAssetSlots
   products: AssetSlot[]
+  subjectMode: SubjectMode
   textPrompt: string
 }) {
   const face1 = assets.face1
@@ -2688,10 +2127,7 @@ function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
 }
 
-function getKieCreditsValue(
-  kieStatus: KieStatusResponse,
-  isLoading: boolean,
-) {
+function getKieCreditsValue(kieStatus: KieStatusResponse, isLoading: boolean) {
   if (isLoading && kieStatus.fetchedAt === null) {
     return 'Loading'
   }
@@ -2705,10 +2141,7 @@ function getKieCreditsValue(
   return 'Unavailable'
 }
 
-function getKieCreditsHelper(
-  kieStatus: KieStatusResponse,
-  isLoading: boolean,
-) {
+function getKieCreditsHelper(kieStatus: KieStatusResponse, isLoading: boolean) {
   if (isLoading && kieStatus.fetchedAt === null) {
     return 'Checking KIE account'
   }
@@ -2721,45 +2154,19 @@ function getKieCreditsHelper(
 }
 
 function hasActiveGeneration(run: GenerationRun) {
-  return (
-    run.status === 'queued' ||
-    run.status === 'uploading' ||
-    run.status === 'submitting' ||
-    run.status === 'rendering'
-  )
+  return run.status === 'rendering'
 }
 
-function hasPollingRunStatus(status: GenerationRun['status']) {
+function getSelectedRunVariant(
+  run: GenerationRun,
+  previewVariantId: string | null,
+) {
   return (
-    status === 'queued' ||
-    status === 'uploading' ||
-    status === 'submitting' ||
-    status === 'rendering'
-  )
-}
-
-function isTerminalGenerationStatus(status: GenerationRun['status']) {
-  return (
-    status === 'success' ||
-    status === 'partial-success' ||
-    status === 'error' ||
-    status === 'cancelled'
-  )
-}
-
-function getSelectedRunVariant(run: GenerationRun) {
-  const selectedVariant = run.variants.find(
-    (variant) => variant.variantId === run.selectedVariantId,
-  )
-
-  if (selectedVariant?.status === 'success' && selectedVariant.result) {
-    return selectedVariant
-  }
-
-  return (
-    run.variants.find(
-      (variant) => variant.status === 'success' && Boolean(variant.result),
-    ) ?? null
+    run.variants.find((variant) => variant.variantId === previewVariantId) ??
+    run.variants.find((variant) => variant.variantId === run.selectedVariantId) ??
+    run.variants.find((variant) => variant.status === 'success' && Boolean(variant.result)) ??
+    run.variants[0] ??
+    null
   )
 }
 
@@ -2767,9 +2174,7 @@ function getVariantBadgeVariant(status: GenerationVariant['status']) {
   switch (status) {
     case 'success':
       return 'default' as const
-    case 'queued':
     case 'rendering':
-    case 'submitting':
       return 'outline' as const
     default:
       return 'secondary' as const
@@ -2792,10 +2197,7 @@ function getProductCategoryLabel(category: ProductCategory) {
 }
 
 function getCreativeStyleLabel(style: CreativeStyle) {
-  return (
-    creativeStyles.find((option) => option.value === style)?.label ??
-    humanize(style)
-  )
+  return creativeStyles.find((option) => option.value === style)?.label ?? humanize(style)
 }
 
 function getSubjectModeLabel(mode: SubjectMode) {
@@ -2826,10 +2228,7 @@ function getCharacterPresetSummary(input: {
     return null
   }
 
-  const selections = [
-    input.characterGender,
-    input.characterAgeGroup,
-  ]
+  const selections = [input.characterGender, input.characterAgeGroup]
     .filter((value) => value !== 'any')
     .map((value) => humanize(value))
 
@@ -2845,15 +2244,6 @@ function getCameraMovementLabel(movement: CameraMovement) {
     cameraMovements.find((option) => option.value === movement)?.label ??
     humanize(movement)
   )
-}
-
-function getRunStatusLabel(
-  status:
-    | GenerationRunStatus
-    | GenerationVariant['status']
-    | GenerationReviewStatus,
-) {
-  return humanize(status)
 }
 
 function humanize(value: string) {

@@ -55,9 +55,7 @@ const kieCreditSources: Array<{
 
 export type ParsedGenerationRequest = {
   activeModel: ImageModelOption | VideoModelOption
-  assetDescriptors: Array<
-    SubmittedAssetDescriptor & { file: File | null; persistedAssetId?: string }
-  >
+  assetDescriptors: Array<SubmittedAssetDescriptor & { file: File }>
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
@@ -66,7 +64,6 @@ export type ParsedGenerationRequest = {
   figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
   outputQuality: OutputQuality
-  projectId: string
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
@@ -404,41 +401,6 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
     textPrompt: input.textPrompt,
     videoDuration: input.videoDuration,
     workspace: input.workspace,
-  })
-}
-
-export function getQueuedVariantPlan(
-  input: ParsedGenerationRequest,
-  options: {
-    basePrompt?: string
-    runId: string
-  },
-) {
-  const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)
-  const promptSet = buildVariantPromptSet({
-    basePrompt,
-    batchSize: input.batchSize as GenerationVariantIndex,
-    cameraMovement: input.cameraMovement,
-    workspace: input.workspace,
-  })
-
-  return promptSet.map(({ index, profile, prompt }) => ({
-    error: null,
-    id: `${options.runId}-variant-${index}`,
-    profile,
-    prompt,
-    status: 'queued' as const,
-    taskId: null,
-    variantIndex: index,
-  }))
-}
-
-export function stripAssetFiles(
-  assetDescriptors: ParsedGenerationRequest['assetDescriptors'],
-): SubmittedAssetDescriptor[] {
-  return assetDescriptors.map(({ file, ...descriptor }) => {
-    void file
-    return descriptor
   })
 }
 
@@ -799,7 +761,6 @@ export async function uploadFileToKie(
 }
 
 export function parseGenerationFormData(formData: FormData): ParsedGenerationRequest {
-  const projectId = readString(formData, 'projectId')
   const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
   const batchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
@@ -845,16 +806,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       throw new Error('Asset manifest entry is missing required fields.')
     }
 
-    const persistedAssetId =
-      typeof record.persistedAssetId === 'string' && record.persistedAssetId.length > 0
-        ? record.persistedAssetId
-        : undefined
-
-    if (!(file instanceof File) && !persistedAssetId) {
-      throw new Error(`Missing uploaded file or persisted asset for ${label}.`)
-    }
-
-    if (file instanceof File && file.size === 0 && !persistedAssetId) {
+    if (!(file instanceof File) || file.size === 0) {
       throw new Error(`Missing uploaded file for ${label}.`)
     }
 
@@ -865,11 +817,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
 
     return {
       fieldName,
-      file: file instanceof File ? file : null,
+      file,
       kind: kind as 'named' | 'product',
       label,
       order: Number(order) || index,
-      ...(persistedAssetId ? { persistedAssetId } : null),
       ...(parsedKey ? { key: parsedKey } : null),
       ...(typeof record.productId === 'string'
         ? { productId: record.productId }
@@ -917,7 +868,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       'outputQuality',
       ['720p', '1080p', '4k'] as const,
     ),
-    projectId,
     productCategory: readEnum(
       formData,
       'productCategory',
@@ -990,31 +940,8 @@ export async function submitProviderTask(
 
 async function resolveAssetDescriptors(
   input: ParsedGenerationRequest,
-  options: {
-    resolvePersistedAssetFile?: (assetId: string) => Promise<File>
-  },
 ) {
-  const descriptors = await Promise.all(
-    input.assetDescriptors.map(async (descriptor) => {
-      if (descriptor.file) {
-        return {
-          ...descriptor,
-          file: descriptor.file,
-        }
-      }
-
-      if (descriptor.persistedAssetId && options.resolvePersistedAssetFile) {
-        return {
-          ...descriptor,
-          file: await options.resolvePersistedAssetFile(descriptor.persistedAssetId),
-        }
-      }
-
-      throw new Error(`Unable to resolve file input for ${descriptor.label}.`)
-    }),
-  )
-
-  return descriptors satisfies ResolvedAssetDescriptor[]
+  return input.assetDescriptors satisfies ResolvedAssetDescriptor[]
 }
 
 export function resolveSubmission(input: {
@@ -1048,7 +975,7 @@ export function resolveSubmission(input: {
     })
 }
 
-export async function uploadPersistedAssets(input: {
+async function uploadResolvedAssets(input: {
   apiKey?: string
   assetDescriptors: ResolvedAssetDescriptor[]
   workspace: WorkspaceTab
@@ -1063,57 +990,21 @@ export async function uploadPersistedAssets(input: {
   )
 }
 
-export async function resolvePersistedAssetsForRequest(
-  input: ParsedGenerationRequest,
-  options: {
-    resolvePersistedAssetFile: (assetId: string) => Promise<File>
-  },
-) {
-  return resolveAssetDescriptors(input, options)
-}
-
-export async function submitVariantTaskForRun(input: {
-  apiKey?: string
-  assets: UploadedAssetDescriptor[]
-  cameraMovement: CameraMovement | null
-  creativeStyle: CreativeStyle
-  imageModel: ImageModelOption
-  outputQuality: OutputQuality
-  productCategory: ProductCategory
-  prompt: string
-  subjectMode: SubjectMode
-  videoDuration: VideoDuration
-  videoModel: VideoModelOption
-  workspace: WorkspaceTab
-}) {
-  const apiKey = input.apiKey ?? getKieApiKey()
-  const submission = resolveSubmission(input)
-  const taskId = await submitProviderTask(apiKey, submission)
-
-  return {
-    model: submission.modelName,
-    provider: submission.provider,
-    taskId,
-  }
-}
-
 export async function submitGenerationRequest(
   input: ParsedGenerationRequest,
   options: {
     basePrompt?: string
-    resolvePersistedAssetFile?: (assetId: string) => Promise<File>
     runId?: string
   } = {},
 ): Promise<RunSubmissionResponse> {
   const apiKey = getKieApiKey()
   const runId = options.runId ?? createRunId()
-  const resolvedAssets = await resolveAssetDescriptors(input, options)
-  const uploadedAssets = await Promise.all(
-    resolvedAssets.map(async (descriptor) => ({
-      ...descriptor,
-      remoteUrl: await uploadFileToKie(apiKey, descriptor.file, input.workspace),
-    })),
-  )
+  const resolvedAssets = await resolveAssetDescriptors(input)
+  const uploadedAssets = await uploadResolvedAssets({
+    apiKey,
+    assetDescriptors: resolvedAssets,
+    workspace: input.workspace,
+  })
   const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)
   const promptSet = buildVariantPromptSet({
     basePrompt,
@@ -1157,13 +1048,9 @@ export async function submitGenerationRequest(
         createdAt: null,
         error: null,
         index,
-        isHero: false,
         profile,
         prompt,
         result: null,
-        reviewNotes: null,
-        reviewStatus: 'pending' as const,
-        selectedForDelivery: false,
         status: 'rendering' as const,
         taskId,
         variantId: `${runId}-variant-${index}`,
@@ -1186,13 +1073,9 @@ export async function submitGenerationRequest(
           ? variant.reason.message
           : 'Unable to create provider task.',
       index: descriptor.index,
-      isHero: false,
       profile: descriptor.profile,
       prompt: descriptor.prompt,
       result: null,
-      reviewNotes: null,
-      reviewStatus: 'pending' as const,
-      selectedForDelivery: false,
       status: 'error' as const,
       taskId: null,
       variantId: `${runId}-variant-${descriptor.index}`,
@@ -1200,20 +1083,16 @@ export async function submitGenerationRequest(
   }) satisfies GenerationVariant[]
 
   return {
-    cancelRequestedAt: null,
     completedAt: null,
     createdAt: new Date().toISOString(),
     model: sampleSubmission.modelName,
-    parentRunId: null,
     provider: sampleSubmission.provider,
-    projectId: input.projectId,
     runId,
     status: variants.some((variant) => variant.status === 'rendering')
       ? 'rendering'
       : variants.every((variant) => variant.status === 'error')
         ? 'error'
         : 'partial-success',
-    uploadedAssets,
     variants,
     workspace: input.workspace,
   }

@@ -14,7 +14,6 @@ function buildBaseFormData(batchSize: string) {
   const formData = new FormData()
 
   formData.append('workspace', 'image')
-  formData.append('projectId', 'project-1')
   formData.append('imageModel', 'nano-banana')
   formData.append('videoModel', 'veo-3.1')
   formData.append('productCategory', 'cosmetics')
@@ -144,7 +143,7 @@ describe('KIE batch submission', () => {
     const parsedRequest = parseGenerationFormData(formData)
     const response = await submitGenerationRequest(parsedRequest)
 
-    expect(response.uploadedAssets).toHaveLength(1)
+    expect(response.status).toBe('rendering')
     expect(response.variants).toHaveLength(3)
     expect(response.variants.map((variant) => variant.taskId)).toEqual([
       'task-1',

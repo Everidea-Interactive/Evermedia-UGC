@@ -31,26 +31,23 @@ function getPrimaryReference(snapshot: GenerationSnapshot) {
   const face1 = snapshot.assets.face1
   const primaryProduct = snapshot.products[0] ?? null
 
-  if (
-    snapshot.subjectMode === 'lifestyle' &&
-    (face1.file || face1.persistedAssetId)
-  ) {
+  if (snapshot.subjectMode === 'lifestyle' && face1.file) {
     return face1
   }
 
-  return primaryProduct?.file || primaryProduct?.persistedAssetId
-    ? primaryProduct
-    : face1.file || face1.persistedAssetId
-      ? face1
-      : null
+  return primaryProduct?.file ? primaryProduct : face1.file ? face1 : null
 }
 
 export function getAssetPreviewUrl(slot: AssetSlot) {
-  return slot.previewUrl ?? slot.remoteUrl
+  return slot.previewUrl
 }
 
 export function getGenerationValidation(snapshot: GenerationSnapshot) {
-  if (snapshot.activeTab === 'video' && snapshot.videoModel === 'veo-3.1' && snapshot.outputQuality === '4k') {
+  if (
+    snapshot.activeTab === 'video' &&
+    snapshot.videoModel === 'veo-3.1' &&
+    snapshot.outputQuality === '4k'
+  ) {
     return {
       canGenerate: false,
       reason: '4K Veo upgrades are deferred until a later phase.',
@@ -100,53 +97,35 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   for (const [order, key] of namedAssetKeys.entries()) {
     const slot = snapshot.assets[key]
 
-    if (!slot.file && !slot.persistedAssetId) {
+    if (!slot.file) {
       continue
     }
 
     const fieldName = `asset_${key}`
-    const assetDescriptor: SubmittedAssetDescriptor = {
+    assetManifest.push({
       fieldName,
-      kind: 'named',
       key,
+      kind: 'named',
       label: slot.label,
       order,
-    }
-
-    if (slot.persistedAssetId) {
-      assetDescriptor.persistedAssetId = slot.persistedAssetId
-    }
-
-    assetManifest.push(assetDescriptor)
-
-    if (slot.file) {
-      formData.append(fieldName, slot.file)
-    }
+    })
+    formData.append(fieldName, slot.file)
   }
 
   snapshot.products.forEach((product, index) => {
-    if (!product.file && !product.persistedAssetId) {
+    if (!product.file) {
       return
     }
 
     const fieldName = `product_${product.id}`
-    const assetDescriptor: SubmittedAssetDescriptor = {
+    assetManifest.push({
       fieldName,
       kind: 'product',
       label: product.label,
       order: 100 + index,
       productId: product.id,
-    }
-
-    if (product.persistedAssetId) {
-      assetDescriptor.persistedAssetId = product.persistedAssetId
-    }
-
-    assetManifest.push(assetDescriptor)
-
-    if (product.file) {
-      formData.append(fieldName, product.file)
-    }
+    })
+    formData.append(fieldName, product.file)
   })
 
   formData.append('assetManifest', JSON.stringify(assetManifest))

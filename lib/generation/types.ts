@@ -13,6 +13,7 @@ export type CreativeStyle =
   | 'cinematic'
   | 'tv-commercial'
   | 'elite-product-commercial'
+
 export type SubjectMode = 'product-only' | 'lifestyle'
 export type ShotEnvironment = 'indoor' | 'outdoor'
 export type CharacterGender = 'any' | 'female' | 'male' | 'non-binary'
@@ -38,18 +39,10 @@ export type VideoModelOption = 'veo-3.1' | 'kling' | 'grok-imagine'
 export type GenerationProvider = 'market' | 'veo'
 export type KieStatusSource = 'chat-credit' | 'user-credits'
 
-export type AssetUploadStatus =
-  | 'idle'
-  | 'staged'
-  | 'uploading'
-  | 'uploaded'
-  | 'error'
+export type AssetUploadStatus = 'idle' | 'staged'
 
 export type GenerationRunStatus =
   | 'idle'
-  | 'queued'
-  | 'uploading'
-  | 'submitting'
   | 'rendering'
   | 'partial-success'
   | 'success'
@@ -57,15 +50,12 @@ export type GenerationRunStatus =
   | 'error'
 
 export type GenerationVariantStatus =
-  | 'queued'
-  | 'submitting'
   | 'rendering'
   | 'success'
   | 'cancelled'
   | 'error'
 
 export type GenerationVariantIndex = 1 | 2 | 3 | 4
-export type GenerationReviewStatus = 'pending' | 'approved' | 'rejected'
 
 export type NamedAssetKey =
   | 'face1'
@@ -75,61 +65,51 @@ export type NamedAssetKey =
   | 'endFrame'
 
 export type AssetSlot = {
+  error: string | null
+  file: File | null
   id: string
   label: string
-  file: File | null
-  persistedAssetId: string | null
-  previewUrl: string | null
-  remoteUrl: string | null
   mimeType: string | null
+  previewUrl: string | null
   size: number | null
   uploadStatus: AssetUploadStatus
-  error: string | null
 }
 
 export type NamedAssetSlots = Record<NamedAssetKey, AssetSlot>
 
 export type GenerationResult = {
+  model: string
+  taskId: string
+  thumbnailUrl?: string
   type: 'image' | 'video'
   url: string
-  thumbnailUrl?: string
-  taskId: string
-  model: string
 }
 
 export type GenerationVariant = {
-  variantId: string
+  completedAt: string | null
+  createdAt: string | null
+  error: string | null
   index: GenerationVariantIndex
   profile: string
   prompt: string
-  taskId: string | null
-  status: GenerationVariantStatus
-  error: string | null
   result: GenerationResult | null
-  reviewStatus: GenerationReviewStatus
-  reviewNotes: string | null
-  isHero: boolean
-  selectedForDelivery: boolean
-  createdAt: string | null
-  completedAt: string | null
+  status: GenerationVariantStatus
+  taskId: string | null
+  variantId: string
 }
 
 export type GenerationRun = {
-  runId: string | null
-  projectId: string | null
-  parentRunId: string | null
-  workspace: WorkspaceTab | null
-  provider: GenerationProvider | null
-  model: string | null
-  status: GenerationRunStatus
-  startedAt: number | null
-  createdAt: string | null
   completedAt: string | null
+  createdAt: string | null
   error: string | null
-  cancelRequestedAt: string | null
-  uploadedAssets: UploadedAssetDescriptor[]
-  variants: GenerationVariant[]
+  model: string | null
+  provider: GenerationProvider | null
+  runId: string | null
   selectedVariantId: string | null
+  startedAt: number | null
+  status: GenerationRunStatus
+  variants: GenerationVariant[]
+  workspace: WorkspaceTab | null
 }
 
 export type GenerationSessionStats = {
@@ -139,22 +119,22 @@ export type GenerationSessionStats = {
 
 export type GenerationSnapshot = {
   activeTab: WorkspaceTab
-  imageModel: ImageModelOption
-  videoModel: VideoModelOption
-  productCategory: ProductCategory
-  creativeStyle: CreativeStyle
-  subjectMode: SubjectMode
-  shotEnvironment: ShotEnvironment
-  characterGender: CharacterGender
-  characterAgeGroup: CharacterAgeGroup
-  figureArtDirection: FigureArtDirection
+  assets: NamedAssetSlots
   batchSize: BatchSize
+  cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterGender: CharacterGender
+  creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
+  imageModel: ImageModelOption
+  outputQuality: OutputQuality
+  productCategory: ProductCategory
+  products: AssetSlot[]
+  shotEnvironment: ShotEnvironment
+  subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
-  outputQuality: OutputQuality
-  cameraMovement: CameraMovement | null
-  assets: NamedAssetSlots
-  products: AssetSlot[]
+  videoModel: VideoModelOption
 }
 
 export type SubmittedAssetDescriptor = {
@@ -162,7 +142,6 @@ export type SubmittedAssetDescriptor = {
   kind: 'named' | 'product'
   label: string
   order: number
-  persistedAssetId?: string
   key?: NamedAssetKey
   productId?: string
 }
@@ -172,18 +151,14 @@ export type UploadedAssetDescriptor = SubmittedAssetDescriptor & {
 }
 
 export type RunSubmissionResponse = {
-  runId: string
-  projectId: string
-  parentRunId: string | null
+  completedAt: string | null
+  createdAt: string
   model: string
   provider: GenerationProvider
-  uploadedAssets: UploadedAssetDescriptor[]
+  runId: string
+  status: Exclude<GenerationRunStatus, 'idle'>
   variants: GenerationVariant[]
   workspace: WorkspaceTab
-  status: Exclude<GenerationRunStatus, 'idle'>
-  createdAt: string
-  completedAt: string | null
-  cancelRequestedAt: string | null
 }
 
 export type TaskPollResponse = {
@@ -196,7 +171,7 @@ export type TaskPollResponse = {
 export type KieStatusResponse = {
   connected: boolean
   credits: number | null
-  source: KieStatusSource | null
-  fetchedAt: string | null
   error: string | null
+  fetchedAt: string | null
+  source: KieStatusSource | null
 }

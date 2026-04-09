@@ -11,14 +11,10 @@ function makeVariant(
     createdAt: null,
     error: null,
     index: 1,
-    isHero: false,
-    profile: 'Keep the strongest hero composition closest to the base brief.',
+    profile: 'Keep the strongest composition closest to the base brief.',
     prompt: 'Prompt',
     result: null,
-    reviewNotes: null,
-    reviewStatus: 'pending',
-    selectedForDelivery: false,
-    status: 'queued',
+    status: 'rendering',
     taskId: null,
     variantId: 'variant-1',
     ...overrides,
@@ -83,7 +79,7 @@ describe('useGenerationStore', () => {
     expect(state.assets.face1.uploadStatus).toBe('idle')
   })
 
-  it('starts with the preset v1 defaults and resets lifestyle-only fields', () => {
+  it('starts with the preset defaults and resets lifestyle-only fields', () => {
     const store = useGenerationStore.getState()
 
     expect(store.shotEnvironment).toBe('indoor')
@@ -104,7 +100,7 @@ describe('useGenerationStore', () => {
     expect(state.figureArtDirection).toBe('none')
   })
 
-  it('hydrates older project snapshots with defaults for the new preset fields', () => {
+  it('hydrates config snapshots with missing defaults', () => {
     useGenerationStore.getState().hydrateProjectConfig({
       activeTab: 'image',
       batchSize: 1,
@@ -127,34 +123,26 @@ describe('useGenerationStore', () => {
     expect(state.figureArtDirection).toBe('none')
   })
 
-  it('tracks grouped variant selection and partial-success resolution', () => {
+  it('tracks partial success and keeps selection on a saved variant', () => {
     const store = useGenerationStore.getState()
 
-    store.setImageModel('grok-imagine')
-    store.setVideoModel('kling')
     store.updateGenerationRun({
       model: 'kling-2.6/text-to-video',
       provider: 'market',
       runId: 'run-1',
       startedAt: 123,
-      uploadedAssets: [],
       workspace: 'video',
     })
     store.setGenerationVariants([
       makeVariant({
         index: 1,
-        profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
-        status: 'rendering',
         taskId: 'task-1',
         variantId: 'variant-1',
       }),
       makeVariant({
         index: 2,
-        profile:
-          'Explore an alternate framing and composition while preserving brand intent and subject identity.',
         prompt: 'Prompt 2',
-        status: 'rendering',
         taskId: 'task-2',
         variantId: 'variant-2',
       }),
@@ -162,14 +150,11 @@ describe('useGenerationStore', () => {
 
     let state = useGenerationStore.getState()
 
-    expect(state.imageModel).toBe('grok-imagine')
-    expect(state.videoModel).toBe('kling')
     expect(state.generationRun.status).toBe('rendering')
 
     store.setGenerationVariants([
       makeVariant({
         index: 1,
-        profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
         result: {
           model: 'kling-2.6/text-to-video',
@@ -184,8 +169,6 @@ describe('useGenerationStore', () => {
       makeVariant({
         error: 'Provider rejected task 2.',
         index: 2,
-        profile:
-          'Explore an alternate framing and composition while preserving brand intent and subject identity.',
         prompt: 'Prompt 2',
         status: 'error',
         taskId: 'task-2',
@@ -196,12 +179,6 @@ describe('useGenerationStore', () => {
 
     expect(state.generationRun.status).toBe('partial-success')
     expect(state.generationRun.selectedVariantId).toBe('variant-1')
-    expect(state.sessionStats.completedVariants).toBe(1)
-    expect(state.sessionStats.failedVariants).toBe(1)
-
-    store.setGenerationVariants(state.generationRun.variants)
-    state = useGenerationStore.getState()
-
     expect(state.sessionStats.completedVariants).toBe(1)
     expect(state.sessionStats.failedVariants).toBe(1)
 
@@ -219,27 +196,19 @@ describe('useGenerationStore', () => {
       provider: 'market',
       runId: 'run-2',
       startedAt: 456,
-      uploadedAssets: [],
       workspace: 'image',
     })
     store.setGenerationVariants([
       makeVariant({
         error: 'First variation failed.',
         index: 1,
-        profile: 'Keep the strongest hero composition closest to the base brief.',
-        prompt: 'Prompt 1',
         status: 'error',
-        taskId: null,
         variantId: 'variant-1',
       }),
       makeVariant({
         error: 'Second variation failed.',
         index: 2,
-        profile:
-          'Explore an alternate framing and composition while preserving brand intent and subject identity.',
-        prompt: 'Prompt 2',
         status: 'error',
-        taskId: null,
         variantId: 'variant-2',
       }),
     ])
@@ -251,7 +220,7 @@ describe('useGenerationStore', () => {
     expect(state.sessionStats.failedVariants).toBe(2)
   })
 
-  it('preserves session counters when the board resets', () => {
+  it('preserves session counters when the local draft resets', () => {
     const store = useGenerationStore.getState()
 
     store.updateGenerationRun({
@@ -259,17 +228,13 @@ describe('useGenerationStore', () => {
       provider: 'market',
       runId: 'run-3',
       startedAt: 789,
-      uploadedAssets: [],
       workspace: 'image',
     })
     store.setGenerationVariants([
       makeVariant({
         error: 'Immediate submit failure.',
         index: 1,
-        profile: 'Keep the strongest hero composition closest to the base brief.',
-        prompt: 'Prompt 1',
         status: 'error',
-        taskId: null,
         variantId: 'variant-1',
       }),
     ])

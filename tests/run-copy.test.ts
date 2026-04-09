@@ -11,19 +11,15 @@ function createRun(
   overrides: Partial<GenerationRun> = {},
 ): GenerationRun {
   return {
-    cancelRequestedAt: null,
     completedAt: null,
     createdAt: null,
     error: null,
     model: 'google/nano-banana',
-    parentRunId: 'run-parent',
-    projectId: 'project-1',
     provider: 'market',
     runId: 'run-1',
     selectedVariantId: null,
     startedAt: 0,
     status: 'idle',
-    uploadedAssets: [],
     variants: [],
     workspace: 'image',
     ...overrides,
@@ -46,10 +42,10 @@ describe('run copy helpers', () => {
     )
   })
 
-  it('uses generate-again guidance for cancelled and failed runs', () => {
+  it('uses library-oriented guidance for cancelled and failed runs', () => {
     expect(
       getGenerationHelperMessage(null, createRun({ status: 'cancelled' })),
-    ).toContain('generate again')
+    ).toContain('library')
 
     expect(
       getGenerationHelperMessage(
@@ -63,13 +59,9 @@ describe('run copy helpers', () => {
               createdAt: null,
               error: 'Provider rejected every variation.',
               index: 1,
-              isHero: false,
               profile: 'Hero angle',
               prompt: 'Prompt 1',
               result: null,
-              reviewNotes: null,
-              reviewStatus: 'pending',
-              selectedForDelivery: false,
               status: 'error',
               taskId: null,
               variantId: 'variant-1',
@@ -80,7 +72,7 @@ describe('run copy helpers', () => {
     ).toContain('Provider rejected every variation.')
   })
 
-  it('describes partial-success and error bodies without retry wording', () => {
+  it('describes partial-success and error bodies in terms of saved outputs', () => {
     const partialBody = getRunBodyCopy(
       createRun({
         status: 'partial-success',
@@ -90,7 +82,6 @@ describe('run copy helpers', () => {
             createdAt: null,
             error: null,
             index: 1,
-            isHero: false,
             profile: 'Hero angle',
             prompt: 'Prompt 1',
             result: {
@@ -99,9 +90,6 @@ describe('run copy helpers', () => {
               type: 'image',
               url: 'https://example.com/1.png',
             },
-            reviewNotes: null,
-            reviewStatus: 'pending',
-            selectedForDelivery: false,
             status: 'success',
             taskId: 'task-1',
             variantId: 'variant-1',
@@ -111,13 +99,9 @@ describe('run copy helpers', () => {
             createdAt: null,
             error: 'Second variation failed.',
             index: 2,
-            isHero: false,
             profile: 'Alternate angle',
             prompt: 'Prompt 2',
             result: null,
-            reviewNotes: null,
-            reviewStatus: 'pending',
-            selectedForDelivery: false,
             status: 'error',
             taskId: 'task-2',
             variantId: 'variant-2',
@@ -126,8 +110,7 @@ describe('run copy helpers', () => {
       }),
     )
 
-    expect(partialBody).toContain('remain reviewable in the spotlight')
-    expect(partialBody.toLowerCase()).not.toContain('retry')
+    expect(partialBody).toContain('saved automatically')
 
     const errorBody = getRunBodyCopy(
       createRun({
@@ -139,13 +122,9 @@ describe('run copy helpers', () => {
             createdAt: null,
             error: 'Provider rejected the batch.',
             index: 1,
-            isHero: false,
             profile: 'Hero angle',
             prompt: 'Prompt 1',
             result: null,
-            reviewNotes: null,
-            reviewStatus: 'pending',
-            selectedForDelivery: false,
             status: 'error',
             taskId: null,
             variantId: 'variant-1',
