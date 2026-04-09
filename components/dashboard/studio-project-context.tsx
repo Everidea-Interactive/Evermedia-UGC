@@ -60,7 +60,6 @@ function createProjectConfigSnapshot(
     batchSize: state.batchSize,
     cameraMovement: state.cameraMovement,
     characterAgeGroup: state.characterAgeGroup,
-    characterEthnicity: state.characterEthnicity,
     characterGender: state.characterGender,
     creativeStyle: state.creativeStyle,
     figureArtDirection: state.figureArtDirection,

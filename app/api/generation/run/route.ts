@@ -36,7 +36,6 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     batchSize: input.batchSize,
     cameraMovement: input.cameraMovement,
     characterAgeGroup: input.characterAgeGroup,
-    characterEthnicity: input.characterEthnicity,
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
     figureArtDirection: input.figureArtDirection,

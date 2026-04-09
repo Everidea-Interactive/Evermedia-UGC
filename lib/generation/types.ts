@@ -22,15 +22,6 @@ export type CharacterAgeGroup =
   | 'adult'
   | 'middle-aged'
   | 'senior'
-export type CharacterEthnicity =
-  | 'any'
-  | 'south-asian'
-  | 'east-asian'
-  | 'black'
-  | 'caucasian'
-  | 'hispanic'
-  | 'middle-eastern'
-  | 'mixed'
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
 export type OutputQuality = '720p' | '1080p' | '4k'
@@ -156,7 +147,6 @@ export type GenerationSnapshot = {
   shotEnvironment: ShotEnvironment
   characterGender: CharacterGender
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   figureArtDirection: FigureArtDirection
   batchSize: BatchSize
   textPrompt: string

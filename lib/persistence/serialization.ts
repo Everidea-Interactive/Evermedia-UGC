@@ -23,7 +23,6 @@ export const defaultProjectConfigSnapshot: ProjectConfigSnapshot = {
   batchSize: 1,
   cameraMovement: 'orbit',
   characterAgeGroup: 'any',
-  characterEthnicity: 'any',
   characterGender: 'any',
   creativeStyle: 'ugc-lifestyle',
   figureArtDirection: 'none',
@@ -52,7 +51,6 @@ export function normalizeProjectConfigSnapshot(
   return {
     ...mergedSnapshot,
     characterAgeGroup: 'any',
-    characterEthnicity: 'any',
     characterGender: 'any',
     figureArtDirection: 'none',
   }
@@ -66,7 +64,6 @@ export function createProjectConfigSnapshot(
     batchSize: snapshot.batchSize,
     cameraMovement: snapshot.cameraMovement,
     characterAgeGroup: snapshot.characterAgeGroup,
-    characterEthnicity: snapshot.characterEthnicity,
     characterGender: snapshot.characterGender,
     creativeStyle: snapshot.creativeStyle,
     figureArtDirection: snapshot.figureArtDirection,

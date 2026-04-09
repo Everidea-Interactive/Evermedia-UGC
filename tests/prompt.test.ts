@@ -51,7 +51,6 @@ describe('compileGenerationPrompt', () => {
       ],
       cameraMovement: 'orbit',
       characterAgeGroup: 'young-adult',
-      characterEthnicity: 'south-asian',
       characterGender: 'female',
       creativeStyle: 'ugc-lifestyle',
       figureArtDirection: 'curvaceous-editorial',
@@ -81,8 +80,9 @@ describe('compileGenerationPrompt', () => {
       'Shot environment: curated indoor setting with studio-grade control.',
     )
     expect(prompt).toContain(
-      'Character demographics: female, young adult, south asian.',
+      'Character demographics: female, young adult.',
     )
+    expect(prompt).not.toContain('south asian')
     expect(prompt).toContain(
       'Figure art direction: curvaceous editorial with full-figure styling, dramatic curves, and fashion-forward composition language.',
     )
@@ -107,7 +107,6 @@ describe('compileGenerationPrompt', () => {
       ],
       cameraMovement: null,
       characterAgeGroup: 'any',
-      characterEthnicity: 'any',
       characterGender: 'any',
       creativeStyle: 'ugc-lifestyle',
       figureArtDirection: 'none',
@@ -139,7 +138,6 @@ describe('compileGenerationPrompt', () => {
       ],
       cameraMovement: null,
       characterAgeGroup: 'young-adult',
-      characterEthnicity: 'south-asian',
       characterGender: 'female',
       creativeStyle: 'elite-product-commercial',
       figureArtDirection: 'curvaceous-editorial',

@@ -10,7 +10,6 @@ import type {
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
@@ -62,7 +61,6 @@ export type ParsedGenerationRequest = {
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
   figureArtDirection: FigureArtDirection
@@ -396,7 +394,6 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
     assets: createPromptAssets(input.assetDescriptors),
     cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
     characterAgeGroup: input.characterAgeGroup,
-    characterEthnicity: input.characterEthnicity,
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
     figureArtDirection: input.figureArtDirection,
@@ -893,20 +890,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       formData,
       'characterAgeGroup',
       ['any', 'young-adult', 'adult', 'middle-aged', 'senior'] as const,
-    ),
-    characterEthnicity: readEnum(
-      formData,
-      'characterEthnicity',
-      [
-        'any',
-        'south-asian',
-        'east-asian',
-        'black',
-        'caucasian',
-        'hispanic',
-        'middle-eastern',
-        'mixed',
-      ] as const,
     ),
     characterGender: readEnum(
       formData,

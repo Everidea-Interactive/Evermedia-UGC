@@ -1,7 +1,6 @@
 import type {
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
@@ -36,7 +35,6 @@ export type ProjectConfigSnapshot = {
   batchSize: 1 | 2 | 3 | 4
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
   figureArtDirection: FigureArtDirection

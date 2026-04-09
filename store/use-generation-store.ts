@@ -8,7 +8,6 @@ import type {
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
@@ -43,7 +42,6 @@ type GenerationStateShape = {
   shotEnvironment: ShotEnvironment
   characterGender: CharacterGender
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   figureArtDirection: FigureArtDirection
   batchSize: BatchSize
   textPrompt: string
@@ -78,7 +76,6 @@ type GenerationStore = GenerationStateShape & {
   setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
   setCharacterGender: (characterGender: CharacterGender) => void
   setCharacterAgeGroup: (characterAgeGroup: CharacterAgeGroup) => void
-  setCharacterEthnicity: (characterEthnicity: CharacterEthnicity) => void
   setFigureArtDirection: (
     figureArtDirection: FigureArtDirection,
   ) => void
@@ -217,7 +214,6 @@ function createEmptySessionStats(): GenerationSessionStats {
 function createLifestyleDefaults() {
   return {
     characterAgeGroup: 'any' as const,
-    characterEthnicity: 'any' as const,
     characterGender: 'any' as const,
     figureArtDirection: 'none' as const,
   }
@@ -487,10 +483,6 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) =>
       state.subjectMode === 'lifestyle' ? { characterAgeGroup } : {},
     ),
-  setCharacterEthnicity: (characterEthnicity) =>
-    set((state) =>
-      state.subjectMode === 'lifestyle' ? { characterEthnicity } : {},
-    ),
   setFigureArtDirection: (figureArtDirection) =>
     set((state) =>
       state.subjectMode === 'lifestyle' ? { figureArtDirection } : {},
@@ -631,7 +623,6 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         batchSize: normalizedConfig.batchSize,
         cameraMovement: normalizedConfig.cameraMovement,
         characterAgeGroup: normalizedConfig.characterAgeGroup,
-        characterEthnicity: normalizedConfig.characterEthnicity,
         characterGender: normalizedConfig.characterGender,
         creativeStyle: normalizedConfig.creativeStyle,
         figureArtDirection: normalizedConfig.figureArtDirection,
@@ -787,7 +778,6 @@ export type {
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,

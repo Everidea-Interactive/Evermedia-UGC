@@ -23,7 +23,6 @@ function buildBaseFormData(batchSize: string) {
   formData.append('shotEnvironment', 'indoor')
   formData.append('characterGender', 'any')
   formData.append('characterAgeGroup', 'any')
-  formData.append('characterEthnicity', 'any')
   formData.append('figureArtDirection', 'none')
   formData.append('batchSize', batchSize)
   formData.append('textPrompt', 'Create a polished hero campaign image.')
@@ -35,7 +34,7 @@ function buildBaseFormData(batchSize: string) {
 }
 
 function makeUploadedAsset(
-  overrides: Partial<UploadedAssetDescriptor>,
+  overrides: Partial<UploadedAssetDescriptor> = {},
 ): UploadedAssetDescriptor {
   return {
     fieldName: 'asset_face1',
@@ -75,7 +74,6 @@ describe('KIE batch submission', () => {
     formData.set('shotEnvironment', 'outdoor')
     formData.set('characterGender', 'female')
     formData.set('characterAgeGroup', 'young-adult')
-    formData.set('characterEthnicity', 'south-asian')
     formData.set('figureArtDirection', 'curvaceous-editorial')
     formData.append('assetManifest', '[]')
 
@@ -86,7 +84,6 @@ describe('KIE batch submission', () => {
     expect(parsed.shotEnvironment).toBe('outdoor')
     expect(parsed.characterGender).toBe('female')
     expect(parsed.characterAgeGroup).toBe('young-adult')
-    expect(parsed.characterEthnicity).toBe('south-asian')
     expect(parsed.figureArtDirection).toBe('curvaceous-editorial')
   })
 

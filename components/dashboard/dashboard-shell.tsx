@@ -66,7 +66,6 @@ import type {
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
@@ -192,20 +191,6 @@ const characterAgeGroups: Array<{
   { value: 'adult', label: 'Adult' },
   { value: 'middle-aged', label: 'Middle Aged' },
   { value: 'senior', label: 'Senior' },
-]
-
-const characterEthnicities: Array<{
-  value: CharacterEthnicity
-  label: string
-}> = [
-  { value: 'any', label: 'Any' },
-  { value: 'south-asian', label: 'South Asian' },
-  { value: 'east-asian', label: 'East Asian' },
-  { value: 'black', label: 'Black' },
-  { value: 'caucasian', label: 'Caucasian' },
-  { value: 'hispanic', label: 'Hispanic' },
-  { value: 'middle-eastern', label: 'Middle Eastern' },
-  { value: 'mixed', label: 'Mixed' },
 ]
 
 const figureArtDirections: Array<{
@@ -715,12 +700,6 @@ function RefineRenderSection({ className }: { className?: string }) {
   const setCharacterAgeGroup = useGenerationStore(
     (state) => state.setCharacterAgeGroup,
   )
-  const characterEthnicity = useGenerationStore(
-    (state) => state.characterEthnicity,
-  )
-  const setCharacterEthnicity = useGenerationStore(
-    (state) => state.setCharacterEthnicity,
-  )
   const figureArtDirection = useGenerationStore(
     (state) => state.figureArtDirection,
   )
@@ -915,7 +894,7 @@ function RefineRenderSection({ className }: { className?: string }) {
           >
             <div
               className={cn(
-                'grid gap-3 lg:grid-cols-2 lg:gap-x-3 xl:grid-cols-3',
+                'grid gap-3 lg:grid-cols-2 lg:gap-x-3',
                 !isLifestyle && 'opacity-60',
               )}
             >
@@ -971,36 +950,6 @@ function RefineRenderSection({ className }: { className?: string }) {
                 </ToggleGroup>
               </div>
 
-              <div
-                className={cn(
-                  presetSubgroupClassName,
-                  'grid gap-1.5 lg:col-span-2 xl:col-span-1 self-start',
-                )}
-              >
-                <PresetGroupLabel>Ethnicity</PresetGroupLabel>
-                <ToggleGroup
-                  aria-label="Character Ethnicity"
-                  type="single"
-                  value={characterEthnicity}
-                  className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2"
-                  onValueChange={(value) => {
-                    if (value) {
-                      setCharacterEthnicity(value as CharacterEthnicity)
-                    }
-                  }}
-                >
-                  {characterEthnicities.map((option) => (
-                    <ToggleGroupItem
-                      key={option.value}
-                      value={option.value}
-                      disabled={!isLifestyle}
-                      className={presetCompactTileClassName}
-                    >
-                      {option.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
             </div>
             {!isLifestyle ? (
               <p className="text-xs text-muted-foreground">
@@ -1376,9 +1325,6 @@ function PreviewCanvas({
   const characterAgeGroup = useGenerationStore(
     (state) => state.characterAgeGroup,
   )
-  const characterEthnicity = useGenerationStore(
-    (state) => state.characterEthnicity,
-  )
   const figureArtDirection = useGenerationStore(
     (state) => state.figureArtDirection,
   )
@@ -1409,7 +1355,6 @@ function PreviewCanvas({
   })
   const characterPresetLabel = getCharacterPresetSummary({
     characterAgeGroup,
-    characterEthnicity,
     characterGender,
     figureArtDirection,
     subjectMode,
@@ -2319,9 +2264,6 @@ function useGenerationController() {
   const characterAgeGroup = useGenerationStore(
     (state) => state.characterAgeGroup,
   )
-  const characterEthnicity = useGenerationStore(
-    (state) => state.characterEthnicity,
-  )
   const figureArtDirection = useGenerationStore(
     (state) => state.figureArtDirection,
   )
@@ -2346,7 +2288,6 @@ function useGenerationController() {
         batchSize,
         cameraMovement,
         characterAgeGroup,
-        characterEthnicity,
         characterGender,
         creativeStyle,
         figureArtDirection,
@@ -2366,7 +2307,6 @@ function useGenerationController() {
       batchSize,
       cameraMovement,
       characterAgeGroup,
-      characterEthnicity,
       characterGender,
       creativeStyle,
       figureArtDirection,
@@ -2878,7 +2818,6 @@ function getFigureArtDirectionLabel(direction: FigureArtDirection) {
 
 function getCharacterPresetSummary(input: {
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   characterGender: CharacterGender
   figureArtDirection: FigureArtDirection
   subjectMode: SubjectMode
@@ -2890,7 +2829,6 @@ function getCharacterPresetSummary(input: {
   const selections = [
     input.characterGender,
     input.characterAgeGroup,
-    input.characterEthnicity,
   ]
     .filter((value) => value !== 'any')
     .map((value) => humanize(value))

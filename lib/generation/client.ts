@@ -90,7 +90,6 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('shotEnvironment', snapshot.shotEnvironment)
   formData.append('characterGender', snapshot.characterGender)
   formData.append('characterAgeGroup', snapshot.characterAgeGroup)
-  formData.append('characterEthnicity', snapshot.characterEthnicity)
   formData.append('figureArtDirection', snapshot.figureArtDirection)
   formData.append('batchSize', String(snapshot.batchSize))
   formData.append('textPrompt', snapshot.textPrompt)

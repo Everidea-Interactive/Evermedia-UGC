@@ -21,7 +21,6 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.shotEnvironment).toBe('indoor')
     expect(snapshot.characterGender).toBe('any')
     expect(snapshot.characterAgeGroup).toBe('any')
-    expect(snapshot.characterEthnicity).toBe('any')
     expect(snapshot.figureArtDirection).toBe('none')
   })
 
@@ -31,7 +30,6 @@ describe('normalizeProjectConfigSnapshot', () => {
       batchSize: 1,
       cameraMovement: 'orbit',
       characterAgeGroup: 'young-adult',
-      characterEthnicity: 'south-asian',
       characterGender: 'female',
       creativeStyle: 'ugc-lifestyle',
       figureArtDirection: 'curvaceous-editorial',
@@ -48,7 +46,6 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.shotEnvironment).toBe('outdoor')
     expect(snapshot.characterGender).toBe('any')
     expect(snapshot.characterAgeGroup).toBe('any')
-    expect(snapshot.characterEthnicity).toBe('any')
     expect(snapshot.figureArtDirection).toBe('none')
   })
 })

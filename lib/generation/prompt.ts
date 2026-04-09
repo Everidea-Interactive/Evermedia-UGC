@@ -1,7 +1,6 @@
 import type {
   CameraMovement,
   CharacterAgeGroup,
-  CharacterEthnicity,
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
@@ -127,7 +126,6 @@ export function compileGenerationPrompt(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
-  characterEthnicity: CharacterEthnicity
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
   figureArtDirection: FigureArtDirection
@@ -176,7 +174,6 @@ export function compileGenerationPrompt(input: {
     const demographicSelections = [
       input.characterGender,
       input.characterAgeGroup,
-      input.characterEthnicity,
     ].filter((value) => value !== 'any')
 
     if (demographicSelections.length > 0) {

@@ -1,6 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useGenerationStore } from '../store/use-generation-store'
+import type { GenerationVariant } from '../lib/generation/types'
+
+function makeVariant(
+  overrides: Partial<GenerationVariant>,
+): GenerationVariant {
+  return {
+    completedAt: null,
+    createdAt: null,
+    error: null,
+    index: 1,
+    isHero: false,
+    profile: 'Keep the strongest hero composition closest to the base brief.',
+    prompt: 'Prompt',
+    result: null,
+    reviewNotes: null,
+    reviewStatus: 'pending',
+    selectedForDelivery: false,
+    status: 'queued',
+    taskId: null,
+    variantId: 'variant-1',
+    ...overrides,
+  }
+}
 
 describe('useGenerationStore', () => {
   const createObjectURL = vi.fn()
@@ -66,12 +89,10 @@ describe('useGenerationStore', () => {
     expect(store.shotEnvironment).toBe('indoor')
     expect(store.characterGender).toBe('any')
     expect(store.characterAgeGroup).toBe('any')
-    expect(store.characterEthnicity).toBe('any')
     expect(store.figureArtDirection).toBe('none')
 
     store.setCharacterGender('female')
     store.setCharacterAgeGroup('young-adult')
-    store.setCharacterEthnicity('south-asian')
     store.setFigureArtDirection('curvaceous-editorial')
     store.setSubjectMode('product-only')
 
@@ -80,7 +101,6 @@ describe('useGenerationStore', () => {
     expect(state.subjectMode).toBe('product-only')
     expect(state.characterGender).toBe('any')
     expect(state.characterAgeGroup).toBe('any')
-    expect(state.characterEthnicity).toBe('any')
     expect(state.figureArtDirection).toBe('none')
   })
 
@@ -104,7 +124,6 @@ describe('useGenerationStore', () => {
     expect(state.shotEnvironment).toBe('indoor')
     expect(state.characterGender).toBe('any')
     expect(state.characterAgeGroup).toBe('any')
-    expect(state.characterEthnicity).toBe('any')
     expect(state.figureArtDirection).toBe('none')
   })
 
@@ -122,27 +141,23 @@ describe('useGenerationStore', () => {
       workspace: 'video',
     })
     store.setGenerationVariants([
-      {
-        error: null,
+      makeVariant({
         index: 1,
         profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
-        result: null,
         status: 'rendering',
         taskId: 'task-1',
         variantId: 'variant-1',
-      },
-      {
-        error: null,
+      }),
+      makeVariant({
         index: 2,
         profile:
           'Explore an alternate framing and composition while preserving brand intent and subject identity.',
         prompt: 'Prompt 2',
-        result: null,
         status: 'rendering',
         taskId: 'task-2',
         variantId: 'variant-2',
-      },
+      }),
     ])
 
     let state = useGenerationStore.getState()
@@ -152,8 +167,7 @@ describe('useGenerationStore', () => {
     expect(state.generationRun.status).toBe('rendering')
 
     store.setGenerationVariants([
-      {
-        error: null,
+      makeVariant({
         index: 1,
         profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
@@ -166,18 +180,17 @@ describe('useGenerationStore', () => {
         status: 'success',
         taskId: 'task-1',
         variantId: 'variant-1',
-      },
-      {
+      }),
+      makeVariant({
         error: 'Provider rejected task 2.',
         index: 2,
         profile:
           'Explore an alternate framing and composition while preserving brand intent and subject identity.',
         prompt: 'Prompt 2',
-        result: null,
         status: 'error',
         taskId: 'task-2',
         variantId: 'variant-2',
-      },
+      }),
     ])
     state = useGenerationStore.getState()
 
@@ -210,27 +223,25 @@ describe('useGenerationStore', () => {
       workspace: 'image',
     })
     store.setGenerationVariants([
-      {
+      makeVariant({
         error: 'First variation failed.',
         index: 1,
         profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
-        result: null,
         status: 'error',
         taskId: null,
         variantId: 'variant-1',
-      },
-      {
+      }),
+      makeVariant({
         error: 'Second variation failed.',
         index: 2,
         profile:
           'Explore an alternate framing and composition while preserving brand intent and subject identity.',
         prompt: 'Prompt 2',
-        result: null,
         status: 'error',
         taskId: null,
         variantId: 'variant-2',
-      },
+      }),
     ])
 
     const state = useGenerationStore.getState()
@@ -252,16 +263,15 @@ describe('useGenerationStore', () => {
       workspace: 'image',
     })
     store.setGenerationVariants([
-      {
+      makeVariant({
         error: 'Immediate submit failure.',
         index: 1,
         profile: 'Keep the strongest hero composition closest to the base brief.',
         prompt: 'Prompt 1',
-        result: null,
         status: 'error',
         taskId: null,
         variantId: 'variant-1',
-      },
+      }),
     ])
 
     store.resetGenerationState()
