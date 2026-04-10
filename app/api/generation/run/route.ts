@@ -4,9 +4,21 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
+  getKieStatus,
   parseGenerationFormData,
   submitGenerationRequest,
+  type ParsedGenerationRequest,
 } from '@/lib/generation/kie'
+import { getKiePricing } from '@/lib/generation/kie-pricing'
+import {
+  getGenerationCostEstimate,
+  getGenerationCreditValidation,
+} from '@/lib/generation/pricing'
+import type {
+  AssetSlot,
+  GenerationSnapshot,
+  NamedAssetSlots,
+} from '@/lib/generation/types'
 import {
   createGenerationRunForUser,
   createGenerationVariantsForRun,
@@ -18,6 +30,116 @@ import {
 } from '@/lib/persistence/serialization'
 
 export const runtime = 'nodejs'
+
+function createEstimateSlot(input: {
+  file: File | null
+  id: string
+  label: string
+}): AssetSlot {
+  return {
+    error: null,
+    file: input.file,
+    id: input.id,
+    label: input.label,
+    mimeType: input.file?.type ?? null,
+    previewUrl: null,
+    size: input.file?.size ?? null,
+    uploadStatus: input.file ? 'staged' : 'idle',
+  }
+}
+
+function createEmptyNamedAssetSlots(): NamedAssetSlots {
+  return {
+    clothing: createEstimateSlot({
+      file: null,
+      id: 'clothing',
+      label: 'Clothing',
+    }),
+    endFrame: createEstimateSlot({
+      file: null,
+      id: 'endFrame',
+      label: 'End Frame',
+    }),
+    face1: createEstimateSlot({
+      file: null,
+      id: 'face1',
+      label: 'Face 1',
+    }),
+    face2: createEstimateSlot({
+      file: null,
+      id: 'face2',
+      label: 'Face 2',
+    }),
+    location: createEstimateSlot({
+      file: null,
+      id: 'location',
+      label: 'Location',
+    }),
+  }
+}
+
+function createEstimateSnapshot(
+  input: ParsedGenerationRequest,
+): Pick<
+  GenerationSnapshot,
+  | 'activeTab'
+  | 'assets'
+  | 'batchSize'
+  | 'imageModel'
+  | 'outputQuality'
+  | 'products'
+  | 'subjectMode'
+  | 'videoDuration'
+  | 'videoModel'
+> {
+  const assets = createEmptyNamedAssetSlots()
+  const products: AssetSlot[] = []
+
+  for (const assetDescriptor of input.assetDescriptors) {
+    const slot = createEstimateSlot({
+      file: assetDescriptor.file,
+      id: assetDescriptor.fieldName,
+      label: assetDescriptor.label,
+    })
+
+    if (assetDescriptor.kind === 'named' && assetDescriptor.key) {
+      assets[assetDescriptor.key] = slot
+      continue
+    }
+
+    if (assetDescriptor.kind === 'product') {
+      products.push(slot)
+    }
+  }
+
+  return {
+    activeTab: input.workspace,
+    assets,
+    batchSize: input.batchSize,
+    imageModel: input.imageModel,
+    outputQuality: input.outputQuality,
+    products,
+    subjectMode: input.subjectMode,
+    videoDuration: input.videoDuration,
+    videoModel: input.videoModel,
+  }
+}
+
+function getGenerationErrorStatus(message: string) {
+  if (message.includes('KIE_API_KEY') || message.includes('configured')) {
+    return 500
+  }
+
+  if (message.startsWith('Not enough KIE credits.')) {
+    return 402
+  }
+
+  if (/KIE|credit|credits|balance|pricing/i.test(message)) {
+    return 503
+  }
+
+  return 400
+}
 
 function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>) {
   return normalizeProjectConfigSnapshot({
@@ -59,6 +181,31 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const parsedRequest = parseGenerationFormData(formData)
+    const pricing = await getKiePricing()
+    const kieStatus = await getKieStatus()
+    const estimate = getGenerationCostEstimate(
+      createEstimateSnapshot(parsedRequest),
+      pricing.matrix,
+    )
+    const creditValidation = getGenerationCreditValidation({
+      balanceCredits: kieStatus.credits,
+      balanceError: kieStatus.error,
+      estimate,
+    })
+
+    if (!creditValidation.canGenerate) {
+      return NextResponse.json(
+        {
+          error: creditValidation.reason ?? 'Generation is blocked.',
+        },
+        {
+          status: getGenerationErrorStatus(
+            creditValidation.reason ?? 'Generation is blocked.',
+          ),
+        },
+      )
+    }
+
     const runId = createRunId()
     const promptSnapshot = buildPromptSnapshot(parsedRequest)
     const submission = await submitGenerationRequest(parsedRequest, {
@@ -108,10 +255,7 @@ export async function POST(request: Request) {
         error: message,
       },
       {
-        status:
-          message.includes('KIE_API_KEY') || message.includes('configured')
-            ? 500
-            : 400,
+        status: getGenerationErrorStatus(message),
       },
     )
   }

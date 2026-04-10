@@ -29,12 +29,14 @@ import {
   getGuidedCreativeStyleForConcept,
   kieAnalysisModels,
 } from '@/lib/generation/guided'
-import { getGenerationCostEstimate } from '@/lib/generation/pricing'
+import {
+  getGenerationCostEstimate,
+  getGenerationCreditValidation,
+} from '@/lib/generation/pricing'
 import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
-import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import type {
   AssetSlot,
   ContentConcept,
@@ -45,6 +47,8 @@ import type {
   GuidedAnalysisStatus,
   ImageModelOption,
   KieAnalysisModel,
+  KiePricingResponse,
+  KieStatusResponse,
   OutputQuality,
 } from '@/lib/generation/types'
 import { isImageMimeType } from '@/lib/media/image-preview'
@@ -193,10 +197,12 @@ function getAnalyzeHelperText({
 
 function getGenerateHelperText({
   activeRun,
+  creditReason,
   hasHero,
   hasPlan,
 }: {
   activeRun: boolean
+  creditReason: string | null
   hasHero: boolean
   hasPlan: boolean
 }) {
@@ -212,7 +218,84 @@ function getGenerateHelperText({
     return 'Analyze the hero product first to unlock prompt editing and rendering.'
   }
 
+  if (creditReason) {
+    return creditReason
+  }
+
   return 'Prompt set is ready. Generate the guided batch when the prompts look right.'
+}
+
+function createGuidedEstimateInput(input: {
+  heroAsset: AssetSlot
+  imageModel: ImageModelOption
+  outputQuality: OutputQuality
+  shotCount: 1 | 2 | 3 | 4
+  shots: GuidedAnalysisShot[]
+}) {
+  return {
+    activeTab: 'image' as const,
+    assets: {
+      clothing: {
+        error: null,
+        file: null,
+        id: 'guided-clothing',
+        label: 'Clothing',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
+      endFrame: {
+        error: null,
+        file: null,
+        id: 'guided-end-frame',
+        label: 'End Frame',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
+      face1: {
+        error: null,
+        file: null,
+        id: 'guided-face1',
+        label: 'Face 1',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
+      face2: {
+        error: null,
+        file: null,
+        id: 'guided-face2',
+        label: 'Face 2',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
+      location: {
+        error: null,
+        file: null,
+        id: 'guided-location',
+        label: 'Location',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
+    },
+    batchSize: input.shots.length
+      ? clampGuidedShotCount(input.shots.length)
+      : input.shotCount,
+    imageModel: input.imageModel,
+    outputQuality: input.outputQuality,
+    products: [input.heroAsset],
+    subjectMode: input.shots[0]?.subjectMode ?? 'product-only',
+    videoDuration: 'base' as const,
+    videoModel: 'veo-3.1' as const,
+  }
 }
 
 function getGuidedWorkflowCurrentStep({
@@ -1219,7 +1302,19 @@ function GuidedResultsSection({ generationRun }: { generationRun: GenerationRun 
   )
 }
 
-export function GuidedWorkspace({ className }: { className?: string }) {
+export function GuidedWorkspace({
+  className,
+  isPricingLoading,
+  kiePricing,
+  kiePricingError,
+  kieStatus,
+}: {
+  className?: string
+  isPricingLoading: boolean
+  kiePricing: KiePricingResponse | null
+  kiePricingError: string | null
+  kieStatus: KieStatusResponse
+}) {
   const [isReanalyzeDialogOpen, setIsReanalyzeDialogOpen] = useState(false)
   const analysisError = useGenerationStore((state) => state.analysisError)
   const analysisStatus = useGenerationStore((state) => state.analysisStatus)
@@ -1251,7 +1346,6 @@ export function GuidedWorkspace({ className }: { className?: string }) {
   )
   const setGenerationError = useGenerationStore((state) => state.setGenerationError)
   const resetGuidedState = useGenerationStore((state) => state.resetGuidedState)
-  const { isLoading: isPricingLoading, pricing } = useKiePricing()
 
   const hasHero = isSlotLoaded(guidedInput.heroAsset)
   const hasPlan = Boolean(guidedPlan?.shots.length)
@@ -1259,76 +1353,18 @@ export function GuidedWorkspace({ className }: { className?: string }) {
     generationRun.status !== 'idle' || generationRun.variants.length > 0
   const activeRunInGuidedMode = hasActiveGeneration(generationRun)
   const canAnalyze = hasHero && analysisStatus !== 'analyzing'
-  const canGenerate = hasPlan && hasHero && !activeRunInGuidedMode
 
   const estimate = useMemo(
     () =>
       getGenerationCostEstimate(
-        {
-          activeTab: 'image',
-          assets: {
-            clothing: {
-              error: null,
-              file: null,
-              id: 'guided-clothing',
-              label: 'Clothing',
-              mimeType: null,
-              previewUrl: null,
-              size: null,
-              uploadStatus: 'idle',
-            },
-            endFrame: {
-              error: null,
-              file: null,
-              id: 'guided-end-frame',
-              label: 'End Frame',
-              mimeType: null,
-              previewUrl: null,
-              size: null,
-              uploadStatus: 'idle',
-            },
-            face1: {
-              error: null,
-              file: null,
-              id: 'guided-face1',
-              label: 'Face 1',
-              mimeType: null,
-              previewUrl: null,
-              size: null,
-              uploadStatus: 'idle',
-            },
-            face2: {
-              error: null,
-              file: null,
-              id: 'guided-face2',
-              label: 'Face 2',
-              mimeType: null,
-              previewUrl: null,
-              size: null,
-              uploadStatus: 'idle',
-            },
-            location: {
-              error: null,
-              file: null,
-              id: 'guided-location',
-              label: 'Location',
-              mimeType: null,
-              previewUrl: null,
-              size: null,
-              uploadStatus: 'idle',
-            },
-          },
-          batchSize: guidedPlan?.shots.length
-            ? clampGuidedShotCount(guidedPlan.shots.length)
-            : guidedInput.shotCount,
+        createGuidedEstimateInput({
+          heroAsset: guidedInput.heroAsset,
           imageModel,
           outputQuality,
-          products: [guidedInput.heroAsset],
-          subjectMode: guidedPlan?.shots[0]?.subjectMode ?? 'product-only',
-          videoDuration: 'base',
-          videoModel: 'veo-3.1',
-        },
-        pricing?.matrix ?? null,
+          shotCount: guidedInput.shotCount,
+          shots: guidedPlan?.shots ?? [],
+        }),
+        kiePricing?.matrix ?? null,
       ),
     [
       guidedInput.heroAsset,
@@ -1336,9 +1372,21 @@ export function GuidedWorkspace({ className }: { className?: string }) {
       guidedPlan,
       imageModel,
       outputQuality,
-      pricing?.matrix,
+      kiePricing?.matrix,
     ],
   )
+  const creditValidation = useMemo(
+    () =>
+      getGenerationCreditValidation({
+        balanceCredits: kieStatus.credits,
+        balanceError: kieStatus.error,
+        estimate,
+        pricingError: kiePricingError,
+      }),
+    [estimate, kieStatus.credits, kieStatus.error, kiePricingError],
+  )
+  const canGenerate =
+    hasPlan && hasHero && !activeRunInGuidedMode && creditValidation.canGenerate
 
   const analysisHelperText = getAnalyzeHelperText({
     hasHero,
@@ -1347,6 +1395,7 @@ export function GuidedWorkspace({ className }: { className?: string }) {
   })
   const generateHelperText = getGenerateHelperText({
     activeRun: activeRunInGuidedMode,
+    creditReason: creditValidation.reason,
     hasHero,
     hasPlan,
   })
@@ -1488,6 +1537,30 @@ export function GuidedWorkspace({ className }: { className?: string }) {
     if (!guidedPlan) {
       setAnalysisStatus('error')
       setAnalysisError('Analyze the product first to create the shot plan.')
+      return
+    }
+
+    const currentEstimate = getGenerationCostEstimate(
+      createGuidedEstimateInput({
+        heroAsset: guidedInput.heroAsset,
+        imageModel,
+        outputQuality,
+        shotCount: guidedInput.shotCount,
+        shots: guidedPlan.shots,
+      }),
+      kiePricing?.matrix ?? null,
+    )
+    const currentCreditValidation = getGenerationCreditValidation({
+      balanceCredits: kieStatus.credits,
+      balanceError: kieStatus.error,
+      estimate: currentEstimate,
+      pricingError: kiePricingError,
+    })
+
+    if (!currentCreditValidation.canGenerate) {
+      setGenerationError(
+        currentCreditValidation.reason ?? 'Guided generation is blocked.',
+      )
       return
     }
 

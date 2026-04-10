@@ -224,6 +224,53 @@ function unavailableEstimate(reason: string): GenerationCostEstimate {
   }
 }
 
+export function formatCreditAmount(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 1,
+  }).format(value)
+}
+
+export function getGenerationCreditValidation(input: {
+  balanceCredits: number | null
+  balanceError?: string | null
+  estimate: GenerationCostEstimate
+  pricingError?: string | null
+}) {
+  if (!input.estimate.available || input.estimate.credits === null) {
+    return {
+      canGenerate: false,
+      reason:
+        input.pricingError ??
+        input.estimate.reason ??
+        'Live pricing unavailable. Generation stays locked until the estimate loads.',
+    }
+  }
+
+  if (input.balanceCredits === null) {
+    return {
+      canGenerate: false,
+      reason:
+        input.balanceError ??
+        'Checking KIE credit balance. Generation unlocks once the balance loads.',
+    }
+  }
+
+  if (input.balanceCredits < input.estimate.credits) {
+    return {
+      canGenerate: false,
+      reason: `Not enough KIE credits. ${formatCreditAmount(
+        input.estimate.credits,
+      )} required, ${formatCreditAmount(input.balanceCredits)} available.`,
+    }
+  }
+
+  return {
+    canGenerate: true,
+    reason: null,
+  }
+}
+
 export function getGenerationCostEstimate(
   snapshot: Pick<
     GenerationSnapshot,

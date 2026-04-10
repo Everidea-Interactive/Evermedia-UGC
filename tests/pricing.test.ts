@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildKiePricingMatrix,
   getGenerationCostEstimate,
+  getGenerationCreditValidation,
   type KiePricingApiRecord,
 } from '@/lib/generation/pricing'
 import type { AssetSlot, GenerationSnapshot, NamedAssetSlots } from '@/lib/generation/types'
@@ -277,6 +278,45 @@ describe('generation pricing', () => {
       credits: 240,
       reason: null,
       usd: 1.2,
+    })
+  })
+
+  it('blocks generation when the live credit balance is below the estimate', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        batchSize: 3,
+        imageModel: 'nano-banana',
+      }),
+      pricingMatrix,
+    )
+
+    expect(
+      getGenerationCreditValidation({
+        balanceCredits: 12,
+        estimate,
+      }),
+    ).toEqual({
+      canGenerate: false,
+      reason: 'Not enough KIE credits. 24 required, 12 available.',
+    })
+  })
+
+  it('blocks generation while the credit balance is still unavailable', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        imageModel: 'grok-imagine',
+      }),
+      pricingMatrix,
+    )
+
+    expect(
+      getGenerationCreditValidation({
+        balanceCredits: null,
+        estimate,
+      }),
+    ).toEqual({
+      canGenerate: false,
+      reason: 'Checking KIE credit balance. Generation unlocks once the balance loads.',
     })
   })
 })

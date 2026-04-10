@@ -47,7 +47,10 @@ import {
   getAssetPreviewUrl,
   getGenerationValidation,
 } from '@/lib/generation/client'
-import { getGenerationCostEstimate } from '@/lib/generation/pricing'
+import {
+  getGenerationCostEstimate,
+  getGenerationCreditValidation,
+} from '@/lib/generation/pricing'
 import {
   getActiveTaskCount,
   getCompletedVariantCount,
@@ -71,6 +74,7 @@ import type {
   GenerationRun,
   GenerationVariant,
   ImageModelOption,
+  KiePricingResponse,
   KieStatusResponse,
   NamedAssetKey,
   NamedAssetSlots,
@@ -365,7 +369,14 @@ export function DashboardShell() {
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setExperience = useGenerationStore((state) => state.setExperience)
   const generationRun = useGenerationStore((state) => state.generationRun)
-  const controller = useGenerationController(experience === 'manual')
+  const kiePricingState = useKiePricing()
+  const kieStatusState = useKieStatus(generationRun)
+  const controller = useGenerationController({
+    enabled: experience === 'manual',
+    kiePricing: kiePricingState.pricing,
+    kieStatus: kieStatusState.status,
+    pricingError: kiePricingState.error,
+  })
   const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
   const resolvedPreviewVariantId = generationRun.variants.some(
     (variant) => variant.variantId === previewVariantId,
@@ -392,7 +403,10 @@ export function DashboardShell() {
         className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6"
         id="dashboard-main"
       >
-        <TopBar />
+        <TopBar
+          isKieStatusLoading={kieStatusState.isLoading}
+          kieStatus={kieStatusState.status}
+        />
 
         <section className={cn(panelClassName, 'p-3 sm:p-4')}>
           <div className="flex flex-col gap-3">
@@ -430,7 +444,12 @@ export function DashboardShell() {
         </section>
 
         {experience === 'guided' ? (
-          <GuidedWorkspace />
+          <GuidedWorkspace
+            isPricingLoading={kiePricingState.isLoading}
+            kiePricing={kiePricingState.pricing}
+            kiePricingError={kiePricingState.error}
+            kieStatus={kieStatusState.status}
+          />
         ) : (
           <Tabs
             className="flex flex-1 flex-col gap-4"
@@ -481,7 +500,10 @@ export function DashboardShell() {
                 canGenerate={controller.canGenerate}
                 className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
                 disabledReason={controller.disabledReason}
+                generationCostEstimate={controller.generationCostEstimate}
+                generationCostReason={controller.generationCostReason}
                 isBusy={controller.isBusy}
+                isPricingLoading={kiePricingState.isLoading}
                 onCancelRun={controller.handleCancel}
                 onGenerate={async () => {
                   setPreviewVariantId(null)
@@ -502,11 +524,13 @@ export function DashboardShell() {
   )
 }
 
-function TopBar() {
-  const generationRun = useGenerationStore((state) => state.generationRun)
-  const { isLoading: isKieStatusLoading, status: kieStatus } =
-    useKieStatus(generationRun)
-
+function TopBar({
+  isKieStatusLoading,
+  kieStatus,
+}: {
+  isKieStatusLoading: boolean
+  kieStatus: KieStatusResponse
+}) {
   return (
     <header className={cn(panelClassName, 'px-4 py-4 sm:px-5')}>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1242,7 +1266,10 @@ function PreviewCanvas({
   canGenerate,
   className,
   disabledReason,
+  generationCostEstimate,
+  generationCostReason,
   isBusy,
+  isPricingLoading,
   onCancelRun,
   onGenerate,
   previewVariantId,
@@ -1251,7 +1278,10 @@ function PreviewCanvas({
   canGenerate: boolean
   className?: string
   disabledReason: string | null
+  generationCostEstimate: GenerationCostEstimate
+  generationCostReason: string
   isBusy: boolean
+  isPricingLoading: boolean
   onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
   previewVariantId: string | null
@@ -1264,10 +1294,8 @@ function PreviewCanvas({
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
-  const outputQuality = useGenerationStore((state) => state.outputQuality)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
-  const videoDuration = useGenerationStore((state) => state.videoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
@@ -1282,11 +1310,6 @@ function PreviewCanvas({
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const generationRun = useGenerationStore((state) => state.generationRun)
-  const {
-    error: pricingError,
-    isLoading: isPricingLoading,
-    pricing,
-  } = useKiePricing()
 
   const loadedAssets = useMemo(
     () =>
@@ -1317,37 +1340,6 @@ function PreviewCanvas({
     !runMatchesWorkspace || generationRun.status === 'idle'
       ? getGenerationHelperMessage(disabledReason, generationRun)
       : null
-  const generationCostEstimate = useMemo(
-    () =>
-      getGenerationCostEstimate(
-        {
-          activeTab,
-          assets,
-          batchSize,
-          imageModel,
-          outputQuality,
-          products,
-          subjectMode,
-          videoDuration,
-          videoModel,
-        },
-        pricing?.matrix ?? null,
-      ),
-    [
-      activeTab,
-      assets,
-      batchSize,
-      imageModel,
-      outputQuality,
-      pricing?.matrix,
-      products,
-      subjectMode,
-      videoDuration,
-      videoModel,
-    ],
-  )
-  const generationCostReason =
-    pricingError ?? generationCostEstimate.reason ?? 'Live pricing unavailable.'
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -1959,7 +1951,35 @@ function SectionHeader({
   )
 }
 
-function useGenerationController(enabled: boolean) {
+function createGenerationSnapshot(input: {
+  activeTab: WorkspaceTab
+  assets: NamedAssetSlots
+  batchSize: BatchSize
+  cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterGender: CharacterGender
+  creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
+  imageModel: ImageModelOption
+  outputQuality: OutputQuality
+  productCategory: ProductCategory
+  products: AssetSlot[]
+  shotEnvironment: ShotEnvironment
+  subjectMode: SubjectMode
+  textPrompt: string
+  videoDuration: VideoDuration
+  videoModel: VideoModelOption
+}) {
+  return input
+}
+
+function useGenerationController(input: {
+  enabled: boolean
+  kiePricing: KiePricingResponse | null
+  kieStatus: KieStatusResponse
+  pricingError: string | null
+}) {
+  const { enabled, kiePricing, kieStatus, pricingError } = input
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const batchSize = useGenerationStore((state) => state.batchSize)
@@ -1989,9 +2009,9 @@ function useGenerationController(enabled: boolean) {
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoModel = useGenerationStore((state) => state.videoModel)
 
-  const validation = useMemo(
+  const generationSnapshot = useMemo(
     () =>
-      getGenerationValidation({
+      createGenerationSnapshot({
         activeTab,
         assets,
         batchSize,
@@ -2030,12 +2050,39 @@ function useGenerationController(enabled: boolean) {
       videoModel,
     ],
   )
+  const validation = useMemo(
+    () => getGenerationValidation(generationSnapshot),
+    [generationSnapshot],
+  )
+  const generationCostEstimate = useMemo(
+    () =>
+      getGenerationCostEstimate(
+        generationSnapshot,
+        kiePricing?.matrix ?? null,
+      ),
+    [generationSnapshot, kiePricing?.matrix],
+  )
+  const creditValidation = useMemo(
+    () =>
+      getGenerationCreditValidation({
+        balanceCredits: kieStatus.credits,
+        balanceError: kieStatus.error,
+        estimate: generationCostEstimate,
+        pricingError,
+      }),
+    [
+      generationCostEstimate,
+      kieStatus.credits,
+      kieStatus.error,
+      pricingError,
+    ],
+  )
 
   const isBusy = hasActiveGeneration(generationRun)
   const disabledReason = isBusy
     ? 'A batched render is already in progress. Wait for the current run to finish before starting another batch.'
     : enabled
-      ? validation.reason
+      ? validation.reason ?? creditValidation.reason
       : 'Manual generation is disabled while guided mode is active.'
 
   useEffect(() => {
@@ -2110,7 +2157,7 @@ function useGenerationController(enabled: boolean) {
     }
 
     const state = useGenerationStore.getState()
-    const currentValidation = getGenerationValidation({
+    const currentSnapshot = createGenerationSnapshot({
       activeTab: state.activeTab,
       assets: state.assets,
       batchSize: state.batchSize,
@@ -2129,32 +2176,33 @@ function useGenerationController(enabled: boolean) {
       videoDuration: state.videoDuration,
       videoModel: state.videoModel,
     })
+    const currentValidation = getGenerationValidation(currentSnapshot)
 
     if (!currentValidation.canGenerate) {
       setGenerationError(currentValidation.reason ?? 'Generation is blocked.')
       return
     }
 
+    const currentEstimate = getGenerationCostEstimate(
+      currentSnapshot,
+      kiePricing?.matrix ?? null,
+    )
+    const currentCreditValidation = getGenerationCreditValidation({
+      balanceCredits: kieStatus.credits,
+      balanceError: kieStatus.error,
+      estimate: currentEstimate,
+      pricingError,
+    })
+
+    if (!currentCreditValidation.canGenerate) {
+      setGenerationError(
+        currentCreditValidation.reason ?? 'Generation is blocked.',
+      )
+      return
+    }
+
     try {
-      const { formData } = buildGenerationFormData({
-        activeTab: state.activeTab,
-        assets: state.assets,
-        batchSize: state.batchSize,
-        cameraMovement: state.cameraMovement,
-        characterAgeGroup: state.characterAgeGroup,
-        characterGender: state.characterGender,
-        creativeStyle: state.creativeStyle,
-        figureArtDirection: state.figureArtDirection,
-        imageModel: state.imageModel,
-        outputQuality: state.outputQuality,
-        productCategory: state.productCategory,
-        products: state.products,
-        shotEnvironment: state.shotEnvironment,
-        subjectMode: state.subjectMode,
-        textPrompt: state.textPrompt,
-        videoDuration: state.videoDuration,
-        videoModel: state.videoModel,
-      })
+      const { formData } = buildGenerationFormData(currentSnapshot)
 
       const response = await fetch('/api/generation/run', {
         body: formData,
@@ -2208,8 +2256,12 @@ function useGenerationController(enabled: boolean) {
   }
 
   return {
-    canGenerate: enabled ? validation.canGenerate : false,
+    canGenerate:
+      enabled ? validation.canGenerate && creditValidation.canGenerate : false,
     disabledReason,
+    generationCostEstimate,
+    generationCostReason:
+      pricingError ?? generationCostEstimate.reason ?? 'Live pricing unavailable.',
     handleCancel,
     handleGenerate,
     isBusy,

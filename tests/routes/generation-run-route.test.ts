@@ -7,8 +7,13 @@ vi.mock('@/lib/auth/session', () => ({
 vi.mock('@/lib/generation/kie', () => ({
   buildPromptSnapshot: vi.fn(),
   createRunId: vi.fn(),
+  getKieStatus: vi.fn(),
   parseGenerationFormData: vi.fn(),
   submitGenerationRequest: vi.fn(),
+}))
+
+vi.mock('@/lib/generation/kie-pricing', () => ({
+  getKiePricing: vi.fn(),
 }))
 
 vi.mock('@/lib/persistence/repository', () => ({
@@ -33,9 +38,11 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
+  getKieStatus,
   parseGenerationFormData,
   submitGenerationRequest,
 } from '@/lib/generation/kie'
+import { getKiePricing } from '@/lib/generation/kie-pricing'
 import {
   createGenerationRunForUser,
   createGenerationVariantsForRun,
@@ -47,6 +54,146 @@ import { POST } from '@/app/api/generation/run/route'
 describe('POST /api/generation/run', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getKieStatus).mockResolvedValue({
+      connected: true,
+      credits: 500,
+      error: null,
+      fetchedAt: '2026-04-09T00:00:00.000Z',
+      source: 'chat-credit',
+    })
+    vi.mocked(getKiePricing).mockResolvedValue({
+      creditUsdRate: 0.005,
+      expiresAt: '2026-04-09T01:00:00.000Z',
+      fetchedAt: '2026-04-09T00:00:00.000Z',
+      matrix: {
+        image: {
+          'grok-imagine': {
+            promptOnly: {
+              credits: 4,
+              usd: 0.02,
+            },
+            withReference: {
+              credits: 4,
+              usd: 0.02,
+            },
+          },
+          'nano-banana': {
+            '1080p': {
+              credits: 8,
+              usd: 0.04,
+            },
+            '4k': {
+              credits: 12,
+              usd: 0.06,
+            },
+            '720p': {
+              credits: 8,
+              usd: 0.04,
+            },
+          },
+        },
+        video: {
+          'grok-imagine': {
+            promptOnly: {
+              '1080p': {
+                base: {
+                  credits: 18,
+                  usd: 0.09,
+                },
+                extended: {
+                  credits: 30,
+                  usd: 0.15,
+                },
+              },
+              '4k': {
+                base: {
+                  credits: 9.6,
+                  usd: 0.048,
+                },
+                extended: {
+                  credits: 16,
+                  usd: 0.08,
+                },
+              },
+              '720p': {
+                base: {
+                  credits: 9.6,
+                  usd: 0.048,
+                },
+                extended: {
+                  credits: 16,
+                  usd: 0.08,
+                },
+              },
+            },
+            withReference: {
+              '1080p': {
+                base: {
+                  credits: 18,
+                  usd: 0.09,
+                },
+                extended: {
+                  credits: 30,
+                  usd: 0.15,
+                },
+              },
+              '4k': {
+                base: {
+                  credits: 9.6,
+                  usd: 0.048,
+                },
+                extended: {
+                  credits: 16,
+                  usd: 0.08,
+                },
+              },
+              '720p': {
+                base: {
+                  credits: 9.6,
+                  usd: 0.048,
+                },
+                extended: {
+                  credits: 16,
+                  usd: 0.08,
+                },
+              },
+            },
+          },
+          kling: {
+            promptOnly: {
+              base: {
+                credits: 55,
+                usd: 0.275,
+              },
+              extended: {
+                credits: 110,
+                usd: 0.55,
+              },
+            },
+            withReference: {
+              base: {
+                credits: 55,
+                usd: 0.275,
+              },
+              extended: {
+                credits: 110,
+                usd: 0.55,
+              },
+            },
+          },
+          'veo-3.1': {
+            promptOnly: {
+              credits: 60,
+              usd: 0.3,
+            },
+            withReference: {
+              credits: 60,
+              usd: 0.3,
+            },
+          },
+        },
+      },
+    })
   })
 
   it('submits a generation run and persists the run metadata', async () => {
@@ -222,6 +369,54 @@ describe('POST /api/generation/run', () => {
     )
 
     expect(response.status).toBe(401)
+  })
+
+  it('returns 402 when the user does not have enough KIE credits', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      email: 'user@example.com',
+      id: 'user-1',
+    })
+    vi.mocked(getKieStatus).mockResolvedValue({
+      connected: true,
+      credits: 4,
+      error: null,
+      fetchedAt: '2026-04-09T00:00:00.000Z',
+      source: 'chat-credit',
+    })
+    vi.mocked(parseGenerationFormData).mockReturnValue({
+      activeModel: 'nano-banana',
+      assetDescriptors: [],
+      batchSize: 1,
+      cameraMovement: 'orbit',
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      experience: 'manual',
+      figureArtDirection: 'none',
+      guided: null,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Prompt',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    const response = await POST(
+      new Request('http://localhost/api/generation/run', {
+        body: new FormData(),
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(402)
+    expect(submitGenerationRequest).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Not enough KIE credits. 8 required, 4 available.',
+    })
   })
 
   it('persists guided config metadata for guided runs', async () => {
