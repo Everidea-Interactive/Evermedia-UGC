@@ -8,13 +8,18 @@ import type {
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
+  ContentConcept,
   CreativeStyle,
   FigureArtDirection,
+  GenerationExperience,
+  GuidedAnalysisPlan,
+  GuidedAnalysisStatus,
   GenerationRun,
   GenerationRunStatus,
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  KieAnalysisModel,
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
@@ -28,16 +33,29 @@ import type {
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
+type GuidedInputState = {
+  analysisModel: KieAnalysisModel
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  productUrl: string
+  shotCount: BatchSize
+}
+
 type GenerationStateShape = {
   activeTab: WorkspaceTab
+  analysisError: string | null
+  analysisStatus: GuidedAnalysisStatus
   assets: NamedAssetSlots
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  experience: GenerationExperience
   figureArtDirection: FigureArtDirection
   generationRun: GenerationRun
+  guidedInput: GuidedInputState
+  guidedPlan: GuidedAnalysisPlan | null
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -52,22 +70,33 @@ type GenerationStateShape = {
 
 type GenerationStore = GenerationStateShape & {
   clearNamedAsset: (slot: NamedAssetKey) => void
+  clearGuidedHeroAsset: () => void
   clearProductSlot: (id: string) => void
   disposeGenerationState: () => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
   resetGenerationRun: () => void
   resetGenerationState: () => void
+  resetGuidedState: () => void
   selectGenerationVariant: (variantId: string | null) => void
   setActiveTab: (activeTab: WorkspaceTab) => void
+  setAnalysisError: (error: string | null) => void
+  setAnalysisStatus: (status: GuidedAnalysisStatus) => void
   setBatchSize: (batchSize: BatchSize) => void
   setCameraMovement: (cameraMovement: CameraMovement | null) => void
   setCharacterAgeGroup: (characterAgeGroup: CharacterAgeGroup) => void
   setCharacterGender: (characterGender: CharacterGender) => void
   setCreativeStyle: (creativeStyle: CreativeStyle) => void
+  setExperience: (experience: GenerationExperience) => void
   setFigureArtDirection: (figureArtDirection: FigureArtDirection) => void
   setGenerationError: (error: string) => void
   setGenerationVariants: (variants: GenerationVariant[]) => void
+  setGuidedAnalysisModel: (model: KieAnalysisModel) => void
+  setGuidedContentConcept: (concept: ContentConcept) => void
+  setGuidedHeroFile: (file: File | null) => void
+  setGuidedPlan: (plan: GuidedAnalysisPlan | null) => void
+  setGuidedProductUrl: (productUrl: string) => void
+  setGuidedShotCount: (shotCount: BatchSize) => void
   setImageModel: (imageModel: ImageModelOption) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
@@ -78,6 +107,7 @@ type GenerationStore = GenerationStateShape & {
   setTextPrompt: (textPrompt: string) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
   setVideoModel: (videoModel: VideoModelOption) => void
+  updateGuidedShotPrompt: (slug: string, prompt: string) => void
   updateGenerationRun: (patch: Partial<GenerationRun>) => void
   updateGenerationVariant: (variantId: string, patch: Partial<GenerationVariant>) => void
 }
@@ -121,6 +151,16 @@ function createProductSlots() {
   return Array.from({ length: fixedProductSlotCount }, (_, index) =>
     createSlot(`product-${index + 1}`, buildProductLabel(index + 1)),
   )
+}
+
+function createGuidedInputState(): GuidedInputState {
+  return {
+    analysisModel: 'gemini-2.5-flash',
+    contentConcept: 'affiliate',
+    heroAsset: createSlot('guided-hero', 'Hero Product'),
+    productUrl: '',
+    shotCount: 4,
+  }
 }
 
 function createEmptyRunState(): GenerationRun {
@@ -168,6 +208,8 @@ function createSubjectModeState(subjectMode: SubjectMode) {
 function createInitialState(): GenerationStateShape {
   return {
     activeTab: 'image',
+    analysisError: null,
+    analysisStatus: 'idle',
     assets: {
       clothing: createSlot('clothing', 'Clothing'),
       endFrame: createSlot('endFrame', 'End Frame'),
@@ -180,8 +222,11 @@ function createInitialState(): GenerationStateShape {
     characterAgeGroup: 'any',
     characterGender: 'any',
     creativeStyle: 'ugc-lifestyle',
+    experience: 'manual',
     figureArtDirection: 'none',
     generationRun: createEmptyRunState(),
+    guidedInput: createGuidedInputState(),
+    guidedPlan: null,
     imageModel: 'nano-banana',
     outputQuality: '1080p',
     productCategory: 'cosmetics',
@@ -199,6 +244,10 @@ function releaseSlots(slots: AssetSlot[]) {
   for (const slot of slots) {
     revokePreviewUrl(slot.previewUrl)
   }
+}
+
+function releaseGuidedInput(input: GuidedInputState) {
+  revokePreviewUrl(input.heroAsset.previewUrl)
 }
 
 function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
@@ -298,6 +347,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         [slot]: setSlotFile(state.assets[slot], null),
       },
     })),
+  clearGuidedHeroAsset: () =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        heroAsset: setSlotFile(state.guidedInput.heroAsset, null),
+      },
+    })),
   clearProductSlot: (id) =>
     set((state) => ({
       products: state.products.map((slot) =>
@@ -309,6 +365,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseGuidedInput(state.guidedInput)
 
     set(createInitialState())
   },
@@ -332,20 +389,49 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   hydrateProjectConfig: (configSnapshot) =>
     set((state) => {
       const normalizedConfig = normalizeProjectConfigSnapshot(configSnapshot)
+      const hydratedGuidedPlan = normalizedConfig.guided
+        ? {
+            creativeStyle: normalizedConfig.creativeStyle,
+            productCategory: normalizedConfig.productCategory,
+            shots: normalizedConfig.guided.shots,
+            summary: normalizedConfig.guided.summary,
+          }
+        : null
+      const guidedShotCount =
+        normalizedConfig.guided &&
+        normalizedConfig.guided.shots.length >= 1 &&
+        normalizedConfig.guided.shots.length <= 4
+          ? (normalizedConfig.guided.shots.length as BatchSize)
+          : createGuidedInputState().shotCount
 
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
+      releaseGuidedInput(state.guidedInput)
 
       return {
         ...createInitialState(),
         activeTab: normalizedConfig.activeTab,
+        analysisError: null,
+        analysisStatus: hydratedGuidedPlan ? 'ready' : 'idle',
         batchSize: normalizedConfig.batchSize,
         cameraMovement: normalizedConfig.cameraMovement,
         characterAgeGroup: normalizedConfig.characterAgeGroup,
         characterGender: normalizedConfig.characterGender,
         creativeStyle: normalizedConfig.creativeStyle,
+        experience: normalizedConfig.experience,
         figureArtDirection: normalizedConfig.figureArtDirection,
         imageModel: normalizedConfig.imageModel,
+        guidedInput: {
+          ...createGuidedInputState(),
+          analysisModel:
+            normalizedConfig.guided?.analysisModel ?? createGuidedInputState().analysisModel,
+          contentConcept:
+            normalizedConfig.guided?.contentConcept ??
+            createGuidedInputState().contentConcept,
+          productUrl: normalizedConfig.guided?.productUrl ?? '',
+          shotCount: guidedShotCount,
+        },
+        guidedPlan: hydratedGuidedPlan,
         outputQuality: normalizedConfig.outputQuality,
         productCategory: normalizedConfig.productCategory,
         sessionStats: state.sessionStats,
@@ -363,12 +449,45 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   resetGenerationState: () => {
     const state = get()
+    const nextState = createInitialState()
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
 
     set({
-      ...createInitialState(),
+      activeTab: nextState.activeTab,
+      assets: nextState.assets,
+      batchSize: nextState.batchSize,
+      cameraMovement: nextState.cameraMovement,
+      characterAgeGroup: nextState.characterAgeGroup,
+      characterGender: nextState.characterGender,
+      creativeStyle: nextState.creativeStyle,
+      figureArtDirection: nextState.figureArtDirection,
+      generationRun: nextState.generationRun,
+      imageModel: nextState.imageModel,
+      outputQuality: nextState.outputQuality,
+      productCategory: nextState.productCategory,
+      products: nextState.products,
+      sessionStats: state.sessionStats,
+      shotEnvironment: nextState.shotEnvironment,
+      subjectMode: nextState.subjectMode,
+      textPrompt: nextState.textPrompt,
+      videoDuration: nextState.videoDuration,
+      videoModel: nextState.videoModel,
+    })
+  },
+  resetGuidedState: () => {
+    const state = get()
+    const nextState = createInitialState()
+
+    releaseGuidedInput(state.guidedInput)
+
+    set({
+      analysisError: nextState.analysisError,
+      analysisStatus: nextState.analysisStatus,
+      generationRun: nextState.generationRun,
+      guidedInput: nextState.guidedInput,
+      guidedPlan: nextState.guidedPlan,
       sessionStats: state.sessionStats,
     })
   },
@@ -383,6 +502,8 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setActiveTab: (activeTab) => set({ activeTab }),
+  setAnalysisError: (analysisError) => set({ analysisError }),
+  setAnalysisStatus: (analysisStatus) => set({ analysisStatus }),
   setBatchSize: (batchSize) => set({ batchSize }),
   setCameraMovement: (cameraMovement) => set({ cameraMovement }),
   setCharacterAgeGroup: (characterAgeGroup) =>
@@ -394,6 +515,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       state.subjectMode === 'lifestyle' ? { characterGender } : {},
     ),
   setCreativeStyle: (creativeStyle) => set({ creativeStyle }),
+  setExperience: (experience) => set({ experience }),
   setFigureArtDirection: (figureArtDirection) =>
     set((state) =>
       state.subjectMode === 'lifestyle' ? { figureArtDirection } : {},
@@ -431,6 +553,47 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       generationRun: syncGenerationRun(state.generationRun, variants),
       sessionStats: createSessionStats(variants),
     })),
+  setGuidedAnalysisModel: (analysisModel) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        analysisModel,
+      },
+    })),
+  setGuidedContentConcept: (contentConcept) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        contentConcept,
+      },
+    })),
+  setGuidedHeroFile: (file) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        heroAsset: setSlotFile(state.guidedInput.heroAsset, file),
+      },
+    })),
+  setGuidedPlan: (guidedPlan) =>
+    set(() => ({
+      analysisError: null,
+      analysisStatus: guidedPlan ? 'ready' : 'idle',
+      guidedPlan,
+    })),
+  setGuidedProductUrl: (productUrl) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        productUrl,
+      },
+    })),
+  setGuidedShotCount: (shotCount) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        shotCount,
+      },
+    })),
   setImageModel: (imageModel) => set({ imageModel }),
   setNamedAssetFile: (slot, file) =>
     set((state) => ({
@@ -452,6 +615,22 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setTextPrompt: (textPrompt) => set({ textPrompt }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) => set({ videoModel }),
+  updateGuidedShotPrompt: (slug, prompt) =>
+    set((state) => ({
+      guidedPlan: state.guidedPlan
+        ? {
+            ...state.guidedPlan,
+            shots: state.guidedPlan.shots.map((shot) =>
+              shot.slug === slug
+                ? {
+                    ...shot,
+                    prompt,
+                  }
+                : shot,
+            ),
+          }
+        : null,
+    })),
   updateGenerationRun: (patch) =>
     set((state) => ({
       generationRun: {
@@ -483,13 +662,18 @@ export type {
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
+  ContentConcept,
   CreativeStyle,
   FigureArtDirection,
+  GenerationExperience,
+  GuidedAnalysisPlan,
+  GuidedAnalysisStatus,
   GenerationRun,
   GenerationRunStatus,
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,
   ProductCategory,

@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { GuidedWorkspace } from '@/components/dashboard/guided-workspace'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -65,6 +66,7 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
+  GenerationExperience,
   GenerationCostEstimate,
   GenerationRun,
   GenerationVariant,
@@ -101,6 +103,23 @@ const workspaceTabs: Array<{
     icon: Film,
     label: 'Video',
     value: 'video',
+  },
+]
+
+const experienceTabs: Array<{
+  helper: string
+  label: string
+  value: GenerationExperience
+}> = [
+  {
+    helper: 'Reference board, presets, and manual batch generation',
+    label: 'Manual',
+    value: 'manual',
+  },
+  {
+    helper: 'Analyze one product image, edit the shot list, then render it',
+    label: 'Guided',
+    value: 'guided',
   },
 ]
 
@@ -342,9 +361,11 @@ function ImagePreviewTrigger({
 
 export function DashboardShell() {
   const activeTab = useGenerationStore((state) => state.activeTab)
+  const experience = useGenerationStore((state) => state.experience)
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
+  const setExperience = useGenerationStore((state) => state.setExperience)
   const generationRun = useGenerationStore((state) => state.generationRun)
-  const controller = useGenerationController()
+  const controller = useGenerationController(experience === 'manual')
   const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
   const resolvedPreviewVariantId = generationRun.variants.some(
     (variant) => variant.variantId === previewVariantId,
@@ -371,72 +392,111 @@ export function DashboardShell() {
         className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6"
         id="dashboard-main"
       >
-        <Tabs
-          className="flex flex-1 flex-col gap-4"
-          onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-          value={activeTab}
-        >
-          <TopBar />
+        <TopBar />
 
-          <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                  Output mode
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Choose whether the workspace builds a still render or a motion
-                  render before staging references.
-                </p>
-              </div>
+        <section className={cn(panelClassName, 'p-3 sm:p-4')}>
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Studio experience
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose between the existing manual studio and the new analyze-first guided planner.
+              </p>
+            </div>
 
-              <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2">
-                {workspaceTabs.map((tab) => {
-                  const Icon = tab.icon
+            <Tabs
+              onValueChange={(value) => setExperience(value as GenerationExperience)}
+              value={experience}
+            >
+              <TabsList aria-label="Studio Experience" className="w-full grid-cols-2">
+                {experienceTabs.map((tab) => (
+                  <TabsTrigger
+                    className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
+                    key={tab.value}
+                    value={tab.value}
+                  >
+                    <span className="mx-auto flex w-full max-w-[14rem] flex-col text-left">
+                      <span className="text-base font-semibold">{tab.label}</span>
+                      <span className="mt-1 text-xs font-normal text-current/72">
+                        {tab.helper}
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+        </section>
 
-                  return (
-                    <TabsTrigger
-                      className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
-                      key={tab.value}
-                      value={tab.value}
-                    >
-                      <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                        <Icon className="size-5 shrink-0" suppressHydrationWarning />
-                        <span className="flex min-w-0 flex-col">
-                          <span className="text-base font-semibold">{tab.label}</span>
-                          <span className="text-xs font-normal text-current/72">
-                            {tab.helper}
+        {experience === 'guided' ? (
+          <GuidedWorkspace />
+        ) : (
+          <Tabs
+            className="flex flex-1 flex-col gap-4"
+            onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+            value={activeTab}
+          >
+            <section className={cn(panelClassName, 'p-3 sm:p-4')}>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                    Output mode
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Choose whether the workspace builds a still render or a motion
+                    render before staging references.
+                  </p>
+                </div>
+
+                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2">
+                  {workspaceTabs.map((tab) => {
+                    const Icon = tab.icon
+
+                    return (
+                      <TabsTrigger
+                        className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
+                        key={tab.value}
+                        value={tab.value}
+                      >
+                        <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
+                          <Icon className="size-5 shrink-0" suppressHydrationWarning />
+                          <span className="flex min-w-0 flex-col">
+                            <span className="text-base font-semibold">{tab.label}</span>
+                            <span className="text-xs font-normal text-current/72">
+                              {tab.helper}
+                            </span>
                           </span>
                         </span>
-                      </span>
-                    </TabsTrigger>
-                  )
-                })}
-              </TabsList>
-            </div>
-          </section>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </div>
+            </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
-            <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
-            <PreviewCanvas
-              canGenerate={controller.canGenerate}
-              className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
-              disabledReason={controller.disabledReason}
-              isBusy={controller.isBusy}
-              onCancelRun={controller.handleCancel}
-              onGenerate={async () => {
-                setPreviewVariantId(null)
-                await controller.handleGenerate()
-              }}
-              previewVariantId={resolvedPreviewVariantId}
-              setPreviewVariantId={setPreviewVariantId}
-            />
-            <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
-            {activeTab === 'video' ? (
-              <MotionControlsSection className="xl:col-start-1 xl:row-start-3" />
-            ) : null}
-          </div>
-        </Tabs>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
+              <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
+              <PreviewCanvas
+                canGenerate={controller.canGenerate}
+                className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
+                disabledReason={controller.disabledReason}
+                isBusy={controller.isBusy}
+                onCancelRun={controller.handleCancel}
+                onGenerate={async () => {
+                  setPreviewVariantId(null)
+                  await controller.handleGenerate()
+                }}
+                previewVariantId={resolvedPreviewVariantId}
+                setPreviewVariantId={setPreviewVariantId}
+              />
+              <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
+              {activeTab === 'video' ? (
+                <MotionControlsSection className="xl:col-start-1 xl:row-start-3" />
+              ) : null}
+            </div>
+          </Tabs>
+        )}
       </main>
     </div>
   )
@@ -1899,7 +1959,7 @@ function SectionHeader({
   )
 }
 
-function useGenerationController() {
+function useGenerationController(enabled: boolean) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const batchSize = useGenerationStore((state) => state.batchSize)
@@ -1974,9 +2034,15 @@ function useGenerationController() {
   const isBusy = hasActiveGeneration(generationRun)
   const disabledReason = isBusy
     ? 'A batched render is already in progress. Wait for the current run to finish before starting another batch.'
-    : validation.reason
+    : enabled
+      ? validation.reason
+      : 'Manual generation is disabled while guided mode is active.'
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     const runId = generationRun.runId
 
     if (!runId || generationRun.status !== 'rendering') {
@@ -2030,9 +2096,19 @@ function useGenerationController() {
       isCancelled = true
       window.clearInterval(interval)
     }
-  }, [generationRun.runId, generationRun.status, hydrateGenerationRun, setGenerationError])
+  }, [
+    enabled,
+    generationRun.runId,
+    generationRun.status,
+    hydrateGenerationRun,
+    setGenerationError,
+  ])
 
   const handleGenerate = async () => {
+    if (!enabled) {
+      return
+    }
+
     const state = useGenerationStore.getState()
     const currentValidation = getGenerationValidation({
       activeTab: state.activeTab,
@@ -2132,7 +2208,7 @@ function useGenerationController() {
   }
 
   return {
-    canGenerate: validation.canGenerate,
+    canGenerate: enabled ? validation.canGenerate : false,
     disabledReason,
     handleCancel,
     handleGenerate,

@@ -106,6 +106,8 @@ describe('useGenerationStore', () => {
       batchSize: 1,
       cameraMovement: 'orbit',
       creativeStyle: 'ugc-lifestyle',
+      experience: 'manual',
+      guided: null,
       imageModel: 'nano-banana',
       outputQuality: '1080p',
       productCategory: 'cosmetics',
@@ -121,6 +123,7 @@ describe('useGenerationStore', () => {
     expect(state.characterGender).toBe('any')
     expect(state.characterAgeGroup).toBe('any')
     expect(state.figureArtDirection).toBe('none')
+    expect(state.experience).toBe('manual')
   })
 
   it('tracks partial success and keeps selection on a saved variant', () => {
@@ -246,5 +249,44 @@ describe('useGenerationStore', () => {
     expect(state.sessionStats.failedVariants).toBe(1)
     expect(state.sessionStats.completedVariants).toBe(0)
     expect(state.generationRun.status).toBe('idle')
+  })
+
+  it('keeps guided state separate from the manual draft and resets it independently', () => {
+    const store = useGenerationStore.getState()
+
+    store.setTextPrompt('Manual draft prompt')
+    store.setGuidedProductUrl('https://example.com/product')
+    store.setGuidedShotCount(3)
+    store.setGuidedPlan({
+      creativeStyle: 'tv-commercial',
+      productCategory: 'cosmetics',
+      shots: [
+        {
+          prompt: 'Prompt 1',
+          shotEnvironment: 'indoor',
+          slug: 'shot-1',
+          subjectMode: 'product-only',
+          tags: ['hero'],
+          title: 'Shot 1',
+        },
+      ],
+      summary: 'Guided summary',
+    })
+    store.setExperience('guided')
+
+    let state = useGenerationStore.getState()
+
+    expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.guidedInput.productUrl).toBe('https://example.com/product')
+    expect(state.guidedPlan?.summary).toBe('Guided summary')
+    expect(state.experience).toBe('guided')
+
+    store.resetGuidedState()
+    state = useGenerationStore.getState()
+
+    expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.guidedInput.productUrl).toBe('')
+    expect(state.guidedPlan).toBeNull()
+    expect(state.analysisStatus).toBe('idle')
   })
 })

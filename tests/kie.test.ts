@@ -84,6 +84,7 @@ describe('KIE batch submission', () => {
     expect(parsed.characterGender).toBe('female')
     expect(parsed.characterAgeGroup).toBe('young-adult')
     expect(parsed.figureArtDirection).toBe('curvaceous-editorial')
+    expect(parsed.experience).toBe('manual')
   })
 
   it('rejects invalid environment values during form parsing', () => {
@@ -172,6 +173,116 @@ describe('KIE batch submission', () => {
             image_input: ['https://files.example.com/face-1.png'],
             output_format: 'png',
             resolution: '1K',
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('parses guided shot metadata and submits the edited guided prompts directly', async () => {
+    const formData = buildBaseFormData('2')
+    const heroFile = new File(['product'], 'product.png', { type: 'image/png' })
+
+    formData.append('experience', 'guided')
+    formData.set('creativeStyle', 'tv-commercial')
+    formData.set('subjectMode', 'product-only')
+    formData.set('shotEnvironment', 'indoor')
+    formData.append('guidedSummary', 'Guided summary')
+    formData.append('guidedContentConcept', 'driven-ads')
+    formData.append('analysisModel', 'gemini-2.5-flash')
+    formData.append('productUrl', 'https://example.com/product')
+    formData.append(
+      'guidedShots',
+      JSON.stringify([
+        {
+          prompt: 'Prompt 1',
+          shotEnvironment: 'indoor',
+          slug: 'shot-1',
+          subjectMode: 'product-only',
+          tags: ['hero'],
+          title: 'Shot 1',
+        },
+        {
+          prompt: 'Prompt 2',
+          shotEnvironment: 'outdoor',
+          slug: 'shot-2',
+          subjectMode: 'lifestyle',
+          tags: ['lifestyle'],
+          title: 'Shot 2',
+        },
+      ]),
+    )
+    formData.set(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'product_guided_hero',
+          kind: 'product',
+          label: 'Hero Product',
+          order: 100,
+          productId: 'guided-hero',
+        },
+      ]),
+    )
+    formData.append('product_guided_hero', heroFile)
+
+    const fetchMock = vi.fn()
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/product.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'task-2',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    const response = await submitGenerationRequest(parsedRequest)
+
+    expect(parsedRequest.experience).toBe('guided')
+    expect(parsedRequest.guided?.summary).toBe('Guided summary')
+    expect(response.variants.map((variant) => variant.profile)).toEqual([
+      'Shot 1',
+      'Shot 2',
+    ])
+
+    const taskRequests = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes('/api/v1/jobs/createTask'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
+
+    expect(taskRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          input: expect.objectContaining({
+            prompt: expect.stringContaining('Prompt 1'),
+          }),
+        }),
+        expect.objectContaining({
+          input: expect.objectContaining({
+            prompt: expect.stringContaining('Prompt 2'),
           }),
         }),
       ]),

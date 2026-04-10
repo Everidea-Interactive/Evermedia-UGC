@@ -27,7 +27,17 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     characterAgeGroup: input.characterAgeGroup,
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
+    experience: input.experience,
     figureArtDirection: input.figureArtDirection,
+    guided: input.guided
+      ? {
+          analysisModel: input.guided.analysisModel,
+          contentConcept: input.guided.contentConcept,
+          productUrl: input.guided.productUrl,
+          shots: input.guided.shots,
+          summary: input.guided.summary,
+        }
+      : null,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,

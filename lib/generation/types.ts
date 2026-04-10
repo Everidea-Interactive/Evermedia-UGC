@@ -1,4 +1,6 @@
 export type WorkspaceTab = 'image' | 'video'
+export type GenerationExperience = 'manual' | 'guided'
+export type ContentConcept = 'driven-ads' | 'affiliate'
 
 export type ProductCategory =
   | 'food-drink'
@@ -36,6 +38,10 @@ export type CameraMovement =
 
 export type ImageModelOption = 'nano-banana' | 'grok-imagine'
 export type VideoModelOption = 'veo-3.1' | 'kling' | 'grok-imagine'
+export type KieAnalysisModel =
+  | 'gemini-2.5-flash'
+  | 'claude-haiku-4-5'
+  | 'claude-sonnet-4-6'
 export type GenerationProvider = 'market' | 'veo'
 export type KieStatusSource = 'chat-credit' | 'user-credits'
 
@@ -76,6 +82,32 @@ export type AssetSlot = {
 }
 
 export type NamedAssetSlots = Record<NamedAssetKey, AssetSlot>
+
+export type GuidedAnalysisShot = {
+  prompt: string
+  shotEnvironment: ShotEnvironment
+  slug: string
+  subjectMode: SubjectMode
+  tags: string[]
+  title: string
+}
+
+export type GuidedAnalysisPlan = {
+  creativeStyle: CreativeStyle
+  productCategory: ProductCategory
+  shots: GuidedAnalysisShot[]
+  summary: string
+}
+
+export type GuidedAnalysisStatus = 'idle' | 'analyzing' | 'ready' | 'error'
+
+export type GuidedGenerationConfig = {
+  analysisModel: KieAnalysisModel
+  contentConcept: ContentConcept
+  productUrl: string
+  shots: GuidedAnalysisShot[]
+  summary: string
+}
 
 export type GenerationResult = {
   model: string

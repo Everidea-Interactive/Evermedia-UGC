@@ -7,6 +7,10 @@ import {
   choosePrimaryReference,
 } from '@/lib/generation/prompt'
 import {
+  normalizeGuidedAnalysisPlan,
+  normalizeKieAnalysisModel,
+} from '@/lib/generation/guided'
+import {
   getGrokDuration,
   getGrokResolution,
   getKlingDuration,
@@ -17,15 +21,19 @@ import type {
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
+  ContentConcept,
   CreativeStyle,
   FigureArtDirection,
+  GenerationExperience,
   GenerationProvider,
   GenerationResult,
+  GuidedAnalysisShot,
   KieStatusResponse,
   KieStatusSource,
   GenerationVariant,
   GenerationVariantIndex,
   ImageModelOption,
+  KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,
   ProductCategory,
@@ -40,7 +48,7 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 
-const KIE_API_BASE_URL = 'https://api.kie.ai'
+export const KIE_API_BASE_URL = 'https://api.kie.ai'
 const KIE_FILE_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-stream-upload'
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
@@ -67,7 +75,15 @@ export type ParsedGenerationRequest = {
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  experience: GenerationExperience
   figureArtDirection: FigureArtDirection
+  guided: {
+    analysisModel: KieAnalysisModel
+    contentConcept: ContentConcept
+    productUrl: string
+    shots: GuidedAnalysisShot[]
+    summary: string
+  } | null
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -81,7 +97,14 @@ export type ParsedGenerationRequest = {
 
 type ResolvedAssetDescriptor = SubmittedAssetDescriptor & { file: File }
 
-function getKieApiKey() {
+type PromptVariantDescriptor = {
+  index: GenerationVariantIndex
+  profile: string
+  prompt: string
+  subjectMode: SubjectMode
+}
+
+export function getKieApiKey() {
   const apiKey = process.env.KIE_API_KEY
 
   if (!apiKey) {
@@ -261,7 +284,7 @@ function extractResultUrls(payload: unknown): string[] {
   return []
 }
 
-async function readKieError(response: Response) {
+export async function readKieError(response: Response) {
   const text = await response.text()
   const payload = safeJsonParse(text)
   const message =
@@ -373,6 +396,10 @@ function createPromptAssets(
 }
 
 export function buildPromptSnapshot(input: ParsedGenerationRequest) {
+  if (input.experience === 'guided' && input.guided) {
+    return input.guided.summary
+  }
+
   return compileGenerationPrompt({
     assets: createPromptAssets(input.assetDescriptors),
     cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
@@ -747,6 +774,9 @@ export async function uploadFileToKie(
 }
 
 export function parseGenerationFormData(formData: FormData): ParsedGenerationRequest {
+  const experience =
+    readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
+    'manual'
   const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
   const batchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
@@ -770,6 +800,69 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   if (!Array.isArray(parsedManifest)) {
     throw new Error('Asset manifest is malformed.')
   }
+
+  const guided = (() => {
+    if (experience !== 'guided') {
+      return null
+    }
+
+    if (workspace !== 'image') {
+      throw new Error('Guided mode is available for images only.')
+    }
+
+    const guidedShotsValue = readString(formData, 'guidedShots')
+    const guidedSummary = readString(formData, 'guidedSummary').trim()
+    const guidedContentConcept = readEnum(
+      formData,
+      'guidedContentConcept',
+      ['driven-ads', 'affiliate'] as const,
+    )
+    const analysisModel = normalizeKieAnalysisModel(
+      readString(formData, 'analysisModel'),
+    )
+
+    if (!analysisModel) {
+      throw new Error('Unsupported guided analysis model.')
+    }
+    const productUrl = readOptionalString(formData, 'productUrl') ?? ''
+    const normalizedPlan = normalizeGuidedAnalysisPlan(
+      {
+        creativeStyle: readEnum(
+          formData,
+          'creativeStyle',
+          [
+            'ugc-lifestyle',
+            'cinematic',
+            'tv-commercial',
+            'elite-product-commercial',
+          ] as const,
+        ),
+        productCategory: readEnum(
+          formData,
+          'productCategory',
+          [
+            'food-drink',
+            'jewelry',
+            'cosmetics',
+            'electronics',
+            'clothing',
+            'miscellaneous',
+          ] as const,
+        ),
+        shots: safeJsonParse(guidedShotsValue),
+        summary: guidedSummary,
+      },
+      { shotCount: batchSize },
+    )
+
+    return {
+      analysisModel,
+      contentConcept: guidedContentConcept,
+      productUrl,
+      shots: normalizedPlan.shots,
+      summary: normalizedPlan.summary,
+    }
+  })()
 
   const assetDescriptors = parsedManifest.map((asset, index) => {
     if (!asset || typeof asset !== 'object') {
@@ -843,11 +936,13 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
         'elite-product-commercial',
       ] as const,
     ),
+    experience,
     figureArtDirection: readEnum(
       formData,
       'figureArtDirection',
       ['none', 'curvaceous-editorial'] as const,
     ),
+    guided,
     imageModel,
     outputQuality: readEnum(
       formData,
@@ -992,12 +1087,23 @@ export async function submitGenerationRequest(
     workspace: input.workspace,
   })
   const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)
-  const promptSet = buildVariantPromptSet({
-    basePrompt,
-    batchSize: input.batchSize as GenerationVariantIndex,
-    cameraMovement: input.cameraMovement,
-    workspace: input.workspace,
-  })
+  const resolvedPromptSet: PromptVariantDescriptor[] =
+    input.experience === 'guided' && input.guided
+      ? input.guided.shots.map((shot, index) => ({
+          index: (index + 1) as GenerationVariantIndex,
+          profile: shot.title,
+          prompt: shot.prompt,
+          subjectMode: shot.subjectMode,
+        }))
+      : buildVariantPromptSet({
+          basePrompt,
+          batchSize: input.batchSize as GenerationVariantIndex,
+          cameraMovement: input.cameraMovement,
+          workspace: input.workspace,
+        }).map((descriptor) => ({
+          ...descriptor,
+          subjectMode: input.subjectMode,
+        }))
   const sampleSubmission = resolveSubmission({
     assets: uploadedAssets,
     cameraMovement: input.cameraMovement,
@@ -1005,15 +1111,15 @@ export async function submitGenerationRequest(
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
-    prompt: promptSet[0]?.prompt ?? basePrompt,
-    subjectMode: input.subjectMode,
+    prompt: resolvedPromptSet[0]?.prompt ?? basePrompt,
+    subjectMode: resolvedPromptSet[0]?.subjectMode ?? input.subjectMode,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
     workspace: input.workspace,
   })
 
   const settledVariants = await Promise.allSettled(
-    promptSet.map(async ({ index, profile, prompt }) => {
+    resolvedPromptSet.map(async ({ index, profile, prompt, subjectMode }) => {
       const submission = resolveSubmission({
         assets: uploadedAssets,
         cameraMovement: input.cameraMovement,
@@ -1022,7 +1128,7 @@ export async function submitGenerationRequest(
         outputQuality: input.outputQuality,
         productCategory: input.productCategory,
         prompt,
-        subjectMode: input.subjectMode,
+        subjectMode,
         videoDuration: input.videoDuration,
         videoModel: input.videoModel,
         workspace: input.workspace,
@@ -1049,7 +1155,7 @@ export async function submitGenerationRequest(
       return variant.value
     }
 
-    const descriptor = promptSet[index]
+    const descriptor = resolvedPromptSet[index]
 
     return {
       completedAt: null,

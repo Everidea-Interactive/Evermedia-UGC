@@ -2,12 +2,16 @@ import type {
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
+  ContentConcept,
   CreativeStyle,
   FigureArtDirection,
+  GenerationExperience,
+  GuidedGenerationConfig,
   GenerationProvider,
   GenerationRunStatus,
   GenerationVariantStatus,
   ImageModelOption,
+  KieAnalysisModel,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -28,7 +32,9 @@ export type GenerationConfigSnapshot = {
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
+  experience: GenerationExperience
   figureArtDirection: FigureArtDirection
+  guided: GuidedGenerationConfig | null
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -40,6 +46,12 @@ export type GenerationConfigSnapshot = {
 }
 
 export type ProjectConfigSnapshot = GenerationConfigSnapshot
+
+export type GuidedProjectInputSnapshot = {
+  analysisModel: KieAnalysisModel
+  contentConcept: ContentConcept
+  productUrl: string
+}
 
 export type SavedOutputRecord = {
   createdAt: string

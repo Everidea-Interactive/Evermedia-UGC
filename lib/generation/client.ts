@@ -1,6 +1,10 @@
 import type {
   AssetSlot,
+  BatchSize,
+  ContentConcept,
   GenerationSnapshot,
+  GuidedAnalysisPlan,
+  KieAnalysisModel,
   NamedAssetKey,
   SubmittedAssetDescriptor,
   WorkspaceTab,
@@ -129,6 +133,80 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   })
 
   formData.append('assetManifest', JSON.stringify(assetManifest))
+
+  return { assetManifest, formData }
+}
+
+export function buildGuidedAnalysisFormData(input: {
+  analysisModel: KieAnalysisModel
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  productUrl: string
+  shotCount: BatchSize
+}) {
+  if (!input.heroAsset.file) {
+    throw new Error('A hero product image is required.')
+  }
+
+  const formData = new FormData()
+
+  formData.append('analysisModel', input.analysisModel)
+  formData.append('contentConcept', input.contentConcept)
+  formData.append('heroImage', input.heroAsset.file)
+  formData.append('productUrl', input.productUrl)
+  formData.append('shotCount', String(input.shotCount))
+
+  return { formData }
+}
+
+export function buildGuidedGenerationFormData(input: {
+  analysisModel: KieAnalysisModel
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  imageModel: GenerationSnapshot['imageModel']
+  outputQuality: GenerationSnapshot['outputQuality']
+  plan: GuidedAnalysisPlan
+  productUrl: string
+}) {
+  if (!input.heroAsset.file) {
+    throw new Error('A hero product image is required.')
+  }
+
+  const formData = new FormData()
+  const assetManifest: SubmittedAssetDescriptor[] = [
+    {
+      fieldName: 'product_guided_hero',
+      kind: 'product',
+      label: input.heroAsset.label,
+      order: 100,
+      productId: 'guided-hero',
+    },
+  ]
+  const firstShot = input.plan.shots[0]
+
+  formData.append('experience', 'guided')
+  formData.append('workspace', 'image')
+  formData.append('imageModel', input.imageModel)
+  formData.append('videoModel', 'veo-3.1')
+  formData.append('productCategory', input.plan.productCategory)
+  formData.append('creativeStyle', input.plan.creativeStyle)
+  formData.append('subjectMode', firstShot?.subjectMode ?? 'product-only')
+  formData.append('shotEnvironment', firstShot?.shotEnvironment ?? 'indoor')
+  formData.append('characterGender', 'any')
+  formData.append('characterAgeGroup', 'any')
+  formData.append('figureArtDirection', 'none')
+  formData.append('batchSize', String(input.plan.shots.length))
+  formData.append('textPrompt', '')
+  formData.append('videoDuration', 'base')
+  formData.append('outputQuality', input.outputQuality)
+  formData.append('cameraMovement', '')
+  formData.append('guidedShots', JSON.stringify(input.plan.shots))
+  formData.append('guidedSummary', input.plan.summary)
+  formData.append('guidedContentConcept', input.contentConcept)
+  formData.append('analysisModel', input.analysisModel)
+  formData.append('productUrl', input.productUrl)
+  formData.append('assetManifest', JSON.stringify(assetManifest))
+  formData.append('product_guided_hero', input.heroAsset.file)
 
   return { assetManifest, formData }
 }
