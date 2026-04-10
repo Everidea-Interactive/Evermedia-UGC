@@ -83,6 +83,7 @@ export function ImagePreviewDialog({
   src,
 }: ImagePreviewDialogProps) {
   const [open, setOpen] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const transformLayerRef = useRef<HTMLDivElement | null>(null)
@@ -315,6 +316,33 @@ export function ImagePreviewDialog({
     setOpen(nextOpen)
   }
 
+  const zoomFromWheelEvent = (event: {
+    clientX: number
+    clientY: number
+    deltaY: number
+  }) => {
+    const nextPointer = getPointFromEvent(event)
+
+    if (!nextPointer) {
+      return false
+    }
+
+    const nextScale =
+      transformRef.current.scale * Math.exp(-event.deltaY * 0.0015)
+
+    commitTransform(
+      zoomPreviewAtPoint(
+        transformRef.current,
+        nextScale,
+        nextPointer.point,
+        nextPointer.metrics.container,
+        nextPointer.metrics.content,
+      ),
+    )
+
+    return true
+  }
+
   useEffect(() => {
     if (!open) {
       return
@@ -329,6 +357,31 @@ export function ImagePreviewDialog({
       clampCurrentTransform()
     }
 
+    const handleBrowserZoomWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) {
+        return
+      }
+
+      const container = containerRef.current
+
+      if (!container) {
+        return
+      }
+
+      const rect = container.getBoundingClientRect()
+      const isInsideContainer =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+
+      if (!isInsideContainer || !zoomFromWheelEvent(event)) {
+        return
+      }
+
+      event.preventDefault()
+    }
+
     const resizeFrame = window.requestAnimationFrame(() => {
       syncViewer()
     })
@@ -338,11 +391,16 @@ export function ImagePreviewDialog({
       clampCurrentTransform()
     }
 
+    document.addEventListener('wheel', handleBrowserZoomWheel, {
+      capture: true,
+      passive: false,
+    })
     window.addEventListener('resize', handleResize)
 
     return () => {
       cancelScheduledTransform()
       window.cancelAnimationFrame(resizeFrame)
+      document.removeEventListener('wheel', handleBrowserZoomWheel, true)
       window.removeEventListener('resize', handleResize)
       document.body.style.overflow = previousOverflow
       metricsRef.current = null
@@ -355,26 +413,11 @@ export function ImagePreviewDialog({
   }, [open, src])
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    const nextPointer = getPointFromEvent(event)
-
-    if (!nextPointer) {
+    if (event.ctrlKey) {
       return
     }
 
-    event.preventDefault()
-
-    const nextScale =
-      transformRef.current.scale * Math.exp(-event.deltaY * 0.0015)
-
-    commitTransform(
-      zoomPreviewAtPoint(
-        transformRef.current,
-        nextScale,
-        nextPointer.point,
-        nextPointer.metrics.container,
-        nextPointer.metrics.content,
-      ),
-    )
+    zoomFromWheelEvent(event)
   }
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -593,6 +636,7 @@ export function ImagePreviewDialog({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none sm:p-6"
           onOpenAutoFocus={(event) => {
             event.preventDefault()
+            closeButtonRef.current?.focus({ preventScroll: true })
           }}
         >
           <Dialog.Title className="sr-only">{label ?? alt}</Dialog.Title>
@@ -613,6 +657,7 @@ export function ImagePreviewDialog({
             <Button
               aria-label="Close preview"
               className="absolute right-4 top-4 z-10 size-11 rounded-full border border-white/10 bg-black/60 text-white shadow-lg backdrop-blur hover:bg-black/72"
+              ref={closeButtonRef}
               size="icon"
               type="button"
               variant="ghost"
