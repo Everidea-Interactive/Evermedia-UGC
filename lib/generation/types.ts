@@ -175,3 +175,47 @@ export type KieStatusResponse = {
   fetchedAt: string | null
   source: KieStatusSource | null
 }
+
+export type GenerationCostRate = {
+  credits: number
+  usd: number
+}
+
+export type KiePricingMatrix = {
+  image: {
+    'nano-banana': Record<OutputQuality, GenerationCostRate>
+    'grok-imagine': {
+      promptOnly: GenerationCostRate
+      withReference: GenerationCostRate
+    }
+  }
+  video: {
+    'grok-imagine': {
+      promptOnly: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
+    }
+    kling: {
+      promptOnly: Record<VideoDuration, GenerationCostRate>
+      withReference: Record<VideoDuration, GenerationCostRate>
+    }
+    'veo-3.1': {
+      promptOnly: GenerationCostRate
+      withReference: GenerationCostRate
+    }
+  }
+}
+
+export type KiePricingResponse = {
+  creditUsdRate: number
+  error?: string
+  expiresAt: string
+  fetchedAt: string
+  matrix: KiePricingMatrix | null
+}
+
+export type GenerationCostEstimate = {
+  available: boolean
+  credits: number | null
+  reason: string | null
+  usd: number | null
+}

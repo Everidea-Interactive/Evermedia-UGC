@@ -46,6 +46,7 @@ import {
   getAssetPreviewUrl,
   getGenerationValidation,
 } from '@/lib/generation/client'
+import { getGenerationCostEstimate } from '@/lib/generation/pricing'
 import {
   getActiveTaskCount,
   getCompletedVariantCount,
@@ -54,6 +55,7 @@ import {
   getGenerationHelperMessage,
   getRunHeadline,
 } from '@/lib/generation/run-copy'
+import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
 import type {
   AssetSlot,
@@ -63,6 +65,7 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
+  GenerationCostEstimate,
   GenerationRun,
   GenerationVariant,
   ImageModelOption,
@@ -1201,8 +1204,10 @@ function PreviewCanvas({
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
+  const outputQuality = useGenerationStore((state) => state.outputQuality)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
+  const videoDuration = useGenerationStore((state) => state.videoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
@@ -1217,6 +1222,11 @@ function PreviewCanvas({
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const {
+    error: pricingError,
+    isLoading: isPricingLoading,
+    pricing,
+  } = useKiePricing()
 
   const loadedAssets = useMemo(
     () =>
@@ -1247,6 +1257,37 @@ function PreviewCanvas({
     !runMatchesWorkspace || generationRun.status === 'idle'
       ? getGenerationHelperMessage(disabledReason, generationRun)
       : null
+  const generationCostEstimate = useMemo(
+    () =>
+      getGenerationCostEstimate(
+        {
+          activeTab,
+          assets,
+          batchSize,
+          imageModel,
+          outputQuality,
+          products,
+          subjectMode,
+          videoDuration,
+          videoModel,
+        },
+        pricing?.matrix ?? null,
+      ),
+    [
+      activeTab,
+      assets,
+      batchSize,
+      imageModel,
+      outputQuality,
+      pricing?.matrix,
+      products,
+      subjectMode,
+      videoDuration,
+      videoModel,
+    ],
+  )
+  const generationCostReason =
+    pricingError ?? generationCostEstimate.reason ?? 'Live pricing unavailable.'
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -1425,6 +1466,12 @@ function PreviewCanvas({
                 </div>
 
                 <div className="mt-2.5 flex w-full flex-col gap-2">
+                  <GenerationEstimateStrip
+                    estimate={generationCostEstimate}
+                    isLoading={isPricingLoading}
+                    reason={generationCostReason}
+                  />
+
                   {activeRunInWorkspace ? (
                     <Button
                       className="w-full"
@@ -1764,6 +1811,43 @@ function StatusPill({ label, value }: { label: string; value: string }) {
         <p className="min-w-0 break-words text-[13px] font-medium leading-5 tracking-tight text-foreground sm:text-sm">
           {value}
         </p>
+      </div>
+    </div>
+  )
+}
+
+function GenerationEstimateStrip({
+  estimate,
+  isLoading,
+  reason,
+}: {
+  estimate: GenerationCostEstimate
+  isLoading: boolean
+  reason: string
+}) {
+  const primaryText = estimate.available
+    ? `Estimated: ${formatEstimatedCreditsValue(estimate)} credits`
+    : isLoading
+      ? 'Checking estimate'
+      : 'Estimate unavailable'
+  const secondaryText = estimate.available
+    ? `≈ $${formatEstimatedUsdValue(estimate)} USD`
+    : !isLoading
+      ? reason
+      : null
+
+  return (
+    <div className="rounded-md border border-border bg-secondary/50 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        Estimated cost
+      </p>
+      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-sm font-medium tracking-tight text-foreground">
+          {primaryText}
+        </p>
+        {secondaryText ? (
+          <p className="text-xs text-muted-foreground">{secondaryText}</p>
+        ) : null}
       </div>
     </div>
   )
@@ -2151,6 +2235,28 @@ function getKieCreditsHelper(kieStatus: KieStatusResponse, isLoading: boolean) {
   }
 
   return kieStatus.error ?? 'KIE account unavailable'
+}
+
+function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
+  if (estimate.credits === null) {
+    return '0'
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: Number.isInteger(estimate.credits) ? 0 : 1,
+  }).format(estimate.credits)
+}
+
+function formatEstimatedUsdValue(estimate: GenerationCostEstimate) {
+  if (estimate.usd === null) {
+    return '0.00'
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 3,
+    minimumFractionDigits: estimate.usd < 1 ? 2 : 2,
+  }).format(estimate.usd)
 }
 
 function hasActiveGeneration(run: GenerationRun) {

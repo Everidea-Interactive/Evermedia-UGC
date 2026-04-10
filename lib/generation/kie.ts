@@ -6,6 +6,12 @@ import {
   chooseEndFrameReference,
   choosePrimaryReference,
 } from '@/lib/generation/prompt'
+import {
+  getGrokDuration,
+  getGrokResolution,
+  getKlingDuration,
+  getNanoBananaResolution,
+} from '@/lib/generation/model-mapping'
 import type {
   BatchSize,
   CameraMovement,
@@ -311,26 +317,6 @@ function getImageAspectRatio(subjectMode: SubjectMode) {
 
 function getVideoAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '16:9' : '9:16'
-}
-
-function getGrokResolution(outputQuality: OutputQuality) {
-  if (outputQuality === '1080p') {
-    return '720p'
-  }
-
-  return '480p'
-}
-
-function getNanoBananaResolution(outputQuality: OutputQuality) {
-  return outputQuality === '4k' ? '2K' : '1K'
-}
-
-function getKlingDuration(videoDuration: VideoDuration) {
-  return videoDuration === 'extended' ? '10' : '5'
-}
-
-function getGrokDuration(videoDuration: VideoDuration) {
-  return videoDuration === 'extended' ? '10' : '6'
 }
 
 export function createRunId() {
