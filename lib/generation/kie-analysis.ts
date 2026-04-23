@@ -121,7 +121,10 @@ function createClaudeSystemPrompt() {
   return [
     createSystemPrompt(),
     'Call the provided tool exactly once with the full guided plan.',
-    'Do not answer with plain text outside the tool call unless the request is impossible to fulfill.',
+    'The hero product image is always attached in the request.',
+    'Product page context may or may not be present; when absent, continue from the hero image alone.',
+    'Do not answer with plain text outside the tool call.',
+    'If evidence is limited, make the best supported assumptions and still return the structured plan.',
   ].join(' ')
 }
 
@@ -216,6 +219,10 @@ export function buildClaudeAnalysisBody(input: {
     stream: false,
     system: createClaudeSystemPrompt(),
     temperature: 0.4,
+    tool_choice: {
+      name: guidedPlanToolName,
+      type: 'tool',
+    },
     tools: [
       {
         description:
@@ -420,6 +427,18 @@ export function parseGuidedAnalysisPayload(
 
   if (parsedJson) {
     return normalizeGuidedAnalysisPlan(parsedJson, { shotCount })
+  }
+
+  const claudeTextContent = isClaudeModel(model)
+    ? extractContentTextBlocks(record.content).join('\n').trim()
+    : ''
+  const openAiTextContent = parsedMessageContent
+  const fallbackText = claudeTextContent || openAiTextContent
+
+  if (fallbackText) {
+    throw new Error(
+      `KIE analysis returned unstructured text instead of the guided plan JSON: ${fallbackText.slice(0, 240)}`,
+    )
   }
 
   throw new Error('KIE analysis response did not contain a usable guided plan.')
