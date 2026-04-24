@@ -8,7 +8,12 @@ import type {
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
-import { KIE_API_BASE_URL, getKieApiKey, readKieError } from '@/lib/generation/kie'
+import {
+  KIE_API_BASE_URL,
+  fetchKieWithTimeout,
+  getKieApiKey,
+  readKieError,
+} from '@/lib/generation/kie'
 
 const guidedPlanJsonSchema = {
   additionalProperties: false,
@@ -469,7 +474,7 @@ export async function analyzeGuidedProductPlan(input: {
         model: input.analysisModel as Extract<KieAnalysisModel, 'gemini-2.5-flash'>,
       })
 
-  const response = await fetch(endpoint, {
+  const response = await fetchKieWithTimeout(endpoint, {
     body: JSON.stringify(requestBody),
     cache: 'no-store',
     headers: {
@@ -477,7 +482,7 @@ export async function analyzeGuidedProductPlan(input: {
       'Content-Type': 'application/json',
     },
     method: 'POST',
-  })
+  }, 'KIE guided analysis')
 
   if (!response.ok) {
     throw new Error(await readKieError(response))

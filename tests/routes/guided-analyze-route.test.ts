@@ -162,4 +162,19 @@ describe('POST /api/guided/analyze', () => {
     expect(uploadFileToKie).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
   })
+
+  it('returns a gateway timeout when the KIE upload hangs', async () => {
+    const formData = buildBaseFormData()
+
+    vi.mocked(uploadFileToKie).mockRejectedValue(
+      new Error('KIE file upload timed out after 60 seconds.'),
+    )
+
+    const response = await POST(createRequest(formData))
+    const payload = (await response.json()) as { error?: string }
+
+    expect(response.status).toBe(504)
+    expect(payload.error).toContain('KIE file upload timed out')
+    expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
+  })
 })

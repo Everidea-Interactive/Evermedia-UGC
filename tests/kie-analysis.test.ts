@@ -11,6 +11,9 @@ import {
 
 vi.mock('../lib/generation/kie', () => ({
   KIE_API_BASE_URL: 'https://api.kie.ai',
+  fetchKieWithTimeout: vi.fn((input: string, init: RequestInit) =>
+    fetch(input, init),
+  ),
   getKieApiKey: vi.fn(() => 'test-key'),
   readKieError: vi.fn(async () => 'upstream error'),
 }))

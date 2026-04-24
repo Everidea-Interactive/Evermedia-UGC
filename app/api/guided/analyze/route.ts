@@ -55,6 +55,18 @@ function isSupportedGuidedHeroImage(file: File) {
   )
 }
 
+function getGuidedAnalyzeErrorStatus(message: string) {
+  if (message.includes('timed out')) {
+    return 504
+  }
+
+  if (message.includes('KIE_API_KEY') || message.includes('configured')) {
+    return 500
+  }
+
+  return 400
+}
+
 export async function POST(request: Request) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -127,10 +139,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: message },
       {
-        status:
-          message.includes('KIE_API_KEY') || message.includes('configured')
-            ? 500
-            : 400,
+        status: getGuidedAnalyzeErrorStatus(message),
       },
     )
   }

@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import {
+  KIE_REQUEST_TIMEOUT_MS,
+  fetchKieWithTimeout,
   getKieStatus,
   parseGenerationFormData,
   resolveSubmission,
   submitGenerationRequest,
+  uploadFileToKie,
 } from '../lib/generation/kie'
 import type { UploadedAssetDescriptor } from '../lib/generation/types'
 
@@ -176,6 +179,51 @@ describe('KIE batch submission', () => {
           }),
         }),
       ]),
+    )
+  })
+
+  it('applies a timeout signal to KIE file uploads', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/product.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await uploadFileToKie(
+      'test-key',
+      new File(['product'], 'product.png', { type: 'image/png' }),
+      'image',
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://kieai.redpandaai.co/api/file-stream-upload',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
+  it('returns a clear timeout error when a KIE request is aborted', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new DOMException('Timed out', 'TimeoutError')),
+    )
+
+    await expect(
+      fetchKieWithTimeout(
+        'https://api.kie.ai/test',
+        { method: 'POST' },
+        'KIE guided analysis',
+      ),
+    ).rejects.toThrow(
+      `KIE guided analysis timed out after ${Math.round(
+        KIE_REQUEST_TIMEOUT_MS / 1000,
+      )} seconds.`,
     )
   })
 
