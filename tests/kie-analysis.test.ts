@@ -11,6 +11,9 @@ import {
 
 vi.mock('../lib/generation/kie', () => ({
   KIE_API_BASE_URL: 'https://api.kie.ai',
+  fetchKieWithTimeout: vi.fn((input: string, init: RequestInit) =>
+    fetch(input, init),
+  ),
   getKieApiKey: vi.fn(() => 'test-key'),
   readKieError: vi.fn(async () => 'upstream error'),
 }))
@@ -80,6 +83,10 @@ describe('KIE analysis adapters', () => {
         }),
       ]),
     )
+    expect(body.tool_choice).toEqual({
+      name: 'submit_guided_analysis_plan',
+      type: 'tool',
+    })
     expect(body.messages[0]?.content).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -230,5 +237,22 @@ describe('KIE analysis adapters', () => {
 
     expect(plan.productCategory).toBe('cosmetics')
     expect(plan.shots[0]?.slug).toBe('shot-1')
+  })
+
+  it('throws a descriptive error when Claude returns refusal prose instead of structured output', () => {
+    expect(() =>
+      parseGuidedAnalysisPayload(
+        'claude-sonnet-4-6',
+        {
+          content: [
+            {
+              text: `I don't have a hero product image attached to this request — no image or product page context has been provided, and without it I cannot preserve product identity, color, material, silhouette, or branding as required.`,
+              type: 'text',
+            },
+          ],
+        },
+        1,
+      ),
+    ).toThrow(/unstructured text instead of the guided plan JSON/i)
   })
 })

@@ -50,6 +50,7 @@ import type {
 
 export const KIE_API_BASE_URL = 'https://api.kie.ai'
 const KIE_FILE_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-stream-upload'
+export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
 const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'endFrame'] as const
@@ -301,6 +302,34 @@ export async function readKieError(response: Response) {
         : text
 
   return `${response.status} ${response.statusText}: ${message || 'Unknown KIE error'}`
+}
+
+function isAbortError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
+  )
+}
+
+export async function fetchKieWithTimeout(
+  input: string,
+  init: RequestInit,
+  action: string,
+) {
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(KIE_REQUEST_TIMEOUT_MS),
+    })
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error(
+        `${action} timed out after ${Math.round(KIE_REQUEST_TIMEOUT_MS / 1000)} seconds.`,
+      )
+    }
+
+    throw error
+  }
 }
 
 async function fetchKieCredits(
@@ -751,13 +780,13 @@ export async function uploadFileToKie(
   formData.append('file', file, file.name)
   formData.append('uploadPath', `evermedia-ugc/${workspace}`)
 
-  const response = await fetch(KIE_FILE_UPLOAD_URL, {
+  const response = await fetchKieWithTimeout(KIE_FILE_UPLOAD_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
     body: formData,
-  })
+  }, 'KIE file upload')
 
   if (!response.ok) {
     throw new Error(await readKieError(response))

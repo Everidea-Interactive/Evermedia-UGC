@@ -8,7 +8,12 @@ import type {
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
-import { KIE_API_BASE_URL, getKieApiKey, readKieError } from '@/lib/generation/kie'
+import {
+  KIE_API_BASE_URL,
+  fetchKieWithTimeout,
+  getKieApiKey,
+  readKieError,
+} from '@/lib/generation/kie'
 
 const guidedPlanJsonSchema = {
   additionalProperties: false,
@@ -121,7 +126,10 @@ function createClaudeSystemPrompt() {
   return [
     createSystemPrompt(),
     'Call the provided tool exactly once with the full guided plan.',
-    'Do not answer with plain text outside the tool call unless the request is impossible to fulfill.',
+    'The hero product image is always attached in the request.',
+    'Product page context may or may not be present; when absent, continue from the hero image alone.',
+    'Do not answer with plain text outside the tool call.',
+    'If evidence is limited, make the best supported assumptions and still return the structured plan.',
   ].join(' ')
 }
 
@@ -216,6 +224,10 @@ export function buildClaudeAnalysisBody(input: {
     stream: false,
     system: createClaudeSystemPrompt(),
     temperature: 0.4,
+    tool_choice: {
+      name: guidedPlanToolName,
+      type: 'tool',
+    },
     tools: [
       {
         description:
@@ -422,6 +434,18 @@ export function parseGuidedAnalysisPayload(
     return normalizeGuidedAnalysisPlan(parsedJson, { shotCount })
   }
 
+  const claudeTextContent = isClaudeModel(model)
+    ? extractContentTextBlocks(record.content).join('\n').trim()
+    : ''
+  const openAiTextContent = parsedMessageContent
+  const fallbackText = claudeTextContent || openAiTextContent
+
+  if (fallbackText) {
+    throw new Error(
+      `KIE analysis returned unstructured text instead of the guided plan JSON: ${fallbackText.slice(0, 240)}`,
+    )
+  }
+
   throw new Error('KIE analysis response did not contain a usable guided plan.')
 }
 
@@ -450,7 +474,7 @@ export async function analyzeGuidedProductPlan(input: {
         model: input.analysisModel as Extract<KieAnalysisModel, 'gemini-2.5-flash'>,
       })
 
-  const response = await fetch(endpoint, {
+  const response = await fetchKieWithTimeout(endpoint, {
     body: JSON.stringify(requestBody),
     cache: 'no-store',
     headers: {
@@ -458,7 +482,7 @@ export async function analyzeGuidedProductPlan(input: {
       'Content-Type': 'application/json',
     },
     method: 'POST',
-  })
+  }, 'KIE guided analysis')
 
   if (!response.ok) {
     throw new Error(await readKieError(response))
