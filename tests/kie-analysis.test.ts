@@ -46,6 +46,7 @@ describe('KIE analysis adapters', () => {
       model: 'gemini-2.5-flash',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(body.model).toBe('gemini-2.5-flash')
@@ -72,6 +73,7 @@ describe('KIE analysis adapters', () => {
       model: 'claude-haiku-4-5',
       productPage: null,
       shotCount: 2,
+      workspace: 'image',
     })
 
     expect(body.model).toBe('claude-haiku-4-5')
@@ -94,6 +96,47 @@ describe('KIE analysis adapters', () => {
         }),
       ]),
     )
+  })
+
+  it('builds video-aware analysis instructions for guided video plans', () => {
+    const body = buildGeminiAnalysisBody({
+      cameraMovement: 'dolly',
+      contentConcept: 'driven-ads',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoModel: 'kling',
+      videoDuration: 'extended',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Create exactly 1 video-generation shot.')
+    expect(userText).toContain('Target clip length: 10 seconds for Kling.')
+    expect(userText).toContain('dolly')
+  })
+
+  it('uses Seedance 1.5 Pro clip length in guided video analysis prompts', () => {
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoDuration: 'base',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Target clip length: 8 seconds for Seedance 1.5 Pro.')
   })
 
   it('parses direct schema-shaped Gemini responses into a guided plan', () => {
@@ -155,6 +198,7 @@ describe('KIE analysis adapters', () => {
       heroImageUrl: 'https://files.example.com/hero.png',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -188,6 +232,7 @@ describe('KIE analysis adapters', () => {
       heroImageUrl: 'https://files.example.com/hero.png',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -217,6 +262,7 @@ describe('KIE analysis adapters', () => {
         heroImageUrl: 'https://files.example.com/hero.png',
         productPage: null,
         shotCount: 1,
+        workspace: 'image',
       }),
     ).rejects.toThrow('response_format.json_schema is required')
   })

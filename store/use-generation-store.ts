@@ -36,6 +36,7 @@ import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 type GuidedInputState = {
   analysisModel: KieAnalysisModel
   contentConcept: ContentConcept
+  endFrameAsset: AssetSlot
   heroAsset: AssetSlot
   productUrl: string
   shotCount: BatchSize
@@ -70,6 +71,7 @@ type GenerationStateShape = {
 
 type GenerationStore = GenerationStateShape & {
   clearNamedAsset: (slot: NamedAssetKey) => void
+  clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
   clearProductSlot: (id: string) => void
   disposeGenerationState: () => void
@@ -93,6 +95,7 @@ type GenerationStore = GenerationStateShape & {
   setGenerationVariants: (variants: GenerationVariant[]) => void
   setGuidedAnalysisModel: (model: KieAnalysisModel) => void
   setGuidedContentConcept: (concept: ContentConcept) => void
+  setGuidedEndFrameFile: (file: File | null) => void
   setGuidedHeroFile: (file: File | null) => void
   setGuidedPlan: (plan: GuidedAnalysisPlan | null) => void
   setGuidedProductUrl: (productUrl: string) => void
@@ -157,6 +160,7 @@ function createGuidedInputState(): GuidedInputState {
   return {
     analysisModel: 'gemini-2.5-flash',
     contentConcept: 'affiliate',
+    endFrameAsset: createSlot('guided-end-frame', 'End Frame'),
     heroAsset: createSlot('guided-hero', 'Hero Product'),
     productUrl: '',
     shotCount: 4,
@@ -248,6 +252,7 @@ function releaseSlots(slots: AssetSlot[]) {
 
 function releaseGuidedInput(input: GuidedInputState) {
   revokePreviewUrl(input.heroAsset.previewUrl)
+  revokePreviewUrl(input.endFrameAsset.previewUrl)
 }
 
 function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
@@ -345,6 +350,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       assets: {
         ...state.assets,
         [slot]: setSlotFile(state.assets[slot], null),
+      },
+    })),
+  clearGuidedEndFrameAsset: () =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, null),
       },
     })),
   clearGuidedHeroAsset: () =>
@@ -565,6 +577,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       guidedInput: {
         ...state.guidedInput,
         contentConcept,
+      },
+    })),
+  setGuidedEndFrameFile: (file) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, file),
       },
     })),
   setGuidedHeroFile: (file) =>

@@ -104,6 +104,31 @@ function createPricingFetchMock() {
             },
           ]),
         )
+      case 'seedance':
+        return Promise.resolve(
+          createPricingResponse([
+            {
+              creditPrice: '20',
+              modelDescription: 'bytedance/seedance-1.5-pro, 720p with video input',
+              usdPrice: '0.10',
+            },
+            {
+              creditPrice: '33',
+              modelDescription: 'bytedance/seedance-1.5-pro, 720p no video input',
+              usdPrice: '0.165',
+            },
+            {
+              creditPrice: '62',
+              modelDescription: 'bytedance/seedance-1.5-pro, 1080p with video input',
+              usdPrice: '0.31',
+            },
+            {
+              creditPrice: '102',
+              modelDescription: 'bytedance/seedance-1.5-pro, 1080p no video input',
+              usdPrice: '0.51',
+            },
+          ]),
+        )
       case 'veo':
         return Promise.resolve(
           createPricingResponse([
@@ -169,7 +194,7 @@ describe('GET /api/kie/pricing', () => {
     await GET()
     await GET()
 
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
   it('falls back to the stale cached pricing payload when refresh fails', async () => {
@@ -189,6 +214,6 @@ describe('GET /api/kie/pricing', () => {
 
     expect(fallbackResponse.status).toBe(200)
     expect(fallbackPayload).toEqual(initialPayload)
-    expect(fetchMock).toHaveBeenCalledTimes(8)
+    expect(fetchMock).toHaveBeenCalledTimes(10)
   })
 })

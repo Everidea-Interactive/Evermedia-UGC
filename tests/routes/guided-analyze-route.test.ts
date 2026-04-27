@@ -82,6 +82,29 @@ describe('POST /api/guided/analyze', () => {
     )
   })
 
+  it('passes guided video context into the analysis adapter', async () => {
+    const formData = buildBaseFormData()
+
+    formData.append('workspace', 'video')
+    formData.set('shotCount', '3')
+    formData.append('videoModel', 'seedance-1.5-pro')
+    formData.append('videoDuration', 'extended')
+    formData.append('cameraMovement', 'dolly')
+
+    const response = await POST(createRequest(formData))
+
+    expect(response.status).toBe(200)
+    expect(analyzeGuidedProductPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cameraMovement: 'dolly',
+        shotCount: 1,
+        videoModel: 'seedance-1.5-pro',
+        videoDuration: 'extended',
+        workspace: 'video',
+      }),
+    )
+  })
+
   it('uses scraped product page context when the product URL is reachable', async () => {
     const formData = buildBaseFormData()
 

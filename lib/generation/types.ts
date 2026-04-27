@@ -37,7 +37,11 @@ export type CameraMovement =
   | 'macro'
 
 export type ImageModelOption = 'nano-banana' | 'grok-imagine'
-export type VideoModelOption = 'veo-3.1' | 'kling' | 'grok-imagine'
+export type VideoModelOption =
+  | 'veo-3.1'
+  | 'kling'
+  | 'grok-imagine'
+  | 'seedance-1.5-pro'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'
   | 'claude-haiku-4-5'
@@ -233,6 +237,10 @@ export type KiePricingMatrix = {
     'veo-3.1': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
+    }
+    'seedance-1.5-pro': {
+      promptOnly: Record<Exclude<OutputQuality, '4k'>, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<Exclude<OutputQuality, '4k'>, Record<VideoDuration, GenerationCostRate>>
     }
   }
 }

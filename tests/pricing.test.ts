@@ -90,6 +90,29 @@ const veoRecords: KiePricingApiRecord[] = [
   },
 ]
 
+const seedanceRecords: KiePricingApiRecord[] = [
+  {
+    creditPrice: '20',
+    modelDescription: 'bytedance/seedance-1.5-pro, 720p with video input',
+    usdPrice: '0.10',
+  },
+  {
+    creditPrice: '33',
+    modelDescription: 'bytedance/seedance-1.5-pro, 720p no video input',
+    usdPrice: '0.165',
+  },
+  {
+    creditPrice: '62',
+    modelDescription: 'bytedance/seedance-1.5-pro, 1080p with video input',
+    usdPrice: '0.31',
+  },
+  {
+    creditPrice: '102',
+    modelDescription: 'bytedance/seedance-1.5-pro, 1080p no video input',
+    usdPrice: '0.51',
+  },
+]
+
 function createSlot(id: string, label: string, loaded = false): AssetSlot {
   return {
     error: null,
@@ -144,6 +167,7 @@ describe('generation pricing', () => {
     grokRecords,
     klingRecords,
     nanoRecords,
+    seedanceRecords,
     veoRecords,
   })
 
@@ -167,6 +191,10 @@ describe('generation pricing', () => {
     expect(pricingMatrix.video['veo-3.1'].withReference).toEqual({
       credits: 60,
       usd: 0.3,
+    })
+    expect(pricingMatrix.video['seedance-1.5-pro'].withReference['1080p'].extended).toEqual({
+      credits: 744,
+      usd: 3.72,
     })
   })
 
@@ -278,6 +306,27 @@ describe('generation pricing', () => {
       credits: 240,
       reason: null,
       usd: 1.2,
+    })
+  })
+
+  it('estimates Seedance 1.5 Pro reference video cost for extended duration', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        outputQuality: '1080p',
+        products: [createSlot('product-1', 'Product 1', true)],
+        subjectMode: 'product-only',
+        videoDuration: 'extended',
+        videoModel: 'seedance-1.5-pro',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 744,
+      reason: null,
+      usd: 3.72,
     })
   })
 

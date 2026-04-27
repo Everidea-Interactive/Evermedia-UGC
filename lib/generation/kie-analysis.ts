@@ -2,11 +2,20 @@ import 'server-only'
 
 import type {
   BatchSize,
+  CameraMovement,
   ContentConcept,
   GuidedAnalysisPlan,
   KieAnalysisModel,
+  VideoDuration,
+  VideoModelOption,
+  WorkspaceTab,
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
+import {
+  getGrokDuration,
+  getKlingDuration,
+  getSeedanceDuration,
+} from '@/lib/generation/model-mapping'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
 import {
   KIE_API_BASE_URL,
@@ -111,20 +120,45 @@ function formatProductPageContext(productPage: ScrapedProductPage | null) {
   return contextLines.join('\n')
 }
 
-function createSystemPrompt() {
+function getVideoTargetClipInstruction(input: {
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+}) {
+  const videoDuration = input.videoDuration ?? 'base'
+  const videoModel = input.videoModel ?? 'veo-3.1'
+
+  switch (videoModel) {
+    case 'kling':
+      return `Target clip length: ${getKlingDuration(videoDuration)} seconds for Kling.`
+    case 'grok-imagine':
+      return `Target clip length: ${getGrokDuration(videoDuration)} seconds for Grok Imagine.`
+    case 'seedance-1.5-pro':
+      return `Target clip length: ${getSeedanceDuration(videoDuration)} seconds for Seedance 1.5 Pro.`
+    case 'veo-3.1':
+    default:
+      return 'Target clip length: 8 seconds for Veo 3.1.'
+  }
+}
+
+function createSystemPrompt(workspace: WorkspaceTab = 'image') {
+  const medium =
+    workspace === 'video'
+      ? 'product video prompts for an e-commerce creative studio'
+      : 'product photography prompts for an e-commerce creative studio'
+
   return [
-    'You are planning product photography prompts for an e-commerce creative studio.',
+    `You are planning ${medium}.`,
     'Return only valid structured output that matches the provided schema.',
-    'Each shot must be materially distinct, usable as a direct image-generation prompt, and grounded in the uploaded hero product image.',
+    `Each shot must be materially distinct, usable as a direct ${workspace === 'video' ? 'video-generation' : 'image-generation'} prompt, and grounded in the uploaded hero product image.`,
     'Preserve product identity, color, material, silhouette, and branding.',
     'Do not mention camera model names or unsupported technical jargon.',
     'If a structured response schema or tool is available, use it directly and do not wrap the answer in prose.',
   ].join(' ')
 }
 
-function createClaudeSystemPrompt() {
+function createClaudeSystemPrompt(workspace: WorkspaceTab = 'image') {
   return [
-    createSystemPrompt(),
+    createSystemPrompt(workspace),
     'Call the provided tool exactly once with the full guided plan.',
     'The hero product image is always attached in the request.',
     'Product page context may or may not be present; when absent, continue from the hero image alone.',
@@ -134,34 +168,62 @@ function createClaudeSystemPrompt() {
 }
 
 function createUserPrompt(input: {
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }) {
-  return [
-    `Create exactly ${input.shotCount} image-generation shots.`,
+  const workspace = input.workspace ?? 'image'
+  const shotNoun = input.shotCount === 1 ? 'shot' : 'shots'
+  const promptLines = [
+    `Create exactly ${input.shotCount} ${workspace === 'video' ? 'video-generation' : 'image-generation'} ${shotNoun}.`,
     getConceptInstruction(input.contentConcept),
     'Choose the single best productCategory and creativeStyle for the full set.',
     'Use product-only shots when detail, material, or packaging focus is strongest. Use lifestyle only when human interaction would improve conversion.',
+  ]
+
+  if (workspace === 'video') {
+    promptLines.push(
+      getVideoTargetClipInstruction(input),
+      'Clip intent: write one complete video-generation prompt with motion, pacing, subject action, and final visual state sized to the target length.',
+    )
+
+    if (input.cameraMovement) {
+      promptLines.push(
+        `Motion language: include ${input.cameraMovement.replace(/-/g, ' ')} camera movement where it naturally supports the product story.`,
+      )
+    }
+  }
+
+  promptLines.push(
     'Each prompt should be generation-ready and specific about composition, styling, product focus, lighting, and conversion intent.',
     'Make the titles short and readable.',
     'Make the slugs lowercase and URL-safe.',
     'Tags should be short production labels such as close-up, hero, lifestyle, detail, texture, full-body, or studio.',
     formatProductPageContext(input.productPage),
-  ].join('\n')
+  )
+
+  return promptLines.join('\n')
 }
 
 export function buildGeminiAnalysisBody(input: {
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroImageUrl: string
   model: Extract<KieAnalysisModel, 'gemini-2.5-flash'>
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }) {
   return {
     messages: [
       {
-        content: createSystemPrompt(),
+        content: createSystemPrompt(input.workspace ?? 'image'),
         role: 'system',
       },
       {
@@ -195,11 +257,15 @@ export function buildGeminiAnalysisBody(input: {
 }
 
 export function buildClaudeAnalysisBody(input: {
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroImageUrl: string
   model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }) {
   return {
     max_tokens: 2_500,
@@ -222,7 +288,7 @@ export function buildClaudeAnalysisBody(input: {
     ],
     model: input.model,
     stream: false,
-    system: createClaudeSystemPrompt(),
+    system: createClaudeSystemPrompt(input.workspace ?? 'image'),
     temperature: 0.4,
     tool_choice: {
       name: guidedPlanToolName,
@@ -231,7 +297,7 @@ export function buildClaudeAnalysisBody(input: {
     tools: [
       {
         description:
-          'Submit the complete guided image-generation plan as structured data.',
+          'Submit the complete guided image or video generation plan as structured data.',
         input_schema: guidedPlanJsonSchema,
         name: guidedPlanToolName,
       },
@@ -451,10 +517,14 @@ export function parseGuidedAnalysisPayload(
 
 export async function analyzeGuidedProductPlan(input: {
   analysisModel: KieAnalysisModel
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroImageUrl: string
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }): Promise<GuidedAnalysisPlan> {
   const apiKey = getKieApiKey()
   const isClaude = isClaudeModel(input.analysisModel)

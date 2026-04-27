@@ -279,10 +279,31 @@ const videoModels: Array<{
     label: 'Grok Imagine',
     value: 'grok-imagine',
   },
+  {
+    helper: 'ByteDance 8s or 12s pro video generation',
+    label: 'Seedance 1.5 Pro',
+    value: 'seedance-1.5-pro',
+  },
 ]
 
 const qualities: OutputQuality[] = ['720p', '1080p', '4k']
 const durations: VideoDuration[] = ['base', 'extended']
+
+function getVideoDurationLabel(model: VideoModelOption, duration: VideoDuration) {
+  if (model === 'kling') {
+    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
+  }
+
+  if (model === 'grok-imagine') {
+    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
+  }
+
+  if (model === 'seedance-1.5-pro') {
+    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
+  }
+
+  return '8s'
+}
 
 const peopleReferenceCards: Array<{
   icon: LucideIcon
@@ -1027,7 +1048,7 @@ function MotionControlsSection({ className }: { className?: string }) {
                   key={duration}
                   value={duration}
                 >
-                  {duration === 'base' ? 'Base (~5-8s)' : 'Extended (+7s)'}
+                  {getVideoDurationLabel(videoModel, duration)}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -1062,6 +1083,12 @@ function MotionControlsSection({ className }: { className?: string }) {
               <p className="text-xs text-muted-foreground">
                 4K Veo upgrades are reserved for a later phase, so generation
                 stays disabled until you switch back to 720p or 1080p.
+              </p>
+            ) : null}
+            {videoModel === 'seedance-1.5-pro' && outputQuality === '4k' ? (
+              <p className="text-xs text-muted-foreground">
+                Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
+                back to 720p or 1080p before generating.
               </p>
             ) : null}
           </ControlGroup>

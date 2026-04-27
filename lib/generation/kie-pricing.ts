@@ -83,10 +83,17 @@ export async function getKiePricing() {
   }
 
   try {
-    const [grokRecords, klingRecords, nanoRecords, veoRecords] = await Promise.all([
+    const [
+      grokRecords,
+      klingRecords,
+      nanoRecords,
+      seedanceRecords,
+      veoRecords,
+    ] = await Promise.all([
       fetchPricingRecords('grok'),
       fetchPricingRecords('kling'),
       fetchPricingRecords('nano banana'),
+      fetchPricingRecords('seedance'),
       fetchPricingRecords('veo'),
     ])
     const expiresAtMs = now + KIE_PRICING_TTL_MS
@@ -98,6 +105,7 @@ export async function getKiePricing() {
         grokRecords,
         klingRecords,
         nanoRecords,
+        seedanceRecords,
         veoRecords,
       }),
     }

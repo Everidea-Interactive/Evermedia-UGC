@@ -15,6 +15,7 @@ import {
   getGrokResolution,
   getKlingDuration,
   getNanoBananaResolution,
+  getSeedanceDuration,
 } from '@/lib/generation/model-mapping'
 import type {
   BatchSize,
@@ -748,6 +749,36 @@ function buildVideoPayload(input: {
     }
   }
 
+  if (input.videoModel === 'seedance-1.5-pro') {
+    if (input.outputQuality === '4k') {
+      throw new Error('4K Seedance 1.5 Pro output is not supported.')
+    }
+
+    const inputUrls = [
+      primaryReference?.remoteUrl,
+      endFrameReference?.remoteUrl,
+    ].filter((value): value is string => Boolean(value))
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'bytedance/seedance-1.5-pro',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'bytedance/seedance-1.5-pro',
+        input: {
+          prompt: input.prompt,
+          ...(inputUrls.length > 0 ? { input_urls: inputUrls } : null),
+          aspect_ratio: aspectRatio,
+          resolution: input.outputQuality,
+          duration: getSeedanceDuration(input.videoDuration),
+          fixed_lens: false,
+          generate_audio: false,
+          nsfw_checker: false,
+        },
+      },
+    }
+  }
+
   const modelName = primaryReference
     ? 'kling-2.6/image-to-video'
     : 'kling-2.6/text-to-video'
@@ -807,11 +838,13 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
     'manual'
   const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
-  const batchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
+  const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
-  if (![1, 2, 3, 4].includes(batchSize)) {
+  if (![1, 2, 3, 4].includes(requestedBatchSize)) {
     throw new Error('Batch size must be between 1 and 4.')
   }
+
+  const batchSize = experience === 'guided' && workspace === 'video' ? 1 : requestedBatchSize
 
   const imageModel = readEnum(
     formData,
@@ -821,7 +854,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const videoModel = readEnum(
     formData,
     'videoModel',
-    ['veo-3.1', 'kling', 'grok-imagine'] as const,
+    ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
   )
   const manifestValue = readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
@@ -833,10 +866,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const guided = (() => {
     if (experience !== 'guided') {
       return null
-    }
-
-    if (workspace !== 'image') {
-      throw new Error('Guided mode is available for images only.')
     }
 
     const guidedShotsValue = readString(formData, 'guidedShots')
@@ -854,6 +883,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       throw new Error('Unsupported guided analysis model.')
     }
     const productUrl = readOptionalString(formData, 'productUrl') ?? ''
+    const parsedGuidedShots = safeJsonParse(guidedShotsValue)
     const normalizedPlan = normalizeGuidedAnalysisPlan(
       {
         creativeStyle: readEnum(
@@ -878,7 +908,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
             'miscellaneous',
           ] as const,
         ),
-        shots: safeJsonParse(guidedShotsValue),
+        shots:
+          workspace === 'video' && Array.isArray(parsedGuidedShots)
+            ? parsedGuidedShots.slice(0, 1)
+            : parsedGuidedShots,
         summary: guidedSummary,
       },
       { shotCount: batchSize },

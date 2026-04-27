@@ -5,8 +5,10 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
+  Film,
   ImageIcon,
   LoaderCircle,
+  ScanLine,
   Sparkles,
   Upload,
   WandSparkles,
@@ -19,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   buildGuidedAnalysisFormData,
@@ -39,6 +42,7 @@ import {
 } from '@/lib/generation/run-copy'
 import type {
   AssetSlot,
+  CameraMovement,
   ContentConcept,
   GenerationCostEstimate,
   GenerationRun,
@@ -50,6 +54,9 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
   OutputQuality,
+  VideoDuration,
+  VideoModelOption,
+  WorkspaceTab,
 } from '@/lib/generation/types'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
@@ -61,26 +68,8 @@ const rowClassName = 'rounded-lg border border-border bg-background'
 const fieldLabelClassName =
   'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 
-const workflowSteps = [
-  {
-    description: 'Stage the hero product image.',
-    label: 'Upload Hero',
-  },
-  {
-    description: 'Generate the guided shot list.',
-    label: 'Analyze',
-  },
-  {
-    description: 'Refine the exact prompts.',
-    label: 'Edit',
-  },
-  {
-    description: 'Render the guided batch.',
-    label: 'Generate',
-  },
-] as const
-
 const outputQualities: OutputQuality[] = ['720p', '1080p', '4k']
+const videoDurations: VideoDuration[] = ['base', 'extended']
 
 const conceptCopy = {
   affiliate: {
@@ -104,6 +93,32 @@ const analysisModelLabels = {
 const imageModelLabels = {
   'grok-imagine': 'Grok Imagine',
   'nano-banana': 'Nano Banana 2',
+} as const
+
+const videoModelLabels = {
+  'grok-imagine': 'Grok Imagine',
+  kling: 'Kling',
+  'seedance-1.5-pro': 'Seedance 1.5 Pro',
+  'veo-3.1': 'Veo 3.1',
+} as const
+
+const cameraMovementLabels: Record<CameraMovement, string> = {
+  'crash-zoom': 'Crash Zoom',
+  dolly: 'Dolly',
+  drone: 'Drone',
+  macro: 'Macro',
+  orbit: 'Orbit',
+}
+
+const outputModeCopy = {
+  image: {
+    description: 'Analyze one product image, edit still prompts, then render images.',
+    label: 'Image Guided',
+  },
+  video: {
+    description: 'Analyze one product image, edit motion prompts, then render videos.',
+    label: 'Video Guided',
+  },
 } as const
 
 function handleFileInput(
@@ -171,6 +186,25 @@ function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
   }
 }
 
+function getGuidedVideoDurationLabel(
+  model: VideoModelOption,
+  duration: VideoDuration,
+) {
+  if (model === 'kling') {
+    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
+  }
+
+  if (model === 'grok-imagine') {
+    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
+  }
+
+  if (model === 'seedance-1.5-pro') {
+    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
+  }
+
+  return '8s'
+}
+
 function getAnalyzeHelperText({
   hasHero,
   hasPlan,
@@ -226,14 +260,18 @@ function getGenerateHelperText({
 }
 
 function createGuidedEstimateInput(input: {
+  activeTab: WorkspaceTab
+  endFrameAsset: AssetSlot
   heroAsset: AssetSlot
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   shotCount: 1 | 2 | 3 | 4
   shots: GuidedAnalysisShot[]
+  videoDuration: VideoDuration
+  videoModel: VideoModelOption
 }) {
   return {
-    activeTab: 'image' as const,
+    activeTab: input.activeTab,
     assets: {
       clothing: {
         error: null,
@@ -246,14 +284,8 @@ function createGuidedEstimateInput(input: {
         uploadStatus: 'idle' as const,
       },
       endFrame: {
-        error: null,
-        file: null,
-        id: 'guided-end-frame',
-        label: 'End Frame',
-        mimeType: null,
-        previewUrl: null,
-        size: null,
-        uploadStatus: 'idle' as const,
+        ...input.endFrameAsset,
+        file: input.activeTab === 'video' ? input.endFrameAsset.file : null,
       },
       face1: {
         error: null,
@@ -293,39 +325,9 @@ function createGuidedEstimateInput(input: {
     outputQuality: input.outputQuality,
     products: [input.heroAsset],
     subjectMode: input.shots[0]?.subjectMode ?? 'product-only',
-    videoDuration: 'base' as const,
-    videoModel: 'veo-3.1' as const,
+    videoDuration: input.videoDuration,
+    videoModel: input.videoModel,
   }
-}
-
-function getGuidedWorkflowCurrentStep({
-  analysisStatus,
-  hasHero,
-  hasPlan,
-  hasRunActivity,
-}: {
-  analysisStatus: GuidedAnalysisStatus
-  hasHero: boolean
-  hasPlan: boolean
-  hasRunActivity: boolean
-}) {
-  if (!hasHero) {
-    return 0
-  }
-
-  if (analysisStatus === 'analyzing') {
-    return 1
-  }
-
-  if (hasRunActivity) {
-    return 3
-  }
-
-  if (hasPlan) {
-    return 2
-  }
-
-  return 1
 }
 
 function getGuidedRunStatusCopy(run: GenerationRun, hasPlan: boolean) {
@@ -548,26 +550,118 @@ function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
   )
 }
 
+function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
+  const clearGuidedEndFrameAsset = useGenerationStore(
+    (state) => state.clearGuidedEndFrameAsset,
+  )
+  const setGuidedEndFrameFile = useGenerationStore(
+    (state) => state.setGuidedEndFrameFile,
+  )
+  const previewUrl = slot.previewUrl
+  const inputId = 'guided-end-frame-upload'
+
+  return (
+    <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
+      <input
+        accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+        className="sr-only"
+        id={inputId}
+        onChange={(event) => handleFileInput(event, setGuidedEndFrameFile)}
+        type="file"
+      />
+
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/70 text-muted-foreground">
+          <ScanLine className="size-5" suppressHydrationWarning />
+        </div>
+        <div className="min-w-0">
+          <p className={fieldLabelClassName}>Optional End Frame</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Add a final frame for video models that support first-and-last-frame
+            guidance.
+          </p>
+        </div>
+      </div>
+
+      {previewUrl && slot.mimeType && isImageMimeType(slot.mimeType) ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-secondary/30">
+          <ImagePreviewDialog
+            alt="Guided end frame preview"
+            label={slot.label}
+            src={previewUrl}
+          >
+            <button className="block w-full text-left" type="button">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt="Guided end frame preview"
+                className="aspect-video w-full object-contain p-3"
+                src={previewUrl}
+              />
+            </button>
+          </ImagePreviewDialog>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="secondary">
+          <label
+            htmlFor={inputId}
+            onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
+            role="button"
+            tabIndex={0}
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            {previewUrl ? 'Replace' : 'Upload End Frame'}
+          </label>
+        </Button>
+        {previewUrl ? (
+          <Button
+            aria-label="Clear guided end frame"
+            onClick={clearGuidedEndFrameAsset}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <X data-icon="inline-start" suppressHydrationWarning />
+            Clear
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function GuidedResultTile({
   variant,
 }: {
   variant: GenerationRun['variants'][number]
 }) {
-  const content = variant.result?.type === 'image' && variant.result.url ? (
-    <ImagePreviewDialog
-      alt={`${variant.profile} result`}
-      label={variant.profile}
-      src={variant.result.url}
-    >
-      <button className="block h-full w-full text-left" type="button">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={`${variant.profile} result`}
-          className="aspect-[3/4] w-full object-cover"
-          src={variant.result.url}
-        />
-      </button>
-    </ImagePreviewDialog>
+  const content = variant.result?.url ? (
+    variant.result.type === 'image' ? (
+      <ImagePreviewDialog
+        alt={`${variant.profile} result`}
+        label={variant.profile}
+        src={variant.result.url}
+      >
+        <button className="block h-full w-full text-left" type="button">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={`${variant.profile} result`}
+            className="aspect-[3/4] w-full object-cover"
+            src={variant.result.url}
+          />
+        </button>
+      </ImagePreviewDialog>
+    ) : (
+      <video
+        aria-label={`${variant.profile} result`}
+        className="aspect-[3/4] w-full bg-black object-cover"
+        controls
+        playsInline
+        preload="metadata"
+        src={variant.result.url}
+      />
+    )
   ) : (
     <div className="flex aspect-[3/4] items-center justify-center bg-secondary/50 text-center text-sm text-muted-foreground">
       <div className="grid gap-2 px-4">
@@ -603,94 +697,81 @@ function GuidedResultTile({
   )
 }
 
-function GuidedWorkflowHeader({
-  currentStepIndex,
-  onReset,
+function GuidedOutputModeSection({
+  activeTab,
+  setActiveTab,
 }: {
-  currentStepIndex: number
-  onReset: () => void
+  activeTab: WorkspaceTab
+  setActiveTab: (activeTab: WorkspaceTab) => void
 }) {
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Guided planner
-            </p>
-            <h1 className="mt-2 font-display text-2xl font-semibold">
-              Analyze, edit, then render
-            </h1>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Keep the hero image, prompt editor, and render controls in one
-              workflow so the next step stays obvious at every stage.
-            </p>
-          </div>
-
-          <Button onClick={onReset} size="sm" variant="ghost">
-            Reset Guided Mode
-          </Button>
+    <section className={cn(panelClassName, 'p-3 sm:p-4')}>
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            Output mode
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose whether Guided builds a still render or a motion render
+            before analyzing the product.
+          </p>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-4">
-          {workflowSteps.map((step, index) => {
-            const isComplete = index < currentStepIndex
-            const isCurrent = index === currentStepIndex
+        <Tabs
+          onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+          value={activeTab}
+        >
+          <TabsList aria-label="Guided Workspace Tabs" className="w-full grid-cols-2">
+            {(['image', 'video'] as const).map((value) => {
+              const Icon = value === 'image' ? ImageIcon : Film
+              const copy = outputModeCopy[value]
 
-            return (
-              <div
-                className={cn(
-                  rowClassName,
-                  'grid gap-2 px-4 py-3 transition-colors',
-                  isCurrent && 'border-primary/30 bg-primary/10',
-                  isComplete && 'border-foreground/30 bg-secondary',
-                )}
-                key={step.label}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      'flex size-7 items-center justify-center rounded-full border text-xs font-semibold',
-                      isCurrent &&
-                        'border-primary bg-primary text-primary-foreground',
-                      isComplete &&
-                        'border-foreground bg-foreground text-background',
-                      !isCurrent &&
-                        !isComplete &&
-                        'border-border bg-background text-muted-foreground',
-                    )}
-                  >
-                    {index + 1}
-                  </div>
-                  <p className="font-medium text-foreground">{step.label}</p>
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {step.description}
-                </p>
-              </div>
-            )
-          })}
-        </div>
+              return (
+                <TabsTrigger
+                  className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
+                  key={value}
+                  value={value}
+                >
+                  <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
+                    <Icon className="size-5 shrink-0" suppressHydrationWarning />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-base font-semibold">{copy.label}</span>
+                      <span className="text-xs font-normal text-current/72">
+                        {copy.description}
+                      </span>
+                    </span>
+                  </span>
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </Tabs>
       </div>
     </section>
   )
 }
 
 function GuidedAnalyzePanel({
+  activeTab,
   analysisError,
   analysisHelperText,
   analysisStatus,
+  cameraMovement,
   canAnalyze,
   guidedInput,
   onAnalyze,
+  onReset,
+  setCameraMovement,
   setGuidedAnalysisModel,
   setGuidedContentConcept,
   setGuidedProductUrl,
   setGuidedShotCount,
 }: {
+  activeTab: WorkspaceTab
   analysisError: string | null
   analysisHelperText: string
   analysisStatus: GuidedAnalysisStatus
+  cameraMovement: CameraMovement | null
   canAnalyze: boolean
   guidedInput: {
     analysisModel: KieAnalysisModel
@@ -700,6 +781,8 @@ function GuidedAnalyzePanel({
     shotCount: 1 | 2 | 3 | 4
   }
   onAnalyze: () => void
+  onReset: () => void
+  setCameraMovement: (cameraMovement: CameraMovement | null) => void
   setGuidedAnalysisModel: (model: KieAnalysisModel) => void
   setGuidedContentConcept: (concept: ContentConcept) => void
   setGuidedProductUrl: (productUrl: string) => void
@@ -709,14 +792,22 @@ function GuidedAnalyzePanel({
     <section className={cn(panelClassName, 'p-4 sm:p-5')}>
       <div className="grid gap-5">
         <div className="grid gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Step 1
-          </p>
-          <h2 className="font-display text-xl font-semibold">Analyze input</h2>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Upload the hero product, add any page context, then generate the
-            initial shot list before editing the prompts.
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Step 1
+              </p>
+              <h2 className="font-display text-xl font-semibold">Analyze input</h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Upload the hero product, add any page context, then generate the
+                initial shot list before editing the prompts.
+              </p>
+            </div>
+
+            <Button onClick={onReset} size="sm" variant="ghost">
+              Reset Guided Mode
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(420px,1.14fr)_minmax(0,0.86fr)]">
@@ -793,45 +884,87 @@ function GuidedAnalyzePanel({
                   'grid gap-4 p-4',
                 )}
               >
-                <div className="grid gap-3">
-                  <div className="grid gap-1">
-                    <label className={fieldLabelClassName} htmlFor="guided-shot-count">
-                      Shot Count
-                    </label>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      Generate exactly this many prompts and result tiles.
+                {activeTab === 'video' ? (
+                  <div className="grid gap-4">
+                    <FieldBlock
+                      description="Motion language used during analysis and rendering."
+                      htmlFor="guided-camera-movement"
+                      label="Camera Movement"
+                    >
+                      <Select
+                        aria-label="Camera movement"
+                        id="guided-camera-movement"
+                        onChange={(event) =>
+                          setCameraMovement(
+                            event.target.value
+                              ? (event.target.value as CameraMovement)
+                              : null,
+                          )
+                        }
+                        value={cameraMovement ?? ''}
+                      >
+                        <option value="">None</option>
+                        {Object.entries(cameraMovementLabels).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </Select>
+                    </FieldBlock>
+
+                    <p className="text-sm text-muted-foreground">
+                      Default style bias:{' '}
+                      <span className="font-medium text-foreground">
+                        {getGuidedCreativeStyleForConcept(
+                          guidedInput.contentConcept,
+                        ).replace(/-/g, ' ')}
+                      </span>
                     </p>
                   </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3">
+                      <div className="grid gap-1">
+                        <label className={fieldLabelClassName} htmlFor="guided-shot-count">
+                          Shot Count
+                        </label>
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          Generate exactly this many prompts and result tiles.
+                        </p>
+                      </div>
 
-                  <p className="text-sm text-muted-foreground">
-                    Default style bias:{' '}
-                    <span className="font-medium text-foreground">
-                      {getGuidedCreativeStyleForConcept(guidedInput.contentConcept).replace(
-                        /-/g,
-                        ' ',
-                      )}
-                    </span>
-                  </p>
-                </div>
+                      <p className="text-sm text-muted-foreground">
+                        Default style bias:{' '}
+                        <span className="font-medium text-foreground">
+                          {getGuidedCreativeStyleForConcept(
+                            guidedInput.contentConcept,
+                          ).replace(/-/g, ' ')}
+                        </span>
+                      </p>
+                    </div>
 
-                <div className="w-full sm:max-w-[17rem]">
-                  <Select
-                    aria-label="Shot count"
-                    id="guided-shot-count"
-                    onChange={(event) =>
-                      setGuidedShotCount(
-                        clampGuidedShotCount(Number.parseInt(event.target.value, 10)),
-                      )
-                    }
-                    value={String(guidedInput.shotCount)}
-                  >
-                    {[1, 2, 3, 4].map((value) => (
-                      <option key={value} value={value}>
-                        {value} shot{value === 1 ? '' : 's'}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+                    <div className="w-full sm:max-w-[17rem]">
+                      <Select
+                        aria-label="Shot count"
+                        id="guided-shot-count"
+                        onChange={(event) =>
+                          setGuidedShotCount(
+                            clampGuidedShotCount(
+                              Number.parseInt(event.target.value, 10),
+                            ),
+                          )
+                        }
+                        value={String(guidedInput.shotCount)}
+                      >
+                        {[1, 2, 3, 4].map((value) => (
+                          <option key={value} value={value}>
+                            {value} shot{value === 1 ? '' : 's'}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div
@@ -1016,7 +1149,7 @@ function GuidedShotEditorCard({
           Prompt
         </label>
         <p className="text-sm leading-6 text-muted-foreground">
-          This exact prompt is sent to the image generation provider.
+          This exact prompt is sent to the selected generation provider.
         </p>
         <Textarea
           aria-label={`${shot.title} prompt`}
@@ -1032,9 +1165,11 @@ function GuidedShotEditorCard({
 }
 
 function GuidedRunPanel({
+  activeTab,
   activeRunInGuidedMode,
   analysisStatus,
   canGenerate,
+  endFrameAsset,
   estimate,
   generateHelperText,
   generationRun,
@@ -1046,10 +1181,16 @@ function GuidedRunPanel({
   plan,
   setImageModel,
   setOutputQuality,
+  setVideoDuration,
+  setVideoModel,
+  videoDuration,
+  videoModel,
 }: {
+  activeTab: WorkspaceTab
   activeRunInGuidedMode: boolean
   analysisStatus: GuidedAnalysisStatus
   canGenerate: boolean
+  endFrameAsset: AssetSlot
   estimate: GenerationCostEstimate
   generateHelperText: string
   generationRun: GenerationRun
@@ -1061,6 +1202,10 @@ function GuidedRunPanel({
   plan: GuidedAnalysisPlan | null
   setImageModel: (model: ImageModelOption) => void
   setOutputQuality: (quality: OutputQuality) => void
+  setVideoDuration: (duration: VideoDuration) => void
+  setVideoModel: (model: VideoModelOption) => void
+  videoDuration: VideoDuration
+  videoModel: VideoModelOption
 }) {
   const runStatus = getGuidedRunStatusCopy(generationRun, Boolean(plan?.shots.length))
 
@@ -1135,29 +1280,76 @@ function GuidedRunPanel({
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
-            <FieldBlock
-              description="The final prompt set is rendered with the active image model."
-              htmlFor="guided-image-model"
-              label="Image Model"
-            >
-              <Select
-                aria-label="Image model"
-                id="guided-image-model"
-                onChange={(event) =>
-                  setImageModel(event.target.value as typeof imageModel)
-                }
-                value={imageModel}
+            {activeTab === 'image' ? (
+              <FieldBlock
+                description="The final prompt set is rendered with the active image model."
+                htmlFor="guided-image-model"
+                label="Image Model"
               >
-                {Object.entries(imageModelLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </FieldBlock>
+                <Select
+                  aria-label="Image model"
+                  id="guided-image-model"
+                  onChange={(event) =>
+                    setImageModel(event.target.value as typeof imageModel)
+                  }
+                  value={imageModel}
+                >
+                  {Object.entries(imageModelLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </FieldBlock>
+            ) : (
+              <>
+                <FieldBlock
+                  description="The final prompt set is rendered with the active video model."
+                  htmlFor="guided-video-model"
+                  label="Video Model"
+                >
+                  <Select
+                    aria-label="Video model"
+                    id="guided-video-model"
+                    onChange={(event) =>
+                      setVideoModel(event.target.value as typeof videoModel)
+                    }
+                    value={videoModel}
+                  >
+                    {Object.entries(videoModelLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldBlock>
+
+                <FieldBlock
+                  description="Clip length passed to models that expose duration controls."
+                  htmlFor="guided-video-duration"
+                  label="Video Duration"
+                >
+                  <Select
+                    aria-label="Video duration"
+                    id="guided-video-duration"
+                    onChange={(event) =>
+                      setVideoDuration(event.target.value as typeof videoDuration)
+                    }
+                    value={videoDuration}
+                  >
+                    {videoDurations.map((duration) => (
+                      <option key={duration} value={duration}>
+                        {getGuidedVideoDurationLabel(videoModel, duration)}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldBlock>
+
+              </>
+            )}
 
             <FieldBlock
-              description="Resolution preference for the guided image run."
+              description="Resolution preference for the guided run."
               htmlFor="guided-output-quality"
               label="Output Quality"
             >
@@ -1176,6 +1368,26 @@ function GuidedRunPanel({
                 ))}
               </Select>
             </FieldBlock>
+
+            {activeTab === 'video' && videoModel === 'veo-3.1' && outputQuality === '4k' ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                4K Veo upgrades are reserved for a later phase, so guided video
+                generation stays disabled until you switch back to 720p or 1080p.
+              </p>
+            ) : null}
+
+            {activeTab === 'video' &&
+            videoModel === 'seedance-1.5-pro' &&
+            outputQuality === '4k' ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
+                back to 720p or 1080p before generating.
+              </p>
+            ) : null}
+
+            {activeTab === 'video' ? (
+              <GuidedEndFrameUploadCard slot={endFrameAsset} />
+            ) : null}
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-2 p-4')}>
@@ -1316,15 +1528,21 @@ export function GuidedWorkspace({
   kieStatus: KieStatusResponse
 }) {
   const [isReanalyzeDialogOpen, setIsReanalyzeDialogOpen] = useState(false)
+  const activeTab = useGenerationStore((state) => state.activeTab)
   const analysisError = useGenerationStore((state) => state.analysisError)
   const analysisStatus = useGenerationStore((state) => state.analysisStatus)
+  const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const generationRun = useGenerationStore((state) => state.generationRun)
   const guidedInput = useGenerationStore((state) => state.guidedInput)
   const guidedPlan = useGenerationStore((state) => state.guidedPlan)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoModel = useGenerationStore((state) => state.videoModel)
+  const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setAnalysisError = useGenerationStore((state) => state.setAnalysisError)
   const setAnalysisStatus = useGenerationStore((state) => state.setAnalysisStatus)
+  const setCameraMovement = useGenerationStore((state) => state.setCameraMovement)
   const setGuidedAnalysisModel = useGenerationStore(
     (state) => state.setGuidedAnalysisModel,
   )
@@ -1338,6 +1556,8 @@ export function GuidedWorkspace({
   const setGuidedShotCount = useGenerationStore((state) => state.setGuidedShotCount)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
   const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
+  const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
+  const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const updateGuidedShotPrompt = useGenerationStore(
     (state) => state.updateGuidedShotPrompt,
   )
@@ -1349,8 +1569,6 @@ export function GuidedWorkspace({
 
   const hasHero = isSlotLoaded(guidedInput.heroAsset)
   const hasPlan = Boolean(guidedPlan?.shots.length)
-  const hasRunActivity =
-    generationRun.status !== 'idle' || generationRun.variants.length > 0
   const activeRunInGuidedMode = hasActiveGeneration(generationRun)
   const canAnalyze = hasHero && analysisStatus !== 'analyzing'
 
@@ -1358,20 +1576,28 @@ export function GuidedWorkspace({
     () =>
       getGenerationCostEstimate(
         createGuidedEstimateInput({
+          activeTab,
+          endFrameAsset: guidedInput.endFrameAsset,
           heroAsset: guidedInput.heroAsset,
           imageModel,
           outputQuality,
-          shotCount: guidedInput.shotCount,
+          shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
           shots: guidedPlan?.shots ?? [],
+          videoDuration,
+          videoModel,
         }),
         kiePricing?.matrix ?? null,
       ),
     [
+      activeTab,
+      guidedInput.endFrameAsset,
       guidedInput.heroAsset,
       guidedInput.shotCount,
       guidedPlan,
       imageModel,
       outputQuality,
+      videoDuration,
+      videoModel,
       kiePricing?.matrix,
     ],
   )
@@ -1399,13 +1625,6 @@ export function GuidedWorkspace({
     hasHero,
     hasPlan,
   })
-  const currentStepIndex = getGuidedWorkflowCurrentStep({
-    analysisStatus,
-    hasHero,
-    hasPlan,
-    hasRunActivity,
-  })
-
   useEffect(() => {
     const runId = generationRun.runId
 
@@ -1480,10 +1699,14 @@ export function GuidedWorkspace({
 
       const { formData } = buildGuidedAnalysisFormData({
         analysisModel: guidedInput.analysisModel,
+        cameraMovement,
         contentConcept: guidedInput.contentConcept,
         heroAsset: guidedInput.heroAsset,
         productUrl: guidedInput.productUrl,
-        shotCount: guidedInput.shotCount,
+        shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
+        videoDuration,
+        videoModel,
+        workspace: activeTab,
       })
       const response = await fetch('/api/guided/analyze', {
         body: formData,
@@ -1542,11 +1765,15 @@ export function GuidedWorkspace({
 
     const currentEstimate = getGenerationCostEstimate(
       createGuidedEstimateInput({
+        activeTab,
+        endFrameAsset: guidedInput.endFrameAsset,
         heroAsset: guidedInput.heroAsset,
         imageModel,
         outputQuality,
-        shotCount: guidedInput.shotCount,
+        shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         shots: guidedPlan.shots,
+        videoDuration,
+        videoModel,
       }),
       kiePricing?.matrix ?? null,
     )
@@ -1567,12 +1794,17 @@ export function GuidedWorkspace({
     try {
       const { formData } = buildGuidedGenerationFormData({
         analysisModel: guidedInput.analysisModel,
+        cameraMovement,
         contentConcept: guidedInput.contentConcept,
+        endFrameAsset: guidedInput.endFrameAsset,
         heroAsset: guidedInput.heroAsset,
         imageModel,
         outputQuality,
         plan: guidedPlan,
         productUrl: guidedInput.productUrl,
+        videoDuration,
+        videoModel,
+        workspace: activeTab,
       })
       const response = await fetch('/api/generation/run', {
         body: formData,
@@ -1640,20 +1872,24 @@ export function GuidedWorkspace({
       />
 
       <div className={cn('grid gap-4', className)}>
-        <GuidedWorkflowHeader
-          currentStepIndex={currentStepIndex}
-          onReset={resetGuidedState}
+        <GuidedOutputModeSection
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
         />
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
           <div className="grid gap-4">
             <GuidedAnalyzePanel
+              activeTab={activeTab}
               analysisError={analysisError}
               analysisHelperText={analysisHelperText}
               analysisStatus={analysisStatus}
+              cameraMovement={cameraMovement}
               canAnalyze={canAnalyze}
               guidedInput={guidedInput}
               onAnalyze={handleAnalyze}
+              onReset={resetGuidedState}
+              setCameraMovement={setCameraMovement}
               setGuidedAnalysisModel={setGuidedAnalysisModel}
               setGuidedContentConcept={setGuidedContentConcept}
               setGuidedProductUrl={setGuidedProductUrl}
@@ -1667,9 +1903,11 @@ export function GuidedWorkspace({
           </div>
 
           <GuidedRunPanel
+            activeTab={activeTab}
             activeRunInGuidedMode={activeRunInGuidedMode}
             analysisStatus={analysisStatus}
             canGenerate={canGenerate}
+            endFrameAsset={guidedInput.endFrameAsset}
             estimate={estimate}
             generateHelperText={generateHelperText}
             generationRun={generationRun}
@@ -1685,6 +1923,10 @@ export function GuidedWorkspace({
             plan={guidedPlan}
             setImageModel={setImageModel}
             setOutputQuality={setOutputQuality}
+            setVideoDuration={setVideoDuration}
+            setVideoModel={setVideoModel}
+            videoDuration={videoDuration}
+            videoModel={videoModel}
           />
         </div>
 

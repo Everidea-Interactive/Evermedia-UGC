@@ -337,6 +337,187 @@ describe('KIE batch submission', () => {
     )
   })
 
+  it('accepts guided video metadata and submits edited prompts through the video provider', async () => {
+    const formData = buildBaseFormData('2')
+    const heroFile = new File(['product'], 'product.png', { type: 'image/png' })
+    const endFrameFile = new File(['end'], 'end.png', { type: 'image/png' })
+
+    formData.append('experience', 'guided')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'veo-3.1')
+    formData.set('videoDuration', 'extended')
+    formData.set('cameraMovement', 'dolly')
+    formData.set('creativeStyle', 'tv-commercial')
+    formData.set('subjectMode', 'product-only')
+    formData.set('shotEnvironment', 'indoor')
+    formData.append('guidedSummary', 'Guided video summary')
+    formData.append('guidedContentConcept', 'driven-ads')
+    formData.append('analysisModel', 'gemini-2.5-flash')
+    formData.append('productUrl', 'https://example.com/product')
+    formData.append(
+      'guidedShots',
+      JSON.stringify([
+        {
+          prompt: 'Video prompt 1',
+          shotEnvironment: 'indoor',
+          slug: 'shot-1',
+          subjectMode: 'product-only',
+          tags: ['hero'],
+          title: 'Shot 1',
+        },
+        {
+          prompt: 'Video prompt 2',
+          shotEnvironment: 'outdoor',
+          slug: 'shot-2',
+          subjectMode: 'lifestyle',
+          tags: ['motion'],
+          title: 'Shot 2',
+        },
+      ]),
+    )
+    formData.set(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_endFrame',
+          kind: 'named',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 4,
+        },
+        {
+          fieldName: 'product_guided_hero',
+          kind: 'product',
+          label: 'Hero Product',
+          order: 100,
+          productId: 'guided-hero',
+        },
+      ]),
+    )
+    formData.append('asset_endFrame', endFrameFile)
+    formData.append('product_guided_hero', heroFile)
+
+    const fetchMock = vi.fn()
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/end.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/product.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'video-task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'video-task-2',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    const response = await submitGenerationRequest(parsedRequest)
+
+    expect(parsedRequest.experience).toBe('guided')
+    expect(parsedRequest.workspace).toBe('video')
+    expect(parsedRequest.batchSize).toBe(1)
+    expect(parsedRequest.guided?.summary).toBe('Guided video summary')
+    expect(response.workspace).toBe('video')
+    expect(response.model).toBe('veo3_fast')
+    expect(response.provider).toBe('veo')
+    expect(response.variants.map((variant) => variant.taskId)).toEqual(['video-task-1'])
+
+    const taskRequests = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes('/api/v1/veo/generate'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
+
+    expect(taskRequests).toEqual([
+      expect.objectContaining({
+        generationType: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
+        imageUrls: [
+          'https://files.example.com/product.png',
+          'https://files.example.com/end.png',
+        ],
+        prompt: 'Video prompt 1',
+      }),
+    ])
+  })
+
+  it('builds Seedance 1.5 Pro video payloads with model-specific duration and references', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 4,
+          remoteUrl: 'https://files.example.com/end.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(submission.endpoint).toContain('/api/v1/jobs/createTask')
+    expect(submission.modelName).toBe('bytedance/seedance-1.5-pro')
+    expect(submission.provider).toBe('market')
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-1.5-pro',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '12',
+        fixed_lens: false,
+        generate_audio: false,
+        input_urls: [
+          'https://files.example.com/product.png',
+          'https://files.example.com/end.png',
+        ],
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '1080p',
+      },
+    })
+  })
+
   it('uses Nano Banana 2 image inputs for uploaded supporting references', () => {
     const submission = resolveSubmission({
       assets: [

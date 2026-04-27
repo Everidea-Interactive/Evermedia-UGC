@@ -43,6 +43,24 @@ function readOptionalString(formData: FormData, key: string) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function readOptionalEnum<T extends string>(
+  formData: FormData,
+  key: string,
+  values: readonly T[],
+) {
+  const value = readOptionalString(formData, key)
+
+  if (!value) {
+    return null
+  }
+
+  if (!values.includes(value as T)) {
+    throw new Error(`Invalid value for ${key}.`)
+  }
+
+  return value as T
+}
+
 function isSupportedGuidedHeroImage(file: File) {
   if (supportedGuidedHeroMimeTypes.has(file.type)) {
     return true
@@ -83,6 +101,23 @@ export async function POST(request: Request) {
     const contentConcept = readString(formData, 'contentConcept')
     const shotCount = Number.parseInt(readString(formData, 'shotCount'), 10)
     const productUrl = readOptionalString(formData, 'productUrl')
+    const workspace =
+      readOptionalEnum(formData, 'workspace', ['image', 'video'] as const) ??
+      'image'
+    const videoDuration =
+      readOptionalEnum(formData, 'videoDuration', ['base', 'extended'] as const) ??
+      'base'
+    const videoModel =
+      readOptionalEnum(
+        formData,
+        'videoModel',
+        ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
+      ) ?? 'veo-3.1'
+    const cameraMovement = readOptionalEnum(
+      formData,
+      'cameraMovement',
+      ['orbit', 'dolly', 'drone', 'crash-zoom', 'macro'] as const,
+    )
 
     if (!(heroImage instanceof File) || heroImage.size === 0) {
       throw new Error('A hero product image is required.')
@@ -120,12 +155,18 @@ export async function POST(request: Request) {
 
     const apiKey = getKieApiKey()
     const heroImageUrl = await uploadFileToKie(apiKey, heroImage, 'image')
+    const guidedShotCount =
+      workspace === 'video' ? 1 : clampGuidedShotCount(shotCount)
     const plan = await analyzeGuidedProductPlan({
       analysisModel,
       contentConcept: contentConcept as (typeof contentConcepts)[number],
+      cameraMovement,
       heroImageUrl,
       productPage,
-      shotCount: clampGuidedShotCount(shotCount),
+      shotCount: guidedShotCount,
+      videoDuration,
+      videoModel,
+      workspace,
     })
 
     return NextResponse.json({

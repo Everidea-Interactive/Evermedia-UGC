@@ -1,12 +1,15 @@
 import type {
   AssetSlot,
   BatchSize,
+  CameraMovement,
   ContentConcept,
   GenerationSnapshot,
   GuidedAnalysisPlan,
   KieAnalysisModel,
   NamedAssetKey,
   SubmittedAssetDescriptor,
+  VideoDuration,
+  VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
 
@@ -55,6 +58,17 @@ export function getGenerationValidation(snapshot: GenerationSnapshot) {
     return {
       canGenerate: false,
       reason: '4K Veo upgrades are deferred until a later phase.',
+    }
+  }
+
+  if (
+    snapshot.activeTab === 'video' &&
+    snapshot.videoModel === 'seedance-1.5-pro' &&
+    snapshot.outputQuality === '4k'
+  ) {
+    return {
+      canGenerate: false,
+      reason: '4K Seedance 1.5 Pro output is not supported.',
     }
   }
 
@@ -139,41 +153,70 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
 
 export function buildGuidedAnalysisFormData(input: {
   analysisModel: KieAnalysisModel
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroAsset: AssetSlot
   productUrl: string
   shotCount: BatchSize
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }) {
   if (!input.heroAsset.file) {
     throw new Error('A hero product image is required.')
   }
 
   const formData = new FormData()
+  const workspace = input.workspace ?? 'image'
 
   formData.append('analysisModel', input.analysisModel)
+  formData.append('workspace', workspace)
   formData.append('contentConcept', input.contentConcept)
   formData.append('heroImage', input.heroAsset.file)
   formData.append('productUrl', input.productUrl)
-  formData.append('shotCount', String(input.shotCount))
+  formData.append('shotCount', String(workspace === 'video' ? 1 : input.shotCount))
+  formData.append('videoModel', input.videoModel ?? 'veo-3.1')
+  formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append('cameraMovement', input.cameraMovement ?? '')
 
   return { formData }
 }
 
 export function buildGuidedGenerationFormData(input: {
   analysisModel: KieAnalysisModel
+  cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
+  endFrameAsset?: AssetSlot
   heroAsset: AssetSlot
   imageModel: GenerationSnapshot['imageModel']
   outputQuality: GenerationSnapshot['outputQuality']
   plan: GuidedAnalysisPlan
   productUrl: string
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
+  workspace?: WorkspaceTab
 }) {
   if (!input.heroAsset.file) {
     throw new Error('A hero product image is required.')
   }
 
   const formData = new FormData()
-  const assetManifest: SubmittedAssetDescriptor[] = [
+  const workspace = input.workspace ?? 'image'
+  const guidedShots =
+    workspace === 'video' ? input.plan.shots.slice(0, 1) : input.plan.shots
+  const assetManifest: SubmittedAssetDescriptor[] = []
+
+  if (workspace === 'video' && input.endFrameAsset?.file) {
+    assetManifest.push({
+      fieldName: 'asset_endFrame',
+      key: 'endFrame',
+      kind: 'named',
+      label: input.endFrameAsset.label,
+      order: 4,
+    })
+  }
+
+  assetManifest.push(
     {
       fieldName: 'product_guided_hero',
       kind: 'product',
@@ -181,13 +224,13 @@ export function buildGuidedGenerationFormData(input: {
       order: 100,
       productId: 'guided-hero',
     },
-  ]
-  const firstShot = input.plan.shots[0]
+  )
+  const firstShot = guidedShots[0]
 
   formData.append('experience', 'guided')
-  formData.append('workspace', 'image')
+  formData.append('workspace', workspace)
   formData.append('imageModel', input.imageModel)
-  formData.append('videoModel', 'veo-3.1')
+  formData.append('videoModel', input.videoModel ?? 'veo-3.1')
   formData.append('productCategory', input.plan.productCategory)
   formData.append('creativeStyle', input.plan.creativeStyle)
   formData.append('subjectMode', firstShot?.subjectMode ?? 'product-only')
@@ -195,17 +238,20 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('characterGender', 'any')
   formData.append('characterAgeGroup', 'any')
   formData.append('figureArtDirection', 'none')
-  formData.append('batchSize', String(input.plan.shots.length))
+  formData.append('batchSize', String(guidedShots.length))
   formData.append('textPrompt', '')
-  formData.append('videoDuration', 'base')
+  formData.append('videoDuration', input.videoDuration ?? 'base')
   formData.append('outputQuality', input.outputQuality)
-  formData.append('cameraMovement', '')
-  formData.append('guidedShots', JSON.stringify(input.plan.shots))
+  formData.append('cameraMovement', input.cameraMovement ?? '')
+  formData.append('guidedShots', JSON.stringify(guidedShots))
   formData.append('guidedSummary', input.plan.summary)
   formData.append('guidedContentConcept', input.contentConcept)
   formData.append('analysisModel', input.analysisModel)
   formData.append('productUrl', input.productUrl)
   formData.append('assetManifest', JSON.stringify(assetManifest))
+  if (workspace === 'video' && input.endFrameAsset?.file) {
+    formData.append('asset_endFrame', input.endFrameAsset.file)
+  }
   formData.append('product_guided_hero', input.heroAsset.file)
 
   return { assetManifest, formData }

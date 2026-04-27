@@ -59,3 +59,7 @@ export function getKlingDuration(videoDuration: VideoDuration) {
 export function getGrokDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '6'
 }
+
+export function getSeedanceDuration(videoDuration: VideoDuration) {
+  return videoDuration === 'extended' ? '12' : '8'
+}

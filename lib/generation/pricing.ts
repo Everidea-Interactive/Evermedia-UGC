@@ -4,6 +4,7 @@ import {
   getGrokResolution,
   getKlingDuration,
   getNanoBananaResolution,
+  getSeedanceDuration,
   hasVeoReferenceSlot,
 } from '@/lib/generation/model-mapping'
 import type {
@@ -69,10 +70,32 @@ function findRecord(
   return record
 }
 
+function findFirstRecord(
+  records: KiePricingApiRecord[],
+  expectedDescriptions: string[],
+) {
+  for (const description of expectedDescriptions) {
+    const record = records.find(
+      (candidate) =>
+        normalizeDescription(candidate.modelDescription) ===
+        normalizeDescription(description),
+    )
+
+    if (record) {
+      return record
+    }
+  }
+
+  throw new Error(
+    `KIE pricing row not found for "${expectedDescriptions.join('" or "')}".`,
+  )
+}
+
 export function buildKiePricingMatrix(input: {
   grokRecords: KiePricingApiRecord[]
   klingRecords: KiePricingApiRecord[]
   nanoRecords: KiePricingApiRecord[]
+  seedanceRecords: KiePricingApiRecord[]
   veoRecords: KiePricingApiRecord[]
 }): KiePricingMatrix {
   const nanoRatesByResolution = {
@@ -147,6 +170,36 @@ export function buildKiePricingMatrix(input: {
       findRecord(input.veoRecords, 'Google veo 3.1, text-to-video, Fast'),
     ),
   }
+  const seedanceRatesByInput = {
+    withReference: {
+      '720p': parseRate(
+        findFirstRecord(input.seedanceRecords, [
+          'bytedance/seedance-1.5-pro, 720p with video input',
+          'bytedance/seedance-2, 720p with video input',
+        ]),
+      ),
+      '1080p': parseRate(
+        findFirstRecord(input.seedanceRecords, [
+          'bytedance/seedance-1.5-pro, 1080p with video input',
+          'bytedance/seedance-2, 1080p with video input',
+        ]),
+      ),
+    },
+    promptOnly: {
+      '720p': parseRate(
+        findFirstRecord(input.seedanceRecords, [
+          'bytedance/seedance-1.5-pro, 720p no video input',
+          'bytedance/seedance-2, 720p no video input',
+        ]),
+      ),
+      '1080p': parseRate(
+        findFirstRecord(input.seedanceRecords, [
+          'bytedance/seedance-1.5-pro, 1080p no video input',
+          'bytedance/seedance-2, 1080p no video input',
+        ]),
+      ),
+    },
+  }
 
   const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
   const videoDurations: VideoDuration[] = ['base', 'extended']
@@ -182,6 +235,33 @@ export function buildKiePricingMatrix(input: {
     promptOnly: {} as KiePricingMatrix['video']['kling']['promptOnly'],
     withReference: {} as KiePricingMatrix['video']['kling']['withReference'],
   }
+  const seedanceMatrix = {
+    promptOnly:
+      {} as KiePricingMatrix['video']['seedance-1.5-pro']['promptOnly'],
+    withReference:
+      {} as KiePricingMatrix['video']['seedance-1.5-pro']['withReference'],
+  }
+
+  for (const duration of videoDurations) {
+    const durationSeconds = Number.parseInt(getSeedanceDuration(duration), 10)
+
+    for (const quality of ['720p', '1080p'] as const) {
+      seedanceMatrix.promptOnly[quality] = {
+        ...seedanceMatrix.promptOnly[quality],
+        [duration]: multiplyRate(
+          seedanceRatesByInput.promptOnly[quality],
+          durationSeconds,
+        ),
+      }
+      seedanceMatrix.withReference[quality] = {
+        ...seedanceMatrix.withReference[quality],
+        [duration]: multiplyRate(
+          seedanceRatesByInput.withReference[quality],
+          durationSeconds,
+        ),
+      }
+    }
+  }
 
   for (const duration of videoDurations) {
     const durationKey = getKlingDuration(duration)
@@ -211,6 +291,7 @@ export function buildKiePricingMatrix(input: {
         promptOnly: veoRates['text-to-video'],
         withReference: veoRates['image-to-video'],
       },
+      'seedance-1.5-pro': seedanceMatrix,
     },
   }
 }
@@ -333,6 +414,26 @@ export function getGenerationCostEstimate(
     perTaskRate = hasReference
       ? pricingMatrix.video.kling.withReference[snapshot.videoDuration]
       : pricingMatrix.video.kling.promptOnly[snapshot.videoDuration]
+  } else if (snapshot.videoModel === 'seedance-1.5-pro') {
+    if (snapshot.outputQuality === '4k') {
+      return unavailableEstimate('4K Seedance 1.5 Pro output is not supported.')
+    }
+
+    const hasReference = Boolean(
+      choosePrimaryReferenceSlot({
+        assets: snapshot.assets,
+        products: snapshot.products,
+        subjectMode: snapshot.subjectMode,
+      }),
+    )
+
+    perTaskRate = hasReference
+      ? pricingMatrix.video['seedance-1.5-pro'].withReference[
+          snapshot.outputQuality
+        ][snapshot.videoDuration]
+      : pricingMatrix.video['seedance-1.5-pro'].promptOnly[
+          snapshot.outputQuality
+        ][snapshot.videoDuration]
   } else {
     const hasReference = Boolean(
       choosePrimaryReferenceSlot({
