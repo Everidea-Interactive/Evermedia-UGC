@@ -40,6 +40,7 @@ import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
+import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
   CameraMovement,
@@ -162,15 +163,18 @@ function formatEstimateCredits(credits: number | null) {
   }).format(credits)
 }
 
-function formatEstimateUsd(usd: number | null) {
+function formatEstimateUsd(usd: number | null, usdToIdrRate: number) {
   if (usd === null) {
-    return '0.00'
+    return 'Rp0'
   }
 
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: 2,
-  }).format(usd)
+  const idr = usd * usdToIdrRate
+
+  return new Intl.NumberFormat('id-ID', {
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(idr)
 }
 
 function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
@@ -1208,6 +1212,17 @@ function GuidedRunPanel({
   videoModel: VideoModelOption
 }) {
   const runStatus = getGuidedRunStatusCopy(generationRun, Boolean(plan?.shots.length))
+  const { rate: usdToIdrRate } = useUsdToIdrRate()
+  const estimatePrimaryText = estimate.available
+    ? `Estimated: ${formatEstimateCredits(estimate.credits)} credits`
+    : isPricingLoading
+      ? 'Checking estimate'
+      : 'Estimate unavailable'
+  const estimateSecondaryText = estimate.available
+    ? `≈ ${formatEstimateUsd(estimate.usd, usdToIdrRate)}`
+    : !isPricingLoading
+      ? estimate.reason ?? 'Live pricing unavailable.'
+      : null
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -1390,22 +1405,6 @@ function GuidedRunPanel({
             ) : null}
           </div>
 
-          <div className={cn(insetPanelClassName, 'grid gap-2 p-4')}>
-            <p className={fieldLabelClassName}>Estimated Cost</p>
-            <p className="text-sm font-medium text-foreground">
-              {estimate.available
-                ? `Estimated: ${formatEstimateCredits(estimate.credits)} credits`
-                : isPricingLoading
-                  ? 'Checking estimate...'
-                  : 'Estimate unavailable'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {estimate.available
-                ? `Approx. $${formatEstimateUsd(estimate.usd)} USD`
-                : estimate.reason ?? 'Live pricing unavailable.'}
-            </p>
-          </div>
-
           <div
             aria-live="polite"
             className={cn(insetPanelClassName, 'grid gap-3 p-4')}
@@ -1420,6 +1419,20 @@ function GuidedRunPanel({
             <p className="text-sm leading-6 text-muted-foreground">
               {runStatus.body}
             </p>
+          </div>
+
+          <div className="rounded-md border border-border bg-secondary/50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Estimated Cost
+            </p>
+            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="text-sm font-medium tracking-tight text-foreground">
+                {estimatePrimaryText}
+              </p>
+              {estimateSecondaryText ? (
+                <p className="text-xs text-muted-foreground">{estimateSecondaryText}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className="grid gap-2">

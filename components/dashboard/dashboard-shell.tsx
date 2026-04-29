@@ -61,6 +61,7 @@ import {
 } from '@/lib/generation/run-copy'
 import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
+import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
   BatchSize,
@@ -1904,13 +1905,14 @@ function GenerationEstimateStrip({
   isLoading: boolean
   reason: string
 }) {
+  const { rate: usdToIdrRate } = useUsdToIdrRate()
   const primaryText = estimate.available
     ? `Estimated: ${formatEstimatedCreditsValue(estimate)} credits`
     : isLoading
       ? 'Checking estimate'
       : 'Estimate unavailable'
   const secondaryText = estimate.available
-    ? `≈ $${formatEstimatedUsdValue(estimate)} USD`
+    ? `≈ ${formatEstimatedUsdValue(estimate, usdToIdrRate)}`
     : !isLoading
       ? reason
       : null
@@ -2403,15 +2405,21 @@ function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
   }).format(estimate.credits)
 }
 
-function formatEstimatedUsdValue(estimate: GenerationCostEstimate) {
+function formatEstimatedUsdValue(
+  estimate: GenerationCostEstimate,
+  usdToIdrRate: number,
+) {
   if (estimate.usd === null) {
-    return '0.00'
+    return 'Rp0'
   }
 
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: estimate.usd < 1 ? 2 : 2,
-  }).format(estimate.usd)
+  const idr = estimate.usd * usdToIdrRate
+
+  return new Intl.NumberFormat('id-ID', {
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(idr)
 }
 
 function hasActiveGeneration(run: GenerationRun) {
