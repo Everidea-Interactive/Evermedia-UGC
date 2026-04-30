@@ -248,14 +248,19 @@ const imageModels: Array<{
   value: ImageModelOption
 }> = [
   {
-    helper: 'Google image generation with direct reference input',
-    label: 'Nano Banana 2',
-    value: 'nano-banana',
+    helper: 'OpenAI GPT Image 2 with 1K / 2K / 4K tiers',
+    label: 'GPT Image 2',
+    value: 'gpt-image-2',
   },
   {
     helper: 'Text and image-led still renders',
     label: 'Grok Imagine',
     value: 'grok-imagine',
+  },
+  {
+    helper: 'Google image generation with direct reference input',
+    label: 'Nano Banana 2',
+    value: 'nano-banana',
   },
 ]
 
@@ -265,9 +270,9 @@ const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
-    helper: 'Reference and end-frame video renders',
-    label: 'Veo 3.1',
-    value: 'veo-3.1',
+    helper: 'Prompt-led short motion clips',
+    label: 'Grok Imagine',
+    value: 'grok-imagine',
   },
   {
     helper: 'Market-model text or image video',
@@ -275,14 +280,14 @@ const videoModels: Array<{
     value: 'kling',
   },
   {
-    helper: 'Prompt-led short motion clips',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
-  },
-  {
     helper: 'ByteDance 8s or 12s pro video generation',
     label: 'Seedance 1.5 Pro',
     value: 'seedance-1.5-pro',
+  },
+  {
+    helper: 'Reference and end-frame video renders',
+    label: 'Veo 3.1',
+    value: 'veo-3.1',
   },
 ]
 
@@ -303,6 +308,22 @@ function getVideoDurationLabel(model: VideoModelOption, duration: VideoDuration)
   }
 
   return '8s'
+}
+
+function getImageQualityOptions(
+  imageModel: ImageModelOption,
+  kiePricing: KiePricingResponse | null,
+) {
+  return (
+    kiePricing?.supportedImageQualities?.[imageModel] ??
+    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : qualities)
+  )
+}
+
+function getImageQualityLabel(quality: OutputQuality) {
+  if (quality === '720p') return '1K'
+  if (quality === '1080p') return '2K'
+  return '4K'
 }
 
 const peopleReferenceCards: Array<{
@@ -552,6 +573,7 @@ export function DashboardShell() {
                 generationCostReason={controller.generationCostReason}
                 isBusy={controller.isBusy}
                 isPricingLoading={kiePricingState.isLoading}
+                kiePricing={kiePricingState.pricing}
                 onCancelRun={controller.handleCancel}
                 onGenerate={controller.handleGenerate}
               />
@@ -963,11 +985,6 @@ function PresetGroupLabel({ children }: { children: ReactNode }) {
 }
 
 function MotionControlsSection({ className }: { className?: string }) {
-  const videoModel = useGenerationStore((state) => state.videoModel)
-  const videoDuration = useGenerationStore((state) => state.videoDuration)
-  const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
-  const outputQuality = useGenerationStore((state) => state.outputQuality)
-  const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const setCameraMovement = useGenerationStore(
     (state) => state.setCameraMovement,
@@ -986,72 +1003,6 @@ function MotionControlsSection({ className }: { className?: string }) {
         />
 
         <div className="grid gap-5">
-          <ControlGroup
-            description="Maps into the selected provider&apos;s supported duration range."
-            title="Clip length"
-          >
-            <ToggleGroup
-              aria-label="Video Duration"
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-              onValueChange={(value) => {
-                if (value) {
-                  setVideoDuration(value as VideoDuration)
-                }
-              }}
-              type="single"
-              value={videoDuration}
-            >
-              {durations.map((duration) => (
-                <ToggleGroupItem
-                  className={tileClassName}
-                  key={duration}
-                  value={duration}
-                >
-                  {getVideoDurationLabel(videoModel, duration)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </ControlGroup>
-
-          <ControlGroup
-            description="Resolution preferences are passed through when the model supports them directly."
-            title="Output resolution"
-          >
-            <ToggleGroup
-              aria-label="Output Quality"
-              className="grid grid-cols-3 gap-2"
-              onValueChange={(value) => {
-                if (value) {
-                  setOutputQuality(value as OutputQuality)
-                }
-              }}
-              type="single"
-              value={outputQuality}
-            >
-              {qualities.map((quality) => (
-                <ToggleGroupItem
-                  className={tileClassName}
-                  key={quality}
-                  value={quality}
-                >
-                  {quality}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            {videoModel === 'veo-3.1' && outputQuality === '4k' ? (
-              <p className="text-xs text-muted-foreground">
-                4K Veo upgrades are reserved for a later phase, so generation
-                stays disabled until you switch back to 720p or 1080p.
-              </p>
-            ) : null}
-            {videoModel === 'seedance-1.5-pro' && outputQuality === '4k' ? (
-              <p className="text-xs text-muted-foreground">
-                Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
-                back to 720p or 1080p before generating.
-              </p>
-            ) : null}
-          </ControlGroup>
-
           <ControlGroup
             description="Camera movement is treated as a structured prompt modifier."
             title="Movement language"
@@ -1082,7 +1033,7 @@ function MotionControlsSection({ className }: { className?: string }) {
             title="End frame reference"
           >
             <ReferenceCard
-              className="w-full self-start sm:max-w-[15rem]"
+              className="w-full self-start sm:max-w-[20rem]"
               icon={ScanLine}
               inputId="asset-end-frame"
               onClear={() => clearNamedAsset('endFrame')}
@@ -1256,6 +1207,7 @@ function RunControlPanel({
   generationCostReason,
   isBusy,
   isPricingLoading,
+  kiePricing,
   onCancelRun,
   onGenerate,
 }: {
@@ -1266,6 +1218,7 @@ function RunControlPanel({
   generationCostReason: string
   isBusy: boolean
   isPricingLoading: boolean
+  kiePricing: KiePricingResponse | null
   onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
 }) {
@@ -1276,8 +1229,12 @@ function RunControlPanel({
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
+  const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
+  const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
@@ -1300,6 +1257,7 @@ function RunControlPanel({
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
+  const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
   const activeModelLabel =
     activeTab === 'image'
       ? getImageModelLabel(imageModel)
@@ -1322,6 +1280,12 @@ function RunControlPanel({
     !runMatchesWorkspace || generationRun.status === 'idle'
       ? getGenerationHelperMessage(disabledReason, generationRun)
       : null
+
+  useEffect(() => {
+    if (activeTab === 'video' && batchSize !== 1) {
+      setBatchSize(1)
+    }
+  }, [activeTab, batchSize, setBatchSize])
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -1392,47 +1356,47 @@ function RunControlPanel({
 
               <div className="h-px bg-border/70" />
 
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Batch size
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Image batches render 2x2 grids, then split each grid into four
-                  outputs. Video batches still create separate provider tasks.
-                </p>
-                <ToggleGroup
-                  aria-label="Batch Size"
-                  className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
-                  onValueChange={(value) => {
-                    if (value) {
-                      setBatchSize(Number(value) as BatchSize)
-                    }
-                  }}
-                  type="single"
-                  value={String(batchSize)}
-                >
-                  {batchSizes.map((size) => (
-                    <ToggleGroupItem
-                      className="min-h-14 w-full justify-center px-2.5"
-                      key={size}
-                      value={String(size)}
+              {activeTab === 'image' ? (
+                <>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Batch size
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Image batches render 2x2 grids, then split each grid into four
+                      outputs.
+                    </p>
+                    <ToggleGroup
+                      aria-label="Batch Size"
+                      className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
+                      onValueChange={(value) => {
+                        if (value) {
+                          setBatchSize(Number(value) as BatchSize)
+                        }
+                      }}
+                      type="single"
+                      value={String(batchSize)}
                     >
-                      <span className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm font-semibold">{size}x</span>
-                        <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
-                          {activeTab === 'image'
-                            ? `${size * 4} images`
-                            : size === 1
-                              ? 'Single'
-                              : `${size} tasks`}
-                        </span>
-                      </span>
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
+                      {batchSizes.map((size) => (
+                        <ToggleGroupItem
+                          className="min-h-14 w-full justify-center px-2.5"
+                          key={size}
+                          value={String(size)}
+                        >
+                          <span className="flex flex-col items-center gap-0.5">
+                            <span className="text-sm font-semibold">{size}x</span>
+                            <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
+                              {`${size * 4} images`}
+                            </span>
+                          </span>
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </div>
 
-              <div className="h-px bg-border/70" />
+                  <div className="h-px bg-border/70" />
+                </>
+              ) : null}
 
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -1459,9 +1423,17 @@ function RunControlPanel({
                   {activeTab === 'image' ? (
                     <Select
                       aria-label="Image Model"
-                      onChange={(event) =>
-                        setImageModel(event.target.value as ImageModelOption)
-                      }
+                      onChange={(event) => {
+                        const nextModel = event.target.value as ImageModelOption
+                        setImageModel(nextModel)
+                        const supportedQualities = getImageQualityOptions(
+                          nextModel,
+                          kiePricing,
+                        )
+                        if (!supportedQualities.includes(outputQuality)) {
+                          setOutputQuality(supportedQualities[0] ?? '1080p')
+                        }
+                      }}
                       value={imageModel}
                     >
                       {imageModels.map((model) => (
@@ -1471,19 +1443,53 @@ function RunControlPanel({
                       ))}
                     </Select>
                   ) : (
-                    <Select
-                      aria-label="Video Model"
-                      onChange={(event) =>
-                        setVideoModel(event.target.value as VideoModelOption)
-                      }
-                      value={videoModel}
-                    >
-                      {videoModels.map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </Select>
+                    <>
+                      <Select
+                        aria-label="Video Model"
+                        onChange={(event) =>
+                          setVideoModel(event.target.value as VideoModelOption)
+                        }
+                        value={videoModel}
+                      >
+                        {videoModels.map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Clip length
+                      </p>
+                      <Select
+                        aria-label="Video Duration"
+                        onChange={(event) =>
+                          setVideoDuration(event.target.value as VideoDuration)
+                        }
+                        value={videoDuration}
+                      >
+                        {durations.map((duration) => (
+                          <option key={duration} value={duration}>
+                            {getVideoDurationLabel(videoModel, duration)}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Video resolution
+                      </p>
+                      <Select
+                        aria-label="Video Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {qualities.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {quality === '4k' ? '4K' : quality}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
                   )}
 
                   <p className="text-xs text-muted-foreground">
@@ -1491,6 +1497,42 @@ function RunControlPanel({
                       ? selectedImageModel?.helper
                       : selectedVideoModel?.helper}
                   </p>
+
+                  {activeTab === 'image' ? (
+                    <>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Image resolution
+                      </p>
+                      <Select
+                        aria-label="Image Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {imageQualityOptions.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {getImageQualityLabel(quality)}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
+                  ) : null}
+
+                  {activeTab === 'video' && videoModel === 'veo-3.1' && outputQuality === '4k' ? (
+                    <p className="text-xs text-muted-foreground">
+                      4K Veo upgrades are reserved for a later phase, so generation
+                      stays disabled until you switch back to 720p or 1080p.
+                    </p>
+                  ) : null}
+                  {activeTab === 'video' &&
+                  videoModel === 'seedance-1.5-pro' &&
+                  outputQuality === '4k' ? (
+                    <p className="text-xs text-muted-foreground">
+                      Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
+                      back to 720p or 1080p before generating.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-2.5 flex w-full flex-col gap-2">

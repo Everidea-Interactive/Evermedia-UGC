@@ -36,7 +36,7 @@ export type CameraMovement =
   | 'crash-zoom'
   | 'macro'
 
-export type ImageModelOption = 'nano-banana' | 'grok-imagine'
+export type ImageModelOption = 'nano-banana' | 'grok-imagine' | 'gpt-image-2'
 export type VideoModelOption =
   | 'veo-3.1'
   | 'kling'
@@ -240,6 +240,10 @@ export type KiePricingMatrix = {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
     }
+    'gpt-image-2': {
+      promptOnly: Record<OutputQuality, GenerationCostRate>
+      withReference: Record<OutputQuality, GenerationCostRate>
+    }
   }
   video: {
     'grok-imagine': {
@@ -267,6 +271,7 @@ export type KiePricingResponse = {
   expiresAt: string
   fetchedAt: string
   matrix: KiePricingMatrix | null
+  supportedImageQualities?: Record<ImageModelOption, OutputQuality[]>
 }
 
 export type GenerationCostEstimate = {

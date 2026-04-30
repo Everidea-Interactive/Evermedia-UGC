@@ -29,6 +29,41 @@ function createPricingFetchMock() {
     }
 
     switch (requestBody.modelDescription) {
+      case 'gpt image 2':
+        return Promise.resolve(
+          createPricingResponse([
+            {
+              creditPrice: '6',
+              modelDescription: 'gpt image 2, text-to-image, 1k',
+              usdPrice: '0.03',
+            },
+            {
+              creditPrice: '10',
+              modelDescription: 'gpt image 2, text-to-image, 2k',
+              usdPrice: '0.05',
+            },
+            {
+              creditPrice: '16',
+              modelDescription: 'gpt image 2, text-to-image, 4k',
+              usdPrice: '0.08',
+            },
+            {
+              creditPrice: '6',
+              modelDescription: 'gpt image 2, image-to-image, 1k',
+              usdPrice: '0.03',
+            },
+            {
+              creditPrice: '10',
+              modelDescription: 'gpt image 2, image-to-image, 2k',
+              usdPrice: '0.05',
+            },
+            {
+              creditPrice: '16',
+              modelDescription: 'gpt image 2, image-to-image, 4k',
+              usdPrice: '0.08',
+            },
+          ]),
+        )
       case 'grok':
         return Promise.resolve(
           createPricingResponse([
@@ -181,8 +216,8 @@ describe('GET /api/kie/pricing', () => {
     expect(response.status).toBe(200)
     expect(payload.creditUsdRate).toBe(0.005)
     expect(payload.matrix.image['nano-banana']['1080p']).toEqual({
-      credits: 8,
-      usd: 0.04,
+      credits: 12,
+      usd: 0.06,
     })
   })
 
@@ -194,7 +229,7 @@ describe('GET /api/kie/pricing', () => {
     await GET()
     await GET()
 
-    expect(fetchMock).toHaveBeenCalledTimes(5)
+    expect(fetchMock).toHaveBeenCalledTimes(6)
   })
 
   it('falls back to the stale cached pricing payload when refresh fails', async () => {
@@ -214,6 +249,6 @@ describe('GET /api/kie/pricing', () => {
 
     expect(fallbackResponse.status).toBe(200)
     expect(fallbackPayload).toEqual(initialPayload)
-    expect(fetchMock).toHaveBeenCalledTimes(10)
+    expect(fetchMock).toHaveBeenCalledTimes(12)
   })
 })

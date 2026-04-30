@@ -4,7 +4,11 @@ import {
   KIE_PRICING_TTL_MS,
   type KiePricingApiRecord,
 } from '@/lib/generation/pricing'
-import type { KiePricingResponse } from '@/lib/generation/types'
+import type {
+  ImageModelOption,
+  KiePricingResponse,
+  OutputQuality,
+} from '@/lib/generation/types'
 
 const KIE_PRICING_API_URL = 'https://api.kie.ai/client/v1/model-pricing/page'
 
@@ -22,6 +26,68 @@ type CachedPricingEntry = {
 }
 
 let cachedPricingEntry: CachedPricingEntry | null = null
+
+function normalizeDescription(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function deriveSupportedImageQualities(input: {
+  gptImageRecords: KiePricingApiRecord[]
+  grokRecords: KiePricingApiRecord[]
+  nanoRecords: KiePricingApiRecord[]
+}): Record<ImageModelOption, OutputQuality[]> {
+  const nanoDescriptions = input.nanoRecords.map((record) =>
+    normalizeDescription(record.modelDescription),
+  )
+  const nanoQualities: OutputQuality[] = []
+
+  if (nanoDescriptions.some((value) => /\b1k\b/.test(value))) {
+    nanoQualities.push('720p')
+  }
+  if (nanoDescriptions.some((value) => /\b2k\b/.test(value))) {
+    nanoQualities.push('1080p')
+  }
+  if (nanoDescriptions.some((value) => /\b4k\b/.test(value))) {
+    nanoQualities.push('4k')
+  }
+
+  const normalizedGrokDescriptions = input.grokRecords.map((record) =>
+    normalizeDescription(record.modelDescription),
+  )
+  const grokQualities: OutputQuality[] = []
+
+  if (normalizedGrokDescriptions.some((value) => /text-to-image.*\b4k\b/.test(value))) {
+    grokQualities.push('4k')
+  }
+  if (normalizedGrokDescriptions.some((value) => /text-to-image.*\b(2k|1080p)\b/.test(value))) {
+    grokQualities.push('1080p')
+  }
+  if (normalizedGrokDescriptions.some((value) => /text-to-image.*\b(1k|720p)\b/.test(value))) {
+    grokQualities.push('720p')
+  }
+  const normalizedGptImageDescriptions = input.gptImageRecords.map((record) =>
+    normalizeDescription(record.modelDescription),
+  )
+  const gptImageQualities: OutputQuality[] = []
+
+  if (normalizedGptImageDescriptions.some((value) => /text-to-image.*\b1k\b/.test(value))) {
+    gptImageQualities.push('720p')
+  }
+  if (normalizedGptImageDescriptions.some((value) => /text-to-image.*\b2k\b/.test(value))) {
+    gptImageQualities.push('1080p')
+  }
+  if (normalizedGptImageDescriptions.some((value) => /text-to-image.*\b4k\b/.test(value))) {
+    gptImageQualities.push('4k')
+  }
+
+  return {
+    'gpt-image-2':
+      gptImageQualities.length > 0 ? gptImageQualities : ['720p', '1080p', '4k'],
+    'grok-imagine': grokQualities.length > 0 ? grokQualities : ['1080p'],
+    'nano-banana':
+      nanoQualities.length > 0 ? nanoQualities : ['720p', '1080p', '4k'],
+  }
+}
 
 async function readPricingError(response: Response) {
   const text = await response.text()
@@ -84,12 +150,14 @@ export async function getKiePricing() {
 
   try {
     const [
+      gptImageRecords,
       grokRecords,
       klingRecords,
       nanoRecords,
       seedanceRecords,
       veoRecords,
     ] = await Promise.all([
+      fetchPricingRecords('gpt image 2'),
       fetchPricingRecords('grok'),
       fetchPricingRecords('kling'),
       fetchPricingRecords('nano banana'),
@@ -102,11 +170,17 @@ export async function getKiePricing() {
       expiresAt: new Date(expiresAtMs).toISOString(),
       fetchedAt: new Date(now).toISOString(),
       matrix: buildKiePricingMatrix({
+        gptImageRecords,
         grokRecords,
         klingRecords,
         nanoRecords,
         seedanceRecords,
         veoRecords,
+      }),
+      supportedImageQualities: deriveSupportedImageQualities({
+        gptImageRecords,
+        grokRecords,
+        nanoRecords,
       }),
     }
 

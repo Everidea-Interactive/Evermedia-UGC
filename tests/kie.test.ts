@@ -8,6 +8,7 @@ import {
   getKieStatus,
   parseGenerationFormData,
   resolveSubmission,
+  submitProviderTask,
   submitGenerationRequest,
   uploadFileToKie,
 } from '../lib/generation/kie'
@@ -188,7 +189,7 @@ describe('KIE batch submission', () => {
             image_input: ['https://files.example.com/face-1.png'],
             output_format: 'png',
             prompt: expect.stringContaining('exactly one clean 2x2 grid'),
-            resolution: '1K',
+            resolution: '2K',
           }),
         }),
       ]),
@@ -238,6 +239,65 @@ describe('KIE batch submission', () => {
         KIE_REQUEST_TIMEOUT_MS / 1000,
       )} seconds.`,
     )
+  })
+
+  it('surfaces KIE application errors returned without a task ID', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 422,
+          msg: 'input.input_urls is required',
+          data: null,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      submitProviderTask('test-key', {
+        endpoint: 'https://api.kie.ai/api/v1/jobs/createTask',
+        modelName: 'gpt-image-2-image-to-image',
+        provider: 'market',
+        requestBody: {
+          model: 'gpt-image-2-image-to-image',
+          input: {
+            prompt: 'Generate a product image',
+            input_urls: ['https://files.example.com/product.png'],
+          },
+        },
+      }),
+    ).rejects.toThrow('input.input_urls is required')
+  })
+
+  it('accepts KIE task identifiers returned as task_id for GPT Image 2 calls', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            task_id: 'gpt2-task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const taskId = await submitProviderTask('test-key', {
+      endpoint: 'https://api.kie.ai/api/v1/jobs/createTask',
+      modelName: 'gpt-image-2-text-to-image',
+      provider: 'market',
+      requestBody: {
+        model: 'gpt-image-2-text-to-image',
+        input: {
+          prompt: 'Generate a product image',
+        },
+      },
+    })
+
+    expect(taskId).toBe('gpt2-task-1')
   })
 
   it('parses guided shot metadata and submits the edited guided prompts directly', async () => {
@@ -576,7 +636,7 @@ describe('KIE batch submission', () => {
           'https://files.example.com/location.png',
         ],
         output_format: 'png',
-        resolution: '1K',
+        resolution: '2K',
       },
     })
   })
@@ -700,7 +760,7 @@ describe('KIE batch submission', () => {
         ),
         image_input: [],
         aspect_ratio: '1:1',
-        resolution: '2K',
+        resolution: '4K',
         output_format: 'png',
         google_search: false,
       },
@@ -738,6 +798,61 @@ describe('KIE batch submission', () => {
           '@image1 Create exactly one clean 2x2 grid image',
         ),
         image_urls: ['https://files.example.com/clothing.png'],
+      },
+    })
+  })
+
+  it('uses GPT Image 2 model identifiers for both reference and prompt-only image generation', () => {
+    const withReference = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_face1',
+          key: 'face1',
+          label: 'Face 1',
+          order: 0,
+          remoteUrl: 'https://files.example.com/face.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'gpt-image-2',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+    const promptOnly = resolveSubmission({
+      assets: [],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'gpt-image-2',
+      outputQuality: '4k',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(withReference.modelName).toBe('gpt-image-2-image-to-image')
+    expect(withReference.requestBody).toMatchObject({
+      model: 'gpt-image-2-image-to-image',
+      input: {
+        aspect_ratio: '3:4',
+        input_urls: ['https://files.example.com/face.png'],
+        resolution: '2K',
+      },
+    })
+    expect(promptOnly.modelName).toBe('gpt-image-2-text-to-image')
+    expect(promptOnly.requestBody).toMatchObject({
+      model: 'gpt-image-2-text-to-image',
+      input: {
+        aspect_ratio: '3:4',
+        resolution: '4K',
       },
     })
   })

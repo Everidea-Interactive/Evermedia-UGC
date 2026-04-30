@@ -70,6 +70,16 @@ function findRecord(
   return record
 }
 
+function findRecordByPatterns(
+  records: KiePricingApiRecord[],
+  patterns: RegExp[],
+) {
+  return records.find((candidate) => {
+    const description = normalizeDescription(candidate.modelDescription)
+    return patterns.every((pattern) => pattern.test(description))
+  })
+}
+
 function findFirstRecord(
   records: KiePricingApiRecord[],
   expectedDescriptions: string[],
@@ -93,18 +103,38 @@ function findFirstRecord(
 
 export function buildKiePricingMatrix(input: {
   grokRecords: KiePricingApiRecord[]
+  gptImageRecords?: KiePricingApiRecord[]
   klingRecords: KiePricingApiRecord[]
   nanoRecords: KiePricingApiRecord[]
   seedanceRecords: KiePricingApiRecord[]
   veoRecords: KiePricingApiRecord[]
 }): KiePricingMatrix {
+  const gptImageRecords = input.gptImageRecords ?? []
+  const nanoRate1KRecord = findRecordByPatterns(input.nanoRecords, [
+    /\bnano banana 2\b/,
+    /\b1k\b/,
+  ])
+  const nanoRate2KRecord = findRecordByPatterns(input.nanoRecords, [
+    /\bnano banana 2\b/,
+    /\b2k\b/,
+  ])
+  const nanoRate4KRecord = findRecordByPatterns(input.nanoRecords, [
+    /\bnano banana 2\b/,
+    /\b4k\b/,
+  ])
+
+  if (!nanoRate1KRecord || !nanoRate2KRecord) {
+    throw new Error('KIE pricing rows for Nano Banana 2 (1K/2K) are missing.')
+  }
+
   const nanoRatesByResolution = {
     '1K': parseRate(
-      findRecord(input.nanoRecords, 'Google nano banana 2, 1K'),
+      nanoRate1KRecord,
     ),
     '2K': parseRate(
-      findRecord(input.nanoRecords, 'Google nano banana 2, 2K'),
+      nanoRate2KRecord,
     ),
+    '4K': nanoRate4KRecord ? parseRate(nanoRate4KRecord) : null,
   }
   const grokImageRates = {
     'image-to-image': parseRate(
@@ -113,6 +143,58 @@ export function buildKiePricingMatrix(input: {
     'text-to-image': parseRate(
       findRecord(input.grokRecords, 'grok-imagine, text-to-image'),
     ),
+  }
+  const gptImageRatesByMode = {
+    promptOnly: {
+      '720p': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\btext-to-image\b/,
+          /\b1k\b/,
+        ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 1K'),
+      ),
+      '1080p': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\btext-to-image\b/,
+          /\b2k\b/,
+        ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 2K'),
+      ),
+      '4k': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\btext-to-image\b/,
+          /\b4k\b/,
+        ]) ??
+          (findRecordByPatterns(input.nanoRecords, [/\bnano banana 2\b/, /\b4k\b/]) ??
+            findRecord(input.nanoRecords, 'Google nano banana 2, 2K')),
+      ),
+    },
+    withReference: {
+      '720p': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\bimage-to-image\b/,
+          /\b1k\b/,
+        ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 1K'),
+      ),
+      '1080p': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\bimage-to-image\b/,
+          /\b2k\b/,
+        ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 2K'),
+      ),
+      '4k': parseRate(
+        findRecordByPatterns(gptImageRecords, [
+          /\bgpt image 2\b/,
+          /\bimage-to-image\b/,
+          /\b4k\b/,
+        ]) ??
+          (findRecordByPatterns(input.nanoRecords, [/\bnano banana 2\b/, /\b4k\b/]) ??
+            findRecord(input.nanoRecords, 'Google nano banana 2, 2K')),
+      ),
+    },
   }
   const grokVideoRatesByInput = {
     'image-to-video': {
@@ -278,10 +360,16 @@ export function buildKiePricingMatrix(input: {
         promptOnly: grokImageRates['text-to-image'],
         withReference: grokImageRates['image-to-image'],
       },
+      'gpt-image-2': gptImageRatesByMode,
       'nano-banana': {
         '720p': nanoRatesByResolution[getNanoBananaResolution('720p')],
-        '1080p': nanoRatesByResolution[getNanoBananaResolution('1080p')],
-        '4k': nanoRatesByResolution[getNanoBananaResolution('4k')],
+        '1080p':
+          nanoRatesByResolution[getNanoBananaResolution('1080p')] ??
+          nanoRatesByResolution['1K'],
+        '4k':
+          nanoRatesByResolution[getNanoBananaResolution('4k')] ??
+          nanoRatesByResolution['2K'] ??
+          nanoRatesByResolution['1K'],
       },
     },
     video: {
@@ -377,6 +465,18 @@ export function getGenerationCostEstimate(
     if (snapshot.imageModel === 'nano-banana') {
       perTaskRate =
         pricingMatrix.image['nano-banana'][snapshot.outputQuality] ?? null
+    } else if (snapshot.imageModel === 'gpt-image-2') {
+      const hasReference = Boolean(
+        choosePrimaryReferenceSlot({
+          assets: snapshot.assets,
+          products: snapshot.products,
+          subjectMode: snapshot.subjectMode,
+        }),
+      )
+
+      perTaskRate = hasReference
+        ? pricingMatrix.image['gpt-image-2'].withReference[snapshot.outputQuality]
+        : pricingMatrix.image['gpt-image-2'].promptOnly[snapshot.outputQuality]
     } else {
       const hasReference = Boolean(
         choosePrimaryReferenceSlot({

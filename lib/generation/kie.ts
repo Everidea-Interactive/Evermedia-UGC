@@ -369,6 +369,22 @@ function getImageAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '1:1' : '2:3'
 }
 
+function getGptImage2AspectRatio(subjectMode: SubjectMode) {
+  return subjectMode === 'product-only' ? '1:1' : '3:4'
+}
+
+function getGptImage2Resolution(outputQuality: OutputQuality) {
+  if (outputQuality === '4k') {
+    return '4K'
+  }
+
+  if (outputQuality === '1080p') {
+    return '2K'
+  }
+
+  return '1K'
+}
+
 function getVideoAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '16:9' : '9:16'
 }
@@ -655,6 +671,32 @@ function buildMarketImagePayload(input: {
     }
   }
 
+  if (input.imageModel === 'gpt-image-2') {
+    const modelName = primaryReference
+      ? 'gpt-image-2-image-to-image'
+      : 'gpt-image-2-text-to-image'
+    const gptImage2AspectRatio = getGptImage2AspectRatio(input.subjectMode)
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName,
+      provider: 'market' as const,
+      requestBody: {
+        model: modelName,
+        input: {
+          prompt: primaryReference
+            ? ensureGrokImagePromptReference(prompt)
+            : prompt,
+          ...(primaryReference
+            ? { input_urls: [primaryReference.remoteUrl] }
+            : null),
+          aspect_ratio: gptImage2AspectRatio,
+          resolution: getGptImage2Resolution(input.outputQuality),
+        },
+      },
+    }
+  }
+
   if (primaryReference) {
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
@@ -849,12 +891,12 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     throw new Error('Batch size must be between 1 and 4.')
   }
 
-  const batchSize = experience === 'guided' && workspace === 'video' ? 1 : requestedBatchSize
+  const batchSize = workspace === 'video' ? 1 : requestedBatchSize
 
   const imageModel = readEnum(
     formData,
     'imageModel',
-    ['nano-banana', 'grok-imagine'] as const,
+    ['nano-banana', 'grok-imagine', 'gpt-image-2'] as const,
   )
   const videoModel = readEnum(
     formData,
@@ -1072,12 +1114,31 @@ export async function submitProviderTask(
     throw new Error(await readKieError(response))
   }
 
-  const payload = (await response.json()) as {
-    data?: {
-      taskId?: string
-    }
+  const payload = (await response.json()) as Record<string, unknown>
+  const payloadData =
+    payload.data && typeof payload.data === 'object'
+      ? (payload.data as Record<string, unknown>)
+      : null
+  if (payload.code !== undefined && payload.code !== 200) {
+    throw new Error(
+      typeof payload.msg === 'string' && payload.msg.length > 0
+        ? payload.msg
+        : `KIE returned error code ${String(payload.code)}.`,
+    )
   }
-  const taskId = payload.data?.taskId
+  const taskIdCandidates = [
+    payloadData?.taskId,
+    payloadData?.task_id,
+    payloadData?.id,
+    payload.taskId,
+    payload.task_id,
+    payload.id,
+  ]
+  const taskId =
+    taskIdCandidates.find(
+      (candidate): candidate is string =>
+        typeof candidate === 'string' && candidate.length > 0,
+    ) ?? null
 
   if (!taskId) {
     throw new Error('KIE generation request did not return a task ID.')

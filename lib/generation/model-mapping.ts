@@ -49,7 +49,15 @@ export function getGrokResolution(outputQuality: OutputQuality) {
 }
 
 export function getNanoBananaResolution(outputQuality: OutputQuality) {
-  return outputQuality === '4k' ? '2K' : '1K'
+  if (outputQuality === '4k') {
+    return '4K'
+  }
+
+  if (outputQuality === '1080p') {
+    return '2K'
+  }
+
+  return '1K'
 }
 
 export function getKlingDuration(videoDuration: VideoDuration) {

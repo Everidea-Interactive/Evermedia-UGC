@@ -91,6 +91,7 @@ const analysisModelLabels = {
 } as const
 
 const imageModelLabels = {
+  'gpt-image-2': 'GPT Image 2',
   'grok-imagine': 'Grok Imagine',
   'nano-banana': 'Nano Banana 2',
 } as const
@@ -101,6 +102,42 @@ const videoModelLabels = {
   'seedance-1.5-pro': 'Seedance 1.5 Pro',
   'veo-3.1': 'Veo 3.1',
 } as const
+
+const sortedAnalysisModelOptions = kieAnalysisModels
+  .map((model) => ({
+    label: analysisModelLabels[model],
+    model,
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label))
+const sortedVideoModelOptions = Object.entries(videoModelLabels).sort(
+  ([, labelA], [, labelB]) => labelA.localeCompare(labelB),
+)
+
+function getImageQualityOptions(
+  imageModel: ImageModelOption,
+  kiePricing: KiePricingResponse | null,
+) {
+  return (
+    kiePricing?.supportedImageQualities?.[imageModel] ??
+    (imageModel === 'grok-imagine'
+      ? (['1080p'] as OutputQuality[])
+      : outputQualities)
+  )
+}
+
+function getImageQualityLabel(quality: OutputQuality) {
+  if (quality === '720p') return '1K'
+  if (quality === '1080p') return '2K'
+  return '4K'
+}
+
+function getVideoQualityLabel(quality: OutputQuality) {
+  if (quality === '4k') {
+    return '4K'
+  }
+
+  return quality
+}
 
 const cameraMovementLabels: Record<CameraMovement, string> = {
   'crash-zoom': 'Crash Zoom',
@@ -907,9 +944,9 @@ function GuidedAnalyzePanel({
                     }
                     value={guidedInput.analysisModel}
                   >
-                    {kieAnalysisModels.map((model) => (
+                    {sortedAnalysisModelOptions.map(({ label, model }) => (
                       <option key={model} value={model}>
-                        {analysisModelLabels[model]}
+                        {label}
                       </option>
                     ))}
                   </Select>
@@ -1098,6 +1135,7 @@ function GuidedRunPanel({
   setVideoModel,
   videoDuration,
   videoModel,
+  kiePricing,
 }: {
   activeTab: WorkspaceTab
   activeRunInGuidedMode: boolean
@@ -1118,6 +1156,7 @@ function GuidedRunPanel({
   setVideoModel: (model: VideoModelOption) => void
   videoDuration: VideoDuration
   videoModel: VideoModelOption
+  kiePricing: KiePricingResponse | null
 }) {
   const runStatus = getGuidedRunStatusCopy(generationRun, Boolean(plan?.shots.length))
   const { rate: usdToIdrRate } = useUsdToIdrRate()
@@ -1131,6 +1170,7 @@ function GuidedRunPanel({
     : !isPricingLoading
       ? estimate.reason ?? 'Live pricing unavailable.'
       : null
+  const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -1159,9 +1199,17 @@ function GuidedRunPanel({
                 <Select
                   aria-label="Image model"
                   id="guided-image-model"
-                  onChange={(event) =>
-                    setImageModel(event.target.value as typeof imageModel)
-                  }
+                  onChange={(event) => {
+                    const nextModel = event.target.value as typeof imageModel
+                    setImageModel(nextModel)
+                    const supportedQualities = getImageQualityOptions(
+                      nextModel,
+                      kiePricing,
+                    )
+                    if (!supportedQualities.includes(outputQuality)) {
+                      setOutputQuality(supportedQualities[0] ?? '1080p')
+                    }
+                  }}
                   value={imageModel}
                 >
                   {Object.entries(imageModelLabels).map(([value, label]) => (
@@ -1186,7 +1234,7 @@ function GuidedRunPanel({
                     }
                     value={videoModel}
                   >
-                    {Object.entries(videoModelLabels).map(([value, label]) => (
+                    {sortedVideoModelOptions.map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
@@ -1231,9 +1279,11 @@ function GuidedRunPanel({
                 }
                 value={outputQuality}
               >
-                {outputQualities.map((quality) => (
+                {imageQualityOptions.map((quality) => (
                   <option key={quality} value={quality}>
-                    {quality}
+                    {activeTab === 'image'
+                      ? getImageQualityLabel(quality)
+                      : getVideoQualityLabel(quality)}
                   </option>
                 ))}
               </Select>
@@ -1830,6 +1880,7 @@ export function GuidedWorkspace({
               setVideoModel={setVideoModel}
               videoDuration={videoDuration}
               videoModel={videoModel}
+              kiePricing={kiePricing}
             />
           </div>
         </Tabs>
