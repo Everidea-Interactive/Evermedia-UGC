@@ -1485,11 +1485,14 @@ export function GuidedWorkspace({
     (state) => state.hydrateGenerationRun,
   )
   const setGenerationError = useGenerationStore((state) => state.setGenerationError)
+  const resetGenerationRun = useGenerationStore((state) => state.resetGenerationRun)
   const resetGuidedState = useGenerationStore((state) => state.resetGuidedState)
+  const [isSubmittingGeneration, setIsSubmittingGeneration] = useState(false)
 
   const hasHero = isSlotLoaded(guidedInput.heroAsset)
   const hasPlan = Boolean(guidedPlan?.shots.length)
-  const activeRunInGuidedMode = hasActiveGeneration(generationRun)
+  const activeRunInGuidedMode =
+    isSubmittingGeneration || hasActiveGeneration(generationRun)
   const canAnalyze = hasHero && analysisStatus !== 'analyzing'
 
   const estimate = useMemo(
@@ -1737,6 +1740,9 @@ export function GuidedWorkspace({
         videoModel,
         workspace: activeTab,
       })
+      resetGenerationRun()
+      setIsSubmittingGeneration(true)
+
       const response = await fetch('/api/generation/run', {
         body: formData,
         method: 'POST',
@@ -1755,6 +1761,8 @@ export function GuidedWorkspace({
       setGenerationError(
         error instanceof Error ? error.message : 'Unable to start guided generation.',
       )
+    } finally {
+      setIsSubmittingGeneration(false)
     }
   }
 

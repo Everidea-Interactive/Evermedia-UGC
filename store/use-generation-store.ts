@@ -547,16 +547,23 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         {
           ...state.generationRun,
           error,
-          status: variants.length > 0 ? 'error' : state.generationRun.status,
+          status: 'error',
         },
         variants,
       )
 
       return {
-        generationRun: {
-          ...nextRun,
-          error,
-        },
+        generationRun:
+          variants.length > 0
+            ? {
+                ...nextRun,
+                error,
+              }
+            : {
+                ...state.generationRun,
+                error,
+                status: 'error',
+              },
         sessionStats: createSessionStats(variants),
       }
     }),

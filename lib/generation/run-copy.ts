@@ -71,10 +71,13 @@ export function getGenerateButtonLabel(
 
   if (
     generationRun.status === 'partial-success' ||
-    generationRun.status === 'error' ||
     generationRun.status === 'cancelled' ||
     generationRun.status === 'success'
   ) {
+    return 'Generate Again'
+  }
+
+  if (generationRun.status === 'error' && generationRun.runId) {
     return 'Generate Again'
   }
 

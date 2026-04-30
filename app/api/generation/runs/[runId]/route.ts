@@ -4,6 +4,7 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { getTaskStatus } from '@/lib/generation/kie'
 import { splitImageGridBuffer } from '@/lib/media/image-grid'
 import {
+  deleteGenerationRunForUser,
   getGenerationRunBundleForUser,
   saveGeneratedOutputBufferForVariant,
   saveGeneratedOutputForVariant,
@@ -176,4 +177,27 @@ export async function GET(
   return NextResponse.json({
     run: createGenerationRunState(refreshedBundle.run, refreshedBundle.outputs),
   })
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ runId: string }> },
+) {
+  const user = await getOptionalAuthenticatedUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { runId } = await context.params
+  const run = await deleteGenerationRunForUser({
+    runId,
+    userId: user.id,
+  })
+
+  if (!run) {
+    return NextResponse.json({ error: 'Run not found' }, { status: 404 })
+  }
+
+  return NextResponse.json({ runId: run.id })
 }

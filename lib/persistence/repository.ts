@@ -561,6 +561,35 @@ export async function deleteSavedOutputForUser(input: {
   return mapSavedOutput(outputRow)
 }
 
+export async function deleteGenerationRunForUser(input: {
+  runId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  const [runRow] = await db
+    .select()
+    .from(generationRuns)
+    .where(and(eq(generationRuns.userId, input.userId), eq(generationRuns.id, input.runId)))
+    .limit(1)
+
+  if (!runRow) {
+    return null
+  }
+
+  await db
+    .delete(generationRuns)
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.userId, input.userId),
+      ),
+    )
+
+  await deleteRunDirectory(input.userId, input.runId)
+
+  return mapRun(runRow, [])
+}
+
 export async function loadSavedOutputFile(input: {
   outputId: string
   userId: string

@@ -13,6 +13,7 @@ vi.mock('@/lib/media/image-grid', () => ({
 }))
 
 vi.mock('@/lib/persistence/repository', () => ({
+  deleteGenerationRunForUser: vi.fn(),
   getGenerationRunBundleForUser: vi.fn(),
   saveGeneratedOutputBufferForVariant: vi.fn(),
   saveGeneratedOutputForVariant: vi.fn(),
@@ -28,6 +29,7 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { getTaskStatus } from '@/lib/generation/kie'
 import { splitImageGridBuffer } from '@/lib/media/image-grid'
 import {
+  deleteGenerationRunForUser,
   getGenerationRunBundleForUser,
   saveGeneratedOutputBufferForVariant,
   saveGeneratedOutputForVariant,
@@ -35,7 +37,7 @@ import {
   updateGenerationVariantStatus,
 } from '@/lib/persistence/repository'
 import { createGenerationRunState } from '@/lib/persistence/serialization'
-import { GET } from '@/app/api/generation/runs/[runId]/route'
+import { DELETE, GET } from '@/app/api/generation/runs/[runId]/route'
 
 describe('GET /api/generation/runs/[runId]', () => {
   beforeEach(() => {
@@ -44,6 +46,68 @@ describe('GET /api/generation/runs/[runId]', () => {
       email: 'user@example.com',
       id: 'user-1',
     })
+  })
+
+  it('deletes an owned generation run', async () => {
+    vi.mocked(deleteGenerationRunForUser).mockResolvedValue({
+      completedAt: null,
+      configSnapshot: {
+        activeTab: 'image',
+        batchSize: 1,
+        cameraMovement: 'orbit',
+        characterAgeGroup: 'any',
+        characterGender: 'any',
+        creativeStyle: 'ugc-lifestyle',
+        experience: 'manual',
+        figureArtDirection: 'none',
+        guided: null,
+        imageModel: 'nano-banana',
+        outputQuality: '1080p',
+        productCategory: 'cosmetics',
+        shotEnvironment: 'indoor',
+        subjectMode: 'lifestyle',
+        textPrompt: 'Prompt',
+        videoDuration: 'base',
+        videoModel: 'veo-3.1',
+      },
+      createdAt: '2026-04-09T00:00:00.000Z',
+      id: 'run-1',
+      model: 'nano-banana-2',
+      promptSnapshot: 'Prompt snapshot',
+      provider: 'market',
+      status: 'success',
+      userId: 'user-1',
+      variants: [],
+      workspace: 'image',
+    })
+
+    const response = await DELETE(
+      new Request('http://localhost/api/generation/runs/run-1'),
+      {
+        params: Promise.resolve({ runId: 'run-1' }),
+      },
+    )
+
+    expect(response.status).toBe(200)
+    expect(deleteGenerationRunForUser).toHaveBeenCalledWith({
+      runId: 'run-1',
+      userId: 'user-1',
+    })
+    await expect(response.json()).resolves.toEqual({ runId: 'run-1' })
+  })
+
+  it('returns 404 when deleting a missing generation run', async () => {
+    vi.mocked(deleteGenerationRunForUser).mockResolvedValue(null)
+
+    const response = await DELETE(
+      new Request('http://localhost/api/generation/runs/missing-run'),
+      {
+        params: Promise.resolve({ runId: 'missing-run' }),
+      },
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: 'Run not found' })
   })
 
   it('saves newly completed outputs before returning the refreshed run', async () => {

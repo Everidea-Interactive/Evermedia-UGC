@@ -223,6 +223,19 @@ describe('useGenerationStore', () => {
     expect(state.sessionStats.failedVariants).toBe(2)
   })
 
+  it('surfaces submit-time generation errors before a run id exists', () => {
+    const store = useGenerationStore.getState()
+
+    store.resetGenerationRun()
+    store.setGenerationError('Unable to start generation.')
+
+    const state = useGenerationStore.getState()
+
+    expect(state.generationRun.runId).toBeNull()
+    expect(state.generationRun.status).toBe('error')
+    expect(state.generationRun.error).toBe('Unable to start generation.')
+  })
+
   it('preserves session counters when the local draft resets', () => {
     const store = useGenerationStore.getState()
 

@@ -1988,6 +1988,7 @@ function useGenerationController(input: {
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const products = useGenerationStore((state) => state.products)
+  const resetGenerationRun = useGenerationStore((state) => state.resetGenerationRun)
   const setGenerationError = useGenerationStore(
     (state) => state.setGenerationError,
   )
@@ -1996,6 +1997,7 @@ function useGenerationController(input: {
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoModel = useGenerationStore((state) => state.videoModel)
+  const [isSubmittingGeneration, setIsSubmittingGeneration] = useState(false)
 
   const generationSnapshot = useMemo(
     () =>
@@ -2066,7 +2068,7 @@ function useGenerationController(input: {
     ],
   )
 
-  const isBusy = hasActiveGeneration(generationRun)
+  const isBusy = isSubmittingGeneration || hasActiveGeneration(generationRun)
   const disabledReason = isBusy
     ? 'A batched render is already in progress. Wait for the current run to finish before starting another batch.'
     : enabled
@@ -2192,6 +2194,9 @@ function useGenerationController(input: {
     try {
       const { formData } = buildGenerationFormData(currentSnapshot)
 
+      resetGenerationRun()
+      setIsSubmittingGeneration(true)
+
       const response = await fetch('/api/generation/run', {
         body: formData,
         method: 'POST',
@@ -2209,6 +2214,8 @@ function useGenerationController(input: {
       setGenerationError(
         error instanceof Error ? error.message : 'Unable to start generation.',
       )
+    } finally {
+      setIsSubmittingGeneration(false)
     }
   }
 
@@ -2245,7 +2252,9 @@ function useGenerationController(input: {
 
   return {
     canGenerate:
-      enabled ? validation.canGenerate && creditValidation.canGenerate : false,
+      enabled && !isSubmittingGeneration
+        ? validation.canGenerate && creditValidation.canGenerate
+        : false,
     disabledReason,
     generationCostEstimate,
     generationCostReason:

@@ -42,6 +42,20 @@ describe('run copy helpers', () => {
     )
   })
 
+  it('keeps submit-time errors on a fresh session actionable', () => {
+    const run = createRun({
+      error: 'Unable to start generation.',
+      runId: null,
+      status: 'error',
+      variants: [],
+    })
+
+    expect(getGenerateButtonLabel(run, 2)).toBe('Generate 2 Variations')
+    expect(getGenerationHelperMessage(null, run)).toBe(
+      'Unable to start generation.',
+    )
+  })
+
   it('uses library-oriented guidance for cancelled and failed runs', () => {
     expect(
       getGenerationHelperMessage(null, createRun({ status: 'cancelled' })),
