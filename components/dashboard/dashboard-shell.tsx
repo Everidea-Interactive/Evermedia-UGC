@@ -58,6 +58,7 @@ import {
   getGenerateButtonLabel,
   getGenerationHelperMessage,
 } from '@/lib/generation/run-copy'
+import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
 import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
@@ -538,7 +539,7 @@ export function DashboardShell() {
                     </TabsContent>
                   ) : null}
                   <TabsContent className="mt-0" value="outputs">
-                    <OutputPanel previewVariantId={null} />
+                    <OutputPanel />
                   </TabsContent>
                 </Tabs>
               </div>
@@ -1396,8 +1397,8 @@ function RunControlPanel({
                   Batch size
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Parallel variants reuse the same staged references and split
-                  into separate KIE tasks.
+                  Image batches render 2x2 grids, then split each grid into four
+                  outputs. Video batches still create separate provider tasks.
                 </p>
                 <ToggleGroup
                   aria-label="Batch Size"
@@ -1419,7 +1420,11 @@ function RunControlPanel({
                       <span className="flex flex-col items-center gap-0.5">
                         <span className="text-sm font-semibold">{size}x</span>
                         <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
-                          {size === 1 ? 'Single' : `${size} tasks`}
+                          {activeTab === 'image'
+                            ? `${size * 4} images`
+                            : size === 1
+                              ? 'Single'
+                              : `${size} tasks`}
                         </span>
                       </span>
                     </ToggleGroupItem>
@@ -1539,10 +1544,8 @@ function RunControlPanel({
 
 function OutputPanel({
   className,
-  previewVariantId,
 }: {
   className?: string
-  previewVariantId: string | null
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
@@ -1579,7 +1582,6 @@ function OutputPanel({
               <PreviewStage
                 activeTab={activeTab}
                 loadedAssets={loadedAssets.length}
-                previewVariantId={previewVariantId}
                 runMatchesWorkspace={runMatchesWorkspace}
                 runState={generationRun}
               />
@@ -1594,20 +1596,18 @@ function OutputPanel({
 function PreviewStage({
   activeTab,
   loadedAssets,
-  previewVariantId,
   runMatchesWorkspace,
   runState,
 }: {
   activeTab: WorkspaceTab
   loadedAssets: number
-  previewVariantId: string | null
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
 }) {
-  const selectedVariant = runMatchesWorkspace
-    ? getSelectedRunVariant(runState, previewVariantId)
+  const displayVariant = runMatchesWorkspace
+    ? getSelectedRunVariant(runState)
     : null
-  const completedVariants = runState.variants.filter((variant) => Boolean(variant.result))
+  const galleryItems = runMatchesWorkspace ? getOutputGalleryItems(runState) : []
   const totalVariants = runState.variants.length
   const completedCount = getCompletedVariantCount(runState)
   const failedVariants = getFailedVariantCount(runState)
@@ -1626,37 +1626,17 @@ function PreviewStage({
     return (
       <div className="flex flex-1 flex-col gap-4">
         <div className="flex flex-1 justify-center">
-          <div className="flex min-h-0 w-full max-w-4xl flex-col gap-3">
-            {selectedVariant?.result ? (
-              <div className="overflow-hidden rounded-xl border border-border bg-background">
-                {selectedVariant.result.type === 'image' ? (
-                  <ImagePreviewTrigger
-                    alt={`Generated result for variation ${selectedVariant.index}`}
-                    className="block w-full"
-                    label={`Variation ${selectedVariant.index}`}
-                    src={selectedVariant.result.url}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt={`Generated result for variation ${selectedVariant.index}`}
-                      className="max-h-[70vh] w-full bg-secondary/20 object-contain"
-                      src={selectedVariant.result.url}
-                    />
-                  </ImagePreviewTrigger>
-                ) : (
-                  <video
-                    className="max-h-[70vh] w-full bg-black object-contain"
-                    controls
-                    playsInline
-                    preload="metadata"
-                    src={selectedVariant.result.url}
-                  />
-                )}
+          <div className="flex min-h-0 w-full max-w-5xl flex-col gap-3">
+            {galleryItems.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {galleryItems.map((item) => (
+                  <OutputGalleryCard item={item} key={item.variantId} />
+                ))}
               </div>
-            ) : selectedVariant ? (
+            ) : displayVariant ? (
               <PreviewStateCallout
                 body={
-                  selectedVariant.error ??
+                  displayVariant.error ??
                   'This variation is still waiting on the provider. The panel refreshes automatically while generation is active.'
                 }
                 icon={
@@ -1672,40 +1652,9 @@ function PreviewStage({
                     />
                   )
                 }
-                title={`Variation ${selectedVariant.index}`}
+                title={`Variation ${displayVariant.index}`}
                 tone={runState.status === 'error' ? 'destructive' : 'default'}
               />
-            ) : null}
-
-            {completedVariants.length > 1 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {completedVariants.map((variant) => (
-                  <div
-                    className={cn(rowClassName, 'overflow-hidden p-2')}
-                    key={variant.variantId}
-                  >
-                    <p className="mb-2 px-1 text-sm font-medium text-muted-foreground">
-                      #{variant.index}
-                    </p>
-                    {variant.result?.type === 'image' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        alt={`Generated result for variation ${variant.index}`}
-                        className="max-h-72 w-full rounded-md bg-secondary/20 object-contain"
-                        src={variant.result.url}
-                      />
-                    ) : (
-                      <video
-                        className="max-h-72 w-full rounded-md bg-black object-contain"
-                        controls
-                        playsInline
-                        preload="metadata"
-                        src={variant.result?.url}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
             ) : null}
           </div>
         </div>
@@ -1745,6 +1694,53 @@ function PreviewStage({
             ? 'Your local references are ready. Review this panel, then run generation from the footer below.'
             : 'Build the reference board first, or use the written brief if you need a prompt-only run.'}
         </p>
+      </div>
+    </div>
+  )
+}
+
+function OutputGalleryCard({
+  item,
+}: {
+  item: ReturnType<typeof getOutputGalleryItems>[number]
+}) {
+  const media = item.type === 'image' ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt={item.alt}
+      className="h-full w-full rounded-md bg-secondary/20 object-contain"
+      src={item.url}
+    />
+  ) : (
+    <video
+      className="h-full w-full rounded-md bg-black object-contain"
+      controls
+      playsInline
+      preload="metadata"
+      src={item.url}
+    />
+  )
+
+  return (
+    <div className={cn(rowClassName, 'overflow-hidden p-2')}>
+      <div className="mb-2 px-1">
+        <p className="text-sm font-medium text-muted-foreground">
+          #{item.variantIndex}
+        </p>
+      </div>
+      <div className="aspect-square overflow-hidden rounded-md bg-secondary/20">
+        {item.inspectable ? (
+          <ImagePreviewTrigger
+            alt={item.alt}
+            className="h-full"
+            label={item.label}
+            src={item.url}
+          >
+            {media}
+          </ImagePreviewTrigger>
+        ) : (
+          media
+        )}
       </div>
     </div>
   )
@@ -2321,12 +2317,8 @@ function hasActiveGeneration(run: GenerationRun) {
   return run.status === 'rendering'
 }
 
-function getSelectedRunVariant(
-  run: GenerationRun,
-  previewVariantId: string | null,
-) {
+function getSelectedRunVariant(run: GenerationRun) {
   return (
-    run.variants.find((variant) => variant.variantId === previewVariantId) ??
     run.variants.find((variant) => variant.variantId === run.selectedVariantId) ??
     run.variants.find((variant) => variant.status === 'success' && Boolean(variant.result)) ??
     run.variants[0] ??

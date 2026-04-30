@@ -100,7 +100,7 @@ describe('KIE batch submission', () => {
     )
   })
 
-  it('uploads assets once and submits one provider task per variation', async () => {
+  it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })
 
@@ -148,11 +148,23 @@ describe('KIE batch submission', () => {
     const response = await submitGenerationRequest(parsedRequest)
 
     expect(response.status).toBe('rendering')
-    expect(response.variants).toHaveLength(3)
+    expect(response.variants).toHaveLength(12)
     expect(response.variants.map((variant) => variant.taskId)).toEqual([
       'task-1',
+      'task-1',
+      'task-1',
+      'task-1',
+      'task-2',
+      'task-2',
+      'task-2',
       'task-2',
       'task-3',
+      'task-3',
+      'task-3',
+      'task-3',
+    ])
+    expect(response.variants.map((variant) => variant.index)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ])
     expect(response.variants.every((variant) => variant.status === 'rendering')).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(4)
@@ -175,6 +187,7 @@ describe('KIE batch submission', () => {
             google_search: false,
             image_input: ['https://files.example.com/face-1.png'],
             output_format: 'png',
+            prompt: expect.stringContaining('exactly one clean 2x2 grid'),
             resolution: '1K',
           }),
         }),
@@ -335,6 +348,7 @@ describe('KIE batch submission', () => {
         }),
       ]),
     )
+    expect(taskRequests[0].input.prompt).not.toContain('exactly one clean 2x2 grid')
   })
 
   it('accepts guided video metadata and submits edited prompts through the video provider', async () => {
@@ -681,7 +695,9 @@ describe('KIE batch submission', () => {
     expect(submission.requestBody).toMatchObject({
       model: 'nano-banana-2',
       input: {
-        prompt: 'Create a polished hero campaign image.',
+        prompt: expect.stringContaining(
+          'Create exactly one clean 2x2 grid image',
+        ),
         image_input: [],
         aspect_ratio: '1:1',
         resolution: '2K',
@@ -718,7 +734,9 @@ describe('KIE batch submission', () => {
     expect(submission.requestBody).toMatchObject({
       model: 'grok-imagine/image-to-image',
       input: {
-        prompt: '@image1 Create a polished hero campaign image.',
+        prompt: expect.stringContaining(
+          '@image1 Create exactly one clean 2x2 grid image',
+        ),
         image_urls: ['https://files.example.com/clothing.png'],
       },
     })

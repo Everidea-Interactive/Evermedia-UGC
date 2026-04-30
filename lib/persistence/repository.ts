@@ -284,7 +284,6 @@ export async function saveGeneratedOutputForVariant(input: {
   userId: string
   variantId: string
 }) {
-  const db = getDatabase()
   const response = await fetch(input.sourceUrl, { cache: 'no-store' })
 
   if (!response.ok) {
@@ -292,8 +291,52 @@ export async function saveGeneratedOutputForVariant(input: {
   }
 
   const blob = await response.blob()
+  return saveGeneratedOutputBlobForVariant({
+    blob,
+    fileName: input.fileName,
+    fileType: input.fileType,
+    label: input.label,
+    runId: input.runId,
+    userId: input.userId,
+    variantId: input.variantId,
+  })
+}
+
+export async function saveGeneratedOutputBufferForVariant(input: {
+  buffer: Buffer
+  fileName: string
+  fileType: string
+  label: string
+  runId: string
+  userId: string
+  variantId: string
+}) {
+  const arrayBuffer = new ArrayBuffer(input.buffer.byteLength)
+  new Uint8Array(arrayBuffer).set(input.buffer)
+
+  return saveGeneratedOutputBlobForVariant({
+    blob: new Blob([arrayBuffer], { type: input.fileType }),
+    fileName: input.fileName,
+    fileType: input.fileType,
+    label: input.label,
+    runId: input.runId,
+    userId: input.userId,
+    variantId: input.variantId,
+  })
+}
+
+async function saveGeneratedOutputBlobForVariant(input: {
+  blob: Blob
+  fileName: string
+  fileType: string
+  label: string
+  runId: string
+  userId: string
+  variantId: string
+}) {
+  const db = getDatabase()
   const savedFile = await saveOutputFileToDisk({
-    file: blob,
+    file: input.blob,
     fileName: input.fileName,
     runId: input.runId,
     userId: input.userId,
@@ -302,7 +345,7 @@ export async function saveGeneratedOutputForVariant(input: {
   const [outputRow] = await db
     .insert(savedOutputs)
     .values({
-      fileSize: blob.size,
+      fileSize: input.blob.size,
       id: createRecordId('output'),
       label: input.label,
       mimeType: input.fileType || 'application/octet-stream',

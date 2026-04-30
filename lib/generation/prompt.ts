@@ -4,7 +4,6 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
-  GenerationVariantIndex,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -13,6 +12,8 @@ import type {
   VideoDuration,
   WorkspaceTab,
 } from '@/lib/generation/types'
+
+type PromptVariantIndex = 1 | 2 | 3 | 4
 
 const categoryPhrases: Record<ProductCategory, string> = {
   'food-drink': 'food and beverage',
@@ -69,7 +70,7 @@ const movementVariantPhrases: Record<CameraMovement, string> = {
     'Let the motion stay intimate and macro-led so material detail and texture remain the focal point.',
 }
 
-export const variantProfileSuffixes: Record<GenerationVariantIndex, string> = {
+export const variantProfileSuffixes: Record<PromptVariantIndex, string> = {
   1: 'Keep the strongest hero composition closest to the base brief.',
   2: 'Explore an alternate framing and composition while preserving brand intent and subject identity.',
   3: 'Explore a different lighting mood and environmental emphasis while keeping the same product story.',
@@ -251,13 +252,13 @@ export function compileGenerationPrompt(input: {
 
 export function buildVariantPromptSet(input: {
   basePrompt: string
-  batchSize: GenerationVariantIndex
+  batchSize: PromptVariantIndex
   cameraMovement: CameraMovement | null
   workspace: WorkspaceTab
 }) {
   return (Array.from({ length: input.batchSize }, (_, index) =>
     index + 1,
-  ) as GenerationVariantIndex[]).map((variantIndex) => {
+  ) as PromptVariantIndex[]).map((variantIndex) => {
     const profile = variantProfileSuffixes[variantIndex]
     const movementSentence =
       input.workspace === 'video' && input.cameraMovement

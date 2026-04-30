@@ -17,6 +17,7 @@ import {
   getNanoBananaResolution,
   getSeedanceDuration,
 } from '@/lib/generation/model-mapping'
+import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
   BatchSize,
   CameraMovement,
@@ -615,6 +616,7 @@ function ensureGrokImagePromptReference(prompt: string) {
 
 function buildMarketImagePayload(input: {
   assets: UploadedAssetDescriptor[]
+  imageGrid?: boolean
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   prompt: string
@@ -626,6 +628,9 @@ function buildMarketImagePayload(input: {
       : collectImageReferenceAssets(input.subjectMode, input.assets)
   const primaryReference = referenceAssets[0] ?? null
   const aspectRatio = getImageAspectRatio(input.subjectMode)
+  const prompt = input.imageGrid
+    ? wrapPromptForImageGrid(input.prompt)
+    : input.prompt
 
   if (input.imageModel === 'nano-banana') {
     return {
@@ -636,7 +641,7 @@ function buildMarketImagePayload(input: {
         model: 'nano-banana-2',
         input: {
           prompt: buildNanoBananaPrompt({
-            prompt: input.prompt,
+            prompt,
             referenceAssets,
             subjectMode: input.subjectMode,
           }),
@@ -658,7 +663,7 @@ function buildMarketImagePayload(input: {
       requestBody: {
         model: 'grok-imagine/image-to-image',
         input: {
-          prompt: ensureGrokImagePromptReference(input.prompt),
+          prompt: ensureGrokImagePromptReference(prompt),
           image_urls: [primaryReference.remoteUrl],
         },
       },
@@ -672,7 +677,7 @@ function buildMarketImagePayload(input: {
       requestBody: {
         model: 'grok-imagine/text-to-image',
         input: {
-          prompt: input.prompt,
+          prompt,
           aspect_ratio: aspectRatio,
         },
       },
@@ -1091,6 +1096,7 @@ export function resolveSubmission(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
   creativeStyle: CreativeStyle
+  imageGrid?: boolean
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -1103,6 +1109,7 @@ export function resolveSubmission(input: {
   return input.workspace === 'image'
     ? buildMarketImagePayload({
         assets: input.assets,
+        imageGrid: input.imageGrid ?? true,
         imageModel: input.imageModel,
         outputQuality: input.outputQuality,
         prompt: input.prompt,
@@ -1159,17 +1166,20 @@ export async function submitGenerationRequest(
         }))
       : buildVariantPromptSet({
           basePrompt,
-          batchSize: input.batchSize as GenerationVariantIndex,
+          batchSize: input.batchSize,
           cameraMovement: input.cameraMovement,
           workspace: input.workspace,
         }).map((descriptor) => ({
           ...descriptor,
           subjectMode: input.subjectMode,
         }))
+  const usesManualImageGrid =
+    input.experience === 'manual' && input.workspace === 'image'
   const sampleSubmission = resolveSubmission({
     assets: uploadedAssets,
     cameraMovement: input.cameraMovement,
     creativeStyle: input.creativeStyle,
+    imageGrid: usesManualImageGrid,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
@@ -1186,6 +1196,7 @@ export async function submitGenerationRequest(
         assets: uploadedAssets,
         cameraMovement: input.cameraMovement,
         creativeStyle: input.creativeStyle,
+        imageGrid: usesManualImageGrid,
         imageModel: input.imageModel,
         outputQuality: input.outputQuality,
         productCategory: input.productCategory,
@@ -1212,28 +1223,51 @@ export async function submitGenerationRequest(
     }),
   )
 
-  const variants = settledVariants.map((variant, index) => {
+  const variants: GenerationVariant[] = settledVariants.flatMap<GenerationVariant>((variant, index) => {
+    const descriptor = resolvedPromptSet[index]
+    const expandedDescriptors = usesManualImageGrid
+      ? ([1, 2, 3, 4] as const).map((gridPosition) => {
+          const variantIndex = (index * 4 + gridPosition) as GenerationVariantIndex
+
+          return {
+            index: variantIndex,
+            profile: `Grid ${descriptor.index} Image ${gridPosition}`,
+            prompt: descriptor.prompt,
+          }
+        })
+      : [
+          {
+            index: descriptor.index,
+            profile: descriptor.profile,
+            prompt: descriptor.prompt,
+          },
+        ]
+
     if (variant.status === 'fulfilled') {
-      return variant.value
+      return expandedDescriptors.map((expandedDescriptor) => ({
+        ...variant.value,
+        index: expandedDescriptor.index,
+        profile: expandedDescriptor.profile,
+        prompt: expandedDescriptor.prompt,
+        variantId: `${runId}-variant-${expandedDescriptor.index}`,
+      }))
     }
 
-    const descriptor = resolvedPromptSet[index]
-
-    return {
+    return expandedDescriptors.map((expandedDescriptor) => ({
       completedAt: null,
       createdAt: null,
       error:
         variant.reason instanceof Error
           ? variant.reason.message
           : 'Unable to create provider task.',
-      index: descriptor.index,
-      profile: descriptor.profile,
-      prompt: descriptor.prompt,
+      index: expandedDescriptor.index,
+      profile: expandedDescriptor.profile,
+      prompt: expandedDescriptor.prompt,
       result: null,
       status: 'error' as const,
       taskId: null,
-      variantId: `${runId}-variant-${descriptor.index}`,
-    }
+      variantId: `${runId}-variant-${expandedDescriptor.index}`,
+    }))
   }) satisfies GenerationVariant[]
 
   return {

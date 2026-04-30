@@ -8,8 +8,13 @@ vi.mock('@/lib/generation/kie', () => ({
   getTaskStatus: vi.fn(),
 }))
 
+vi.mock('@/lib/media/image-grid', () => ({
+  splitImageGridBuffer: vi.fn(),
+}))
+
 vi.mock('@/lib/persistence/repository', () => ({
   getGenerationRunBundleForUser: vi.fn(),
+  saveGeneratedOutputBufferForVariant: vi.fn(),
   saveGeneratedOutputForVariant: vi.fn(),
   syncGenerationRunStatus: vi.fn(),
   updateGenerationVariantStatus: vi.fn(),
@@ -21,8 +26,10 @@ vi.mock('@/lib/persistence/serialization', () => ({
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { getTaskStatus } from '@/lib/generation/kie'
+import { splitImageGridBuffer } from '@/lib/media/image-grid'
 import {
   getGenerationRunBundleForUser,
+  saveGeneratedOutputBufferForVariant,
   saveGeneratedOutputForVariant,
   syncGenerationRunStatus,
   updateGenerationVariantStatus,
@@ -178,6 +185,158 @@ describe('GET /api/generation/runs/[runId]', () => {
         status: 'success',
       },
     })
+  })
+
+  it('splits one completed manual image grid task into four saved outputs', async () => {
+    vi.mocked(getGenerationRunBundleForUser)
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: null,
+          configSnapshot: {
+            activeTab: 'image',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-04-09T00:00:00.000Z',
+          id: 'run-grid',
+          model: 'nano-banana-2',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'rendering',
+          userId: 'user-1',
+          variants: [1, 2, 3, 4].map((index) => ({
+            completedAt: null,
+            createdAt: '2026-04-09T00:00:00.000Z',
+            error: null,
+            id: `variant-${index}`,
+            profile: `Grid 1 Image ${index}`,
+            prompt: 'Prompt 1',
+            resultAssetId: null,
+            runId: 'run-grid',
+            status: 'rendering' as const,
+            taskId: 'grid-task-1',
+            variantIndex: index as 1 | 2 | 3 | 4,
+          })),
+          workspace: 'image',
+        },
+      })
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: '2026-04-09T00:00:05.000Z',
+          configSnapshot: {
+            activeTab: 'image',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-04-09T00:00:00.000Z',
+          id: 'run-grid',
+          model: 'nano-banana-2',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'success',
+          userId: 'user-1',
+          variants: [],
+          workspace: 'image',
+        },
+      })
+    vi.mocked(getTaskStatus).mockResolvedValue({
+      error: null,
+      result: {
+        model: 'nano-banana-2',
+        taskId: 'grid-task-1',
+        type: 'image',
+        url: 'https://example.com/grid.png',
+      },
+      status: 'success',
+      taskId: 'grid-task-1',
+    })
+    vi.mocked(splitImageGridBuffer).mockResolvedValue([
+      { buffer: Buffer.from('top-left'), label: 'Top left', position: 1 },
+      { buffer: Buffer.from('top-right'), label: 'Top right', position: 2 },
+      { buffer: Buffer.from('bottom-left'), label: 'Bottom left', position: 3 },
+      { buffer: Buffer.from('bottom-right'), label: 'Bottom right', position: 4 },
+    ])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('grid-image', {
+          headers: { 'Content-Type': 'image/png' },
+          status: 200,
+        }),
+      ),
+    )
+    vi.mocked(saveGeneratedOutputBufferForVariant).mockResolvedValue({
+      createdAt: '2026-04-09T00:00:05.000Z',
+      fileSize: 8,
+      id: 'output-1',
+      label: 'Variation 1 Output',
+      mimeType: 'image/png',
+      originalName: 'grid-task-1-1.png',
+      runId: 'run-grid',
+      storagePath: 'user-1/runs/run-grid/outputs/grid-task-1-1.png',
+      userId: 'user-1',
+    })
+    vi.mocked(syncGenerationRunStatus).mockResolvedValue(null)
+    vi.mocked(createGenerationRunState).mockReturnValue({
+      completedAt: '2026-04-09T00:00:05.000Z',
+      createdAt: '2026-04-09T00:00:00.000Z',
+      error: null,
+      model: 'nano-banana-2',
+      provider: 'market',
+      runId: 'run-grid',
+      selectedVariantId: null,
+      startedAt: 0,
+      status: 'success',
+      variants: [],
+      workspace: 'image',
+    })
+
+    const response = await GET(new Request('http://localhost/api/generation/runs/run-grid'), {
+      params: Promise.resolve({ runId: 'run-grid' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(getTaskStatus).toHaveBeenCalledTimes(1)
+    expect(splitImageGridBuffer).toHaveBeenCalledWith(Buffer.from('grid-image'))
+    expect(saveGeneratedOutputBufferForVariant).toHaveBeenCalledTimes(4)
+    expect(saveGeneratedOutputBufferForVariant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'grid-task-1-variation-1.png',
+        label: 'Variation 1 Output',
+        variantId: 'variant-1',
+      }),
+    )
+    expect(saveGeneratedOutputForVariant).not.toHaveBeenCalled()
   })
 
   it('marks provider task failures as variant errors', async () => {
