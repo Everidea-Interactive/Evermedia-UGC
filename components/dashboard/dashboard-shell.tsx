@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
@@ -14,7 +15,6 @@ import {
   AlertTriangle,
   Brush,
   CircleSlash,
-  Clapperboard,
   CupSoda,
   Film,
   Gem,
@@ -39,7 +39,7 @@ import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
@@ -57,7 +57,6 @@ import {
   getFailedVariantCount,
   getGenerateButtonLabel,
   getGenerationHelperMessage,
-  getRunHeadline,
 } from '@/lib/generation/run-copy'
 import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
@@ -73,7 +72,6 @@ import type {
   GenerationExperience,
   GenerationCostEstimate,
   GenerationRun,
-  GenerationVariant,
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
@@ -399,18 +397,41 @@ export function DashboardShell() {
     kieStatus: kieStatusState.status,
     pricingError: kiePricingState.error,
   })
-  const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
-  const resolvedPreviewVariantId = generationRun.variants.some(
-    (variant) => variant.variantId === previewVariantId,
-  )
-    ? previewVariantId
-    : null
+  const [manualSection, setManualSection] = useState<
+    'references' | 'preset' | 'motion' | 'outputs'
+  >('references')
+  const lastManualTerminalRunKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     return () => {
       useGenerationStore.getState().disposeGenerationState()
     }
   }, [])
+
+  useEffect(() => {
+    const isTerminalStatus =
+      generationRun.status === 'success' ||
+      generationRun.status === 'partial-success' ||
+      generationRun.status === 'error' ||
+      generationRun.status === 'cancelled'
+    const terminalRunKey =
+      generationRun.runId && isTerminalStatus
+        ? `${generationRun.runId}:${generationRun.status}`
+        : null
+
+    if (!terminalRunKey || lastManualTerminalRunKeyRef.current === terminalRunKey) {
+      return
+    }
+
+    lastManualTerminalRunKeyRef.current = terminalRunKey
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('outputs')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [generationRun.runId, generationRun.status])
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -422,44 +443,51 @@ export function DashboardShell() {
       </a>
 
       <main
-        className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6"
+        className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5"
         id="dashboard-main"
       >
-        <TopBar
-          isKieStatusLoading={kieStatusState.isLoading}
-          kieStatus={kieStatusState.status}
-        />
-
-        <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Studio experience
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose between the existing manual studio and the new analyze-first guided planner.
-              </p>
-            </div>
-
+        <section className={cn(panelClassName, 'p-2.5 sm:p-3')}>
+          <div className="grid gap-3">
             <Tabs
               onValueChange={(value) => setExperience(value as GenerationExperience)}
               value={experience}
             >
-              <TabsList aria-label="Studio Experience" className="w-full grid-cols-2">
+              <TabsList aria-label="Studio Experience" className="w-full grid-cols-2 p-1.5">
                 {experienceTabs.map((tab) => (
                   <TabsTrigger
-                    className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
+                    className="min-h-[3.15rem] px-3 py-2"
                     key={tab.value}
                     value={tab.value}
                   >
-                    <span className="mx-auto flex w-full max-w-[14rem] flex-col text-left">
-                      <span className="text-base font-semibold">{tab.label}</span>
-                      <span className="mt-1 text-xs font-normal text-current/72">
-                        {tab.helper}
-                      </span>
+                    <span className="mx-auto text-sm font-semibold sm:text-base">
+                      {tab.label}
                     </span>
                   </TabsTrigger>
                 ))}
+              </TabsList>
+            </Tabs>
+
+            <Tabs
+              onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+              value={activeTab}
+            >
+              <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
+                {workspaceTabs.map((tab) => {
+                  const Icon = tab.icon
+
+                  return (
+                    <TabsTrigger
+                      className="min-h-[3.15rem] px-3 py-2"
+                      key={tab.value}
+                      value={tab.value}
+                    >
+                      <span className="mx-auto flex items-center justify-center gap-2">
+                        <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
+                        <span className="text-sm font-semibold sm:text-base">{tab.label}</span>
+                      </span>
+                    </TabsTrigger>
+                  )
+                })}
               </TabsList>
             </Tabs>
           </div>
@@ -473,134 +501,63 @@ export function DashboardShell() {
             kieStatus={kieStatusState.status}
           />
         ) : (
-          <Tabs
-            className="flex flex-1 flex-col gap-4"
-            onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-            value={activeTab}
-          >
-            <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-              <div className="flex flex-col gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                    Output mode
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Choose whether the workspace builds a still render or a motion
-                    render before staging references.
-                  </p>
-                </div>
-
-                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2">
-                  {workspaceTabs.map((tab) => {
-                    const Icon = tab.icon
-
-                    return (
-                      <TabsTrigger
-                        className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
-                        key={tab.value}
-                        value={tab.value}
-                      >
-                        <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                          <Icon className="size-5 shrink-0" suppressHydrationWarning />
-                          <span className="flex min-w-0 flex-col">
-                            <span className="text-base font-semibold">{tab.label}</span>
-                            <span className="text-xs font-normal text-current/72">
-                              {tab.helper}
-                            </span>
-                          </span>
-                        </span>
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
-              </div>
-            </section>
-
+          <div className="flex flex-1 flex-col gap-4">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
-              <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
-              <PreviewCanvas
+              <div className="xl:col-start-1">
+                <Tabs
+                  className="flex flex-col gap-3"
+                  onValueChange={(value) =>
+                    setManualSection(value as 'references' | 'preset' | 'motion' | 'outputs')
+                  }
+                  value={manualSection}
+                >
+                  <TabsList
+                    aria-label="Workspace Sections"
+                    className={cn(
+                      'w-full',
+                      activeTab === 'video' ? 'grid-cols-4' : 'grid-cols-3',
+                    )}
+                  >
+                    <TabsTrigger value="references">References</TabsTrigger>
+                    <TabsTrigger value="preset">Preset</TabsTrigger>
+                    {activeTab === 'video' ? (
+                      <TabsTrigger value="motion">Motion</TabsTrigger>
+                    ) : null}
+                    <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent className="mt-0" value="references">
+                    <ReferenceWorkspaceSection />
+                  </TabsContent>
+                  <TabsContent className="mt-0" value="preset">
+                    <RefineRenderSection />
+                  </TabsContent>
+                  {activeTab === 'video' ? (
+                    <TabsContent className="mt-0" value="motion">
+                      <MotionControlsSection />
+                    </TabsContent>
+                  ) : null}
+                  <TabsContent className="mt-0" value="outputs">
+                    <OutputPanel previewVariantId={null} />
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <RunControlPanel
                 canGenerate={controller.canGenerate}
-                className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
+                className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
                 disabledReason={controller.disabledReason}
                 generationCostEstimate={controller.generationCostEstimate}
                 generationCostReason={controller.generationCostReason}
                 isBusy={controller.isBusy}
                 isPricingLoading={kiePricingState.isLoading}
                 onCancelRun={controller.handleCancel}
-                onGenerate={async () => {
-                  setPreviewVariantId(null)
-                  await controller.handleGenerate()
-                }}
-                previewVariantId={resolvedPreviewVariantId}
-                setPreviewVariantId={setPreviewVariantId}
+                onGenerate={controller.handleGenerate}
               />
-              <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
-              {activeTab === 'video' ? (
-                <MotionControlsSection className="xl:col-start-1 xl:row-start-3" />
-              ) : null}
             </div>
-          </Tabs>
+          </div>
         )}
       </main>
-    </div>
-  )
-}
-
-function TopBar({
-  isKieStatusLoading,
-  kieStatus,
-}: {
-  isKieStatusLoading: boolean
-  kieStatus: KieStatusResponse
-}) {
-  return (
-    <header className={cn(panelClassName, 'px-4 py-4 sm:px-5')}>
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background text-foreground">
-            <Clapperboard className="size-5" suppressHydrationWarning />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display text-lg font-semibold">Evermedia UGC</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Build the reference board first, then run generation from the
-              output panel.
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full xl:max-w-[16rem]">
-          <HeaderMetricCard
-            helper={getKieCreditsHelper(kieStatus, isKieStatusLoading)}
-            label="KIE Credits"
-            value={getKieCreditsValue(kieStatus, isKieStatusLoading)}
-          />
-        </div>
-      </div>
-    </header>
-  )
-}
-
-function HeaderMetricCard({
-  helper,
-  label,
-  value,
-}: {
-  helper: string
-  label: string
-  value: string
-}) {
-  return (
-    <div className={cn(insetPanelClassName, 'px-3 py-3')}>
-      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">
-        {value}
-      </p>
-      <p className="mt-1 truncate text-xs text-muted-foreground" title={helper}>
-        {helper}
-      </p>
     </div>
   )
 }
@@ -1290,7 +1247,7 @@ function ReferenceCard({
   )
 }
 
-function PreviewCanvas({
+function RunControlPanel({
   canGenerate,
   className,
   disabledReason,
@@ -1300,8 +1257,6 @@ function PreviewCanvas({
   isPricingLoading,
   onCancelRun,
   onGenerate,
-  previewVariantId,
-  setPreviewVariantId,
 }: {
   canGenerate: boolean
   className?: string
@@ -1312,8 +1267,6 @@ function PreviewCanvas({
   isPricingLoading: boolean
   onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
-  previewVariantId: string | null
-  setPreviewVariantId: (variantId: string | null) => void
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
@@ -1375,14 +1328,13 @@ function PreviewCanvas({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Output panel
+              Review panel
             </p>
             <h2 className="mt-2 text-balance font-display text-xl font-semibold sm:text-2xl">
               Review and run generation
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Keep the output visible while you build the reference board, then
-              run generation from the footer below.
+              Confirm the setup, choose model/batch settings, then run generation.
             </p>
           </div>
           <Badge className="self-start whitespace-nowrap" variant="outline">
@@ -1391,63 +1343,54 @@ function PreviewCanvas({
         </div>
 
         <div className={cn(insetPanelClassName, 'overflow-hidden')}>
-          <div className="border-b border-border px-3 py-3.5 sm:px-5 sm:py-4">
-            <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-              <PreviewSnapshotItem
-                label="Primary input"
-                value={primaryInputLabel}
-              />
-              <PreviewSnapshotItem
-                label="Staged assets"
-                value={getLoadedAssetLabel(loadedAssets.length)}
-              />
-            </div>
-
-            <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-              <StatusPill label="Model" value={activeModelLabel} />
-              <StatusPill
-                label="Category"
-                value={getProductCategoryLabel(productCategory)}
-              />
-              <StatusPill
-                label="Style"
-                value={getCreativeStyleLabel(creativeStyle)}
-              />
-              <StatusPill
-                label="Subject"
-                value={getSubjectModeLabel(subjectMode)}
-              />
-              <StatusPill
-                label="Environment"
-                value={getShotEnvironmentLabel(shotEnvironment)}
-              />
-              {characterPresetLabel ? (
-                <StatusPill label="Casting" value={characterPresetLabel} />
-              ) : null}
-              {activeTab === 'video' && cameraMovement ? (
-                <StatusPill
-                  label="Camera"
-                  value={getCameraMovementLabel(cameraMovement)}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-5">
-            <div className="flex min-h-[240px] flex-col sm:min-h-[320px]">
-              <PreviewStage
-                activeTab={activeTab}
-                loadedAssets={loadedAssets.length}
-                previewVariantId={previewVariantId}
-                runMatchesWorkspace={runMatchesWorkspace}
-                runState={generationRun}
-                setPreviewVariantId={setPreviewVariantId}
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-border px-4 py-4 sm:px-6">
+          <div className="px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-5">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Setup summary
+                </p>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <PreviewSnapshotItem
+                    label="Primary input"
+                    value={primaryInputLabel}
+                  />
+                  <PreviewSnapshotItem
+                    label="Staged assets"
+                    value={getLoadedAssetLabel(loadedAssets.length)}
+                  />
+                </div>
+                <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <StatusPill label="Model" value={activeModelLabel} />
+                  <StatusPill
+                    label="Category"
+                    value={getProductCategoryLabel(productCategory)}
+                  />
+                  <StatusPill
+                    label="Style"
+                    value={getCreativeStyleLabel(creativeStyle)}
+                  />
+                  <StatusPill
+                    label="Subject"
+                    value={getSubjectModeLabel(subjectMode)}
+                  />
+                  <StatusPill
+                    label="Environment"
+                    value={getShotEnvironmentLabel(shotEnvironment)}
+                  />
+                  {characterPresetLabel ? (
+                    <StatusPill label="Casting" value={characterPresetLabel} />
+                  ) : null}
+                  {activeTab === 'video' && cameraMovement ? (
+                    <StatusPill
+                      label="Camera"
+                      value={getCameraMovementLabel(cameraMovement)}
+                    />
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="h-px bg-border/70" />
+
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   Batch size
@@ -1594,32 +1537,82 @@ function PreviewCanvas({
   )
 }
 
+function OutputPanel({
+  className,
+  previewVariantId,
+}: {
+  className?: string
+  previewVariantId: string | null
+}) {
+  const activeTab = useGenerationStore((state) => state.activeTab)
+  const assets = useGenerationStore((state) => state.assets)
+  const products = useGenerationStore((state) => state.products)
+  const generationRun = useGenerationStore((state) => state.generationRun)
+
+  const loadedAssets = useMemo(
+    () =>
+      [...Object.values(assets), ...products].filter((slot) => isSlotLoaded(slot)),
+    [assets, products],
+  )
+  const runMatchesWorkspace = generationRun.workspace === activeTab
+
+  return (
+    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              Output
+            </p>
+            <h2 className="mt-2 text-balance font-display text-xl font-semibold sm:text-2xl">
+              Render output
+            </h2>
+          </div>
+          <Button asChild size="sm" variant="secondary">
+            <Link href="/library">Open Library</Link>
+          </Button>
+        </div>
+
+        <div className={cn(insetPanelClassName, 'overflow-hidden')}>
+          <div className="p-4 sm:p-5">
+            <div className="flex min-h-[240px] flex-col sm:min-h-[320px]">
+              <PreviewStage
+                activeTab={activeTab}
+                loadedAssets={loadedAssets.length}
+                previewVariantId={previewVariantId}
+                runMatchesWorkspace={runMatchesWorkspace}
+                runState={generationRun}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function PreviewStage({
   activeTab,
   loadedAssets,
   previewVariantId,
   runMatchesWorkspace,
   runState,
-  setPreviewVariantId,
 }: {
   activeTab: WorkspaceTab
   loadedAssets: number
   previewVariantId: string | null
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
-  setPreviewVariantId: (variantId: string | null) => void
 }) {
-  const selectGenerationVariant = useGenerationStore(
-    (state) => state.selectGenerationVariant,
-  )
   const selectedVariant = runMatchesWorkspace
     ? getSelectedRunVariant(runState, previewVariantId)
     : null
+  const completedVariants = runState.variants.filter((variant) => Boolean(variant.result))
   const totalVariants = runState.variants.length
-  const completedVariants = getCompletedVariantCount(runState)
+  const completedCount = getCompletedVariantCount(runState)
   const failedVariants = getFailedVariantCount(runState)
   const activeTaskCount = getActiveTaskCount(runState)
-  const runSummaryItems = [`${completedVariants}/${totalVariants} complete`]
+  const runSummaryItems = [`${completedCount}/${totalVariants} complete`]
 
   if (failedVariants > 0) {
     runSummaryItems.push(`${failedVariants} failed`)
@@ -1632,24 +1625,8 @@ function PreviewStage({
   if (runMatchesWorkspace && totalVariants > 0) {
     return (
       <div className="flex flex-1 flex-col gap-4">
-        <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-foreground">
-                {getRunHeadline(runState)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {runSummaryItems.join(' · ')}
-              </p>
-            </div>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/library">Open Library</Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(240px,0.82fr)]">
-          <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex flex-1 justify-center">
+          <div className="flex min-h-0 w-full max-w-4xl flex-col gap-3">
             {selectedVariant?.result ? (
               <div className="overflow-hidden rounded-xl border border-border bg-background">
                 {selectedVariant.result.type === 'image' ? (
@@ -1662,13 +1639,13 @@ function PreviewStage({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt={`Generated result for variation ${selectedVariant.index}`}
-                      className="aspect-[4/3] w-full object-cover"
+                      className="max-h-[70vh] w-full bg-secondary/20 object-contain"
                       src={selectedVariant.result.url}
                     />
                   </ImagePreviewTrigger>
                 ) : (
                   <video
-                    className="aspect-[4/3] w-full bg-black object-cover"
+                    className="max-h-[70vh] w-full bg-black object-contain"
                     controls
                     playsInline
                     preload="metadata"
@@ -1700,92 +1677,36 @@ function PreviewStage({
               />
             ) : null}
 
-            {selectedVariant ? (
-              <div className={cn(insetPanelClassName, 'p-3.5')}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Variation {selectedVariant.index}
+            {completedVariants.length > 1 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {completedVariants.map((variant) => (
+                  <div
+                    className={cn(rowClassName, 'overflow-hidden p-2')}
+                    key={variant.variantId}
+                  >
+                    <p className="mb-2 px-1 text-sm font-medium text-muted-foreground">
+                      #{variant.index}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {selectedVariant.result?.taskId ??
-                        selectedVariant.taskId ??
-                        'Awaiting provider task'}
-                    </p>
+                    {variant.result?.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={`Generated result for variation ${variant.index}`}
+                        className="max-h-72 w-full rounded-md bg-secondary/20 object-contain"
+                        src={variant.result.url}
+                      />
+                    ) : (
+                      <video
+                        className="max-h-72 w-full rounded-md bg-black object-contain"
+                        controls
+                        playsInline
+                        preload="metadata"
+                        src={variant.result?.url}
+                      />
+                    )}
                   </div>
-                  <Badge variant={getVariantBadgeVariant(selectedVariant.status)}>
-                    {humanize(selectedVariant.status)}
-                  </Badge>
-                </div>
-
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {selectedVariant.profile}
-                </p>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <StatusPill
-                    label="Model"
-                    value={
-                      selectedVariant.result?.model ??
-                      runState.model ??
-                      (activeTab === 'image' ? 'Image run' : 'Video run')
-                    }
-                  />
-                  <StatusPill
-                    label="Status"
-                    value={humanize(selectedVariant.status)}
-                  />
-                </div>
-
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  {selectedVariant.prompt}
-                </p>
-
-                {selectedVariant.error ? (
-                  <p className="mt-3 text-sm text-destructive">
-                    {selectedVariant.error}
-                  </p>
-                ) : null}
+                ))}
               </div>
             ) : null}
-          </div>
-
-          <div className="grid gap-2">
-            {runState.variants.map((variant) => (
-              <button
-                className={cn(
-                  rowClassName,
-                  'p-3 text-left transition-colors',
-                  selectedVariant?.variantId === variant.variantId
-                    ? 'border-foreground/30 bg-secondary'
-                    : 'hover:border-foreground/20',
-                )}
-                key={variant.variantId}
-                onClick={() => {
-                  setPreviewVariantId(variant.variantId)
-                  selectGenerationVariant(variant.variantId)
-                }}
-                type="button"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-foreground">
-                    Variation {variant.index}
-                  </span>
-                  <Badge variant={getVariantBadgeVariant(variant.status)}>
-                    {humanize(variant.status)}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {variant.profile}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {variant.result?.taskId ??
-                    variant.taskId ??
-                    variant.error ??
-                    'Awaiting provider task'}
-                </p>
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -2368,32 +2289,6 @@ function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
 }
 
-function getKieCreditsValue(kieStatus: KieStatusResponse, isLoading: boolean) {
-  if (isLoading && kieStatus.fetchedAt === null) {
-    return 'Loading'
-  }
-
-  if (kieStatus.connected && kieStatus.credits !== null) {
-    return new Intl.NumberFormat('en-US', {
-      maximumFractionDigits: 0,
-    }).format(kieStatus.credits)
-  }
-
-  return 'Unavailable'
-}
-
-function getKieCreditsHelper(kieStatus: KieStatusResponse, isLoading: boolean) {
-  if (isLoading && kieStatus.fetchedAt === null) {
-    return 'Checking KIE account'
-  }
-
-  if (kieStatus.connected) {
-    return 'Live from KIE'
-  }
-
-  return kieStatus.error ?? 'KIE account unavailable'
-}
-
 function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
   if (estimate.credits === null) {
     return '0'
@@ -2437,17 +2332,6 @@ function getSelectedRunVariant(
     run.variants[0] ??
     null
   )
-}
-
-function getVariantBadgeVariant(status: GenerationVariant['status']) {
-  switch (status) {
-    case 'success':
-      return 'default' as const
-    case 'rendering':
-      return 'outline' as const
-    default:
-      return 'secondary' as const
-  }
 }
 
 function getImageModelLabel(model: ImageModelOption) {

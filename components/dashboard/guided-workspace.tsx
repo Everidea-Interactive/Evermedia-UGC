@@ -5,7 +5,6 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
-  Film,
   ImageIcon,
   LoaderCircle,
   ScanLine,
@@ -21,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   buildGuidedAnalysisFormData,
@@ -111,17 +110,6 @@ const cameraMovementLabels: Record<CameraMovement, string> = {
   orbit: 'Orbit',
 }
 
-const outputModeCopy = {
-  image: {
-    description: 'Analyze one product image, edit still prompts, then render images.',
-    label: 'Image Guided',
-  },
-  video: {
-    description: 'Analyze one product image, edit motion prompts, then render videos.',
-    label: 'Video Guided',
-  },
-} as const
-
 function handleFileInput(
   event: ChangeEvent<HTMLInputElement>,
   onSelect: (file: File | null) => void,
@@ -175,19 +163,6 @@ function formatEstimateUsd(usd: number | null, usdToIdrRate: number) {
     maximumFractionDigits: 0,
     style: 'currency',
   }).format(idr)
-}
-
-function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
-  switch (status) {
-    case 'analyzing':
-      return 'Analyzing'
-    case 'ready':
-      return 'Ready'
-    case 'error':
-      return 'Needs Attention'
-    default:
-      return 'Waiting'
-  }
 }
 
 function getGuidedVideoDurationLabel(
@@ -420,17 +395,6 @@ function FieldBlock({
         <p className="text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       {children}
-    </div>
-  )
-}
-
-function SummaryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-secondary/35 px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
     </div>
   )
 }
@@ -698,60 +662,6 @@ function GuidedResultTile({
         </p>
       </div>
     </article>
-  )
-}
-
-function GuidedOutputModeSection({
-  activeTab,
-  setActiveTab,
-}: {
-  activeTab: WorkspaceTab
-  setActiveTab: (activeTab: WorkspaceTab) => void
-}) {
-  return (
-    <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-      <div className="flex flex-col gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Output mode
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose whether Guided builds a still render or a motion render
-            before analyzing the product.
-          </p>
-        </div>
-
-        <Tabs
-          onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-          value={activeTab}
-        >
-          <TabsList aria-label="Guided Workspace Tabs" className="w-full grid-cols-2">
-            {(['image', 'video'] as const).map((value) => {
-              const Icon = value === 'image' ? ImageIcon : Film
-              const copy = outputModeCopy[value]
-
-              return (
-                <TabsTrigger
-                  className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
-                  key={value}
-                  value={value}
-                >
-                  <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                    <Icon className="size-5 shrink-0" suppressHydrationWarning />
-                    <span className="flex min-w-0 flex-col">
-                      <span className="text-base font-semibold">{copy.label}</span>
-                      <span className="text-xs font-normal text-current/72">
-                        {copy.description}
-                      </span>
-                    </span>
-                  </span>
-                </TabsTrigger>
-              )
-            })}
-          </TabsList>
-        </Tabs>
-      </div>
-    </section>
   )
 }
 
@@ -1171,7 +1081,6 @@ function GuidedShotEditorCard({
 function GuidedRunPanel({
   activeTab,
   activeRunInGuidedMode,
-  analysisStatus,
   canGenerate,
   endFrameAsset,
   estimate,
@@ -1192,7 +1101,6 @@ function GuidedRunPanel({
 }: {
   activeTab: WorkspaceTab
   activeRunInGuidedMode: boolean
-  analysisStatus: GuidedAnalysisStatus
   canGenerate: boolean
   endFrameAsset: AssetSlot
   estimate: GenerationCostEstimate
@@ -1239,59 +1147,6 @@ function GuidedRunPanel({
               Keep the render settings and batch status visible while you refine
               the prompts.
             </p>
-          </div>
-
-          <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className={fieldLabelClassName}>Plan Summary</p>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Keep the analysis output visible while editing and rendering.
-                </p>
-              </div>
-              <Badge variant="outline">{getAnalysisStatusLabel(analysisStatus)}</Badge>
-            </div>
-
-            {plan ? (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{plan.productCategory}</Badge>
-                  <Badge variant="outline">{plan.creativeStyle}</Badge>
-                  <Badge variant="outline">
-                    {plan.shots.length} shot{plan.shots.length === 1 ? '' : 's'}
-                  </Badge>
-                </div>
-
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <SummaryStat
-                    label="Analysis"
-                    value={getAnalysisStatusLabel(analysisStatus)}
-                  />
-                  <SummaryStat
-                    label="Prompt Set"
-                    value={`${plan.shots.length} ready`}
-                  />
-                </div>
-
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {plan.summary}
-                </p>
-              </>
-            ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-secondary/25 px-5 text-center">
-                <Sparkles
-                  className="size-7 text-muted-foreground"
-                  suppressHydrationWarning
-                />
-                <div>
-                  <p className="font-medium text-foreground">Waiting for analysis</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Analyze the hero product first. The shot summary will appear
-                    here once the prompt set is ready.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
@@ -1541,6 +1396,9 @@ export function GuidedWorkspace({
   kieStatus: KieStatusResponse
 }) {
   const [isReanalyzeDialogOpen, setIsReanalyzeDialogOpen] = useState(false)
+  const [guidedSection, setGuidedSection] = useState<
+    'analyze' | 'plan' | 'results'
+  >('analyze')
   const activeTab = useGenerationStore((state) => state.activeTab)
   const analysisError = useGenerationStore((state) => state.analysisError)
   const analysisStatus = useGenerationStore((state) => state.analysisStatus)
@@ -1552,7 +1410,6 @@ export function GuidedWorkspace({
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoModel = useGenerationStore((state) => state.videoModel)
-  const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setAnalysisError = useGenerationStore((state) => state.setAnalysisError)
   const setAnalysisStatus = useGenerationStore((state) => state.setAnalysisStatus)
   const setCameraMovement = useGenerationStore((state) => state.setCameraMovement)
@@ -1703,7 +1560,7 @@ export function GuidedWorkspace({
     if (!guidedInput.heroAsset.file) {
       setAnalysisError('A hero product image is required.')
       setAnalysisStatus('error')
-      return
+      return false
     }
 
     try {
@@ -1738,7 +1595,9 @@ export function GuidedWorkspace({
       }
 
       setGuidedPlan(payload.plan)
+      setAnalysisStatus('ready')
       setAnalysisError(payload.warning ?? null)
+      return true
     } catch (error) {
       setAnalysisStatus('error')
       setAnalysisError(
@@ -1746,6 +1605,7 @@ export function GuidedWorkspace({
           ? error.message
           : 'Unable to analyze the guided product input.',
       )
+      return false
     }
   }
 
@@ -1761,12 +1621,20 @@ export function GuidedWorkspace({
       return
     }
 
-    void runAnalyze()
+    void runAnalyze().then((didSucceed) => {
+      if (didSucceed) {
+        setGuidedSection('plan')
+      }
+    })
   }
 
   const handleConfirmReanalyze = async () => {
     setIsReanalyzeDialogOpen(false)
-    await runAnalyze()
+    const didSucceed = await runAnalyze()
+
+    if (didSucceed) {
+      setGuidedSection('plan')
+    }
   }
 
   const handleGenerate = async () => {
@@ -1832,6 +1700,7 @@ export function GuidedWorkspace({
       }
 
       hydrateGenerationRun(payload)
+      setGuidedSection('results')
     } catch (error) {
       setGenerationError(
         error instanceof Error ? error.message : 'Unable to start guided generation.',
@@ -1885,65 +1754,85 @@ export function GuidedWorkspace({
       />
 
       <div className={cn('grid gap-4', className)}>
-        <GuidedOutputModeSection
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+        <Tabs
+          className="flex flex-col gap-3"
+          onValueChange={(value) =>
+            setGuidedSection(value as 'analyze' | 'plan' | 'results')
+          }
+          value={guidedSection}
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
+            <div className="flex flex-col gap-3 xl:col-start-1">
+              <TabsList aria-label="Guided Sections" className="w-full grid-cols-3 p-1.5">
+                <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="analyze">
+                  Analyze
+                </TabsTrigger>
+                <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="plan">
+                  Plan
+                </TabsTrigger>
+                <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="results">
+                  Results
+                </TabsTrigger>
+              </TabsList>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-          <div className="grid gap-4">
-            <GuidedAnalyzePanel
+              <TabsContent className="mt-0" value="analyze">
+                <GuidedAnalyzePanel
+                  activeTab={activeTab}
+                  analysisError={analysisError}
+                  analysisHelperText={analysisHelperText}
+                  analysisStatus={analysisStatus}
+                  cameraMovement={cameraMovement}
+                  canAnalyze={canAnalyze}
+                  guidedInput={guidedInput}
+                  onAnalyze={handleAnalyze}
+                  onReset={resetGuidedState}
+                  setCameraMovement={setCameraMovement}
+                  setGuidedAnalysisModel={setGuidedAnalysisModel}
+                  setGuidedContentConcept={setGuidedContentConcept}
+                  setGuidedProductUrl={setGuidedProductUrl}
+                  setGuidedShotCount={setGuidedShotCount}
+                />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="plan">
+                <GuidedPlanEditor
+                  plan={guidedPlan}
+                  updateGuidedShotPrompt={updateGuidedShotPrompt}
+                />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="results">
+                <GuidedResultsSection generationRun={generationRun} />
+              </TabsContent>
+            </div>
+
+            <GuidedRunPanel
               activeTab={activeTab}
-              analysisError={analysisError}
-              analysisHelperText={analysisHelperText}
-              analysisStatus={analysisStatus}
-              cameraMovement={cameraMovement}
-              canAnalyze={canAnalyze}
-              guidedInput={guidedInput}
-              onAnalyze={handleAnalyze}
-              onReset={resetGuidedState}
-              setCameraMovement={setCameraMovement}
-              setGuidedAnalysisModel={setGuidedAnalysisModel}
-              setGuidedContentConcept={setGuidedContentConcept}
-              setGuidedProductUrl={setGuidedProductUrl}
-              setGuidedShotCount={setGuidedShotCount}
-            />
-
-            <GuidedPlanEditor
+              activeRunInGuidedMode={activeRunInGuidedMode}
+              canGenerate={canGenerate}
+              endFrameAsset={guidedInput.endFrameAsset}
+              estimate={estimate}
+              generateHelperText={generateHelperText}
+              generationRun={generationRun}
+              imageModel={imageModel}
+              isPricingLoading={isPricingLoading}
+              onCancel={() => {
+                void handleCancel()
+              }}
+              onGenerate={() => {
+                void handleGenerate()
+              }}
+              outputQuality={outputQuality}
               plan={guidedPlan}
-              updateGuidedShotPrompt={updateGuidedShotPrompt}
+              setImageModel={setImageModel}
+              setOutputQuality={setOutputQuality}
+              setVideoDuration={setVideoDuration}
+              setVideoModel={setVideoModel}
+              videoDuration={videoDuration}
+              videoModel={videoModel}
             />
           </div>
-
-          <GuidedRunPanel
-            activeTab={activeTab}
-            activeRunInGuidedMode={activeRunInGuidedMode}
-            analysisStatus={analysisStatus}
-            canGenerate={canGenerate}
-            endFrameAsset={guidedInput.endFrameAsset}
-            estimate={estimate}
-            generateHelperText={generateHelperText}
-            generationRun={generationRun}
-            imageModel={imageModel}
-            isPricingLoading={isPricingLoading}
-            onCancel={() => {
-              void handleCancel()
-            }}
-            onGenerate={() => {
-              void handleGenerate()
-            }}
-            outputQuality={outputQuality}
-            plan={guidedPlan}
-            setImageModel={setImageModel}
-            setOutputQuality={setOutputQuality}
-            setVideoDuration={setVideoDuration}
-            setVideoModel={setVideoModel}
-            videoDuration={videoDuration}
-            videoModel={videoModel}
-          />
-        </div>
-
-        <GuidedResultsSection generationRun={generationRun} />
+        </Tabs>
       </div>
     </>
   )
