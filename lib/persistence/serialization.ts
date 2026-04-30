@@ -162,6 +162,7 @@ export function createGenerationRunState(
       completedAt: null,
       createdAt: null,
       error: null,
+      experience: 'manual',
       model: null,
       provider: null,
       runId: null,
@@ -194,6 +195,7 @@ export function createGenerationRunState(
       run.status === 'error'
         ? run.variants.find((variant) => variant.error)?.error ?? null
         : null,
+    experience: run.configSnapshot.experience,
     model: run.model,
     provider: run.provider,
     runId: run.id,

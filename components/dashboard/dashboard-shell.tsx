@@ -59,6 +59,7 @@ import {
   getGenerationHelperMessage,
 } from '@/lib/generation/run-copy'
 import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
+import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
@@ -432,10 +433,11 @@ export function DashboardShell() {
 
   useEffect(() => {
     const isTerminalStatus =
-      generationRun.status === 'success' ||
-      generationRun.status === 'partial-success' ||
-      generationRun.status === 'error' ||
-      generationRun.status === 'cancelled'
+      generationRun.experience === 'manual' &&
+      (generationRun.status === 'success' ||
+        generationRun.status === 'partial-success' ||
+        generationRun.status === 'error' ||
+        generationRun.status === 'cancelled')
     const terminalRunKey =
       generationRun.runId && isTerminalStatus
         ? `${generationRun.runId}:${generationRun.status}`
@@ -453,7 +455,7 @@ export function DashboardShell() {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [generationRun.runId, generationRun.status])
+  }, [generationRun.experience, generationRun.runId, generationRun.status])
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -1274,7 +1276,11 @@ function RunControlPanel({
     figureArtDirection,
     subjectMode,
   })
-  const runMatchesWorkspace = generationRun.workspace === activeTab
+  const runMatchesWorkspace = isRunVisibleForExperience(
+    generationRun,
+    'manual',
+    activeTab,
+  )
   const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
   const generationFooterMessage =
     !runMatchesWorkspace || generationRun.status === 'idle'

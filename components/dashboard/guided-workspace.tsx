@@ -39,6 +39,7 @@ import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
+import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
@@ -1375,10 +1376,19 @@ function GuidedRunPanel({
   )
 }
 
-function GuidedResultsSection({ generationRun }: { generationRun: GenerationRun }) {
-  const hasVariants = generationRun.variants.length > 0
+function GuidedResultsSection({
+  activeTab,
+  generationRun,
+}: {
+  activeTab: WorkspaceTab
+  generationRun: GenerationRun
+}) {
+  const visibleRun = isRunVisibleForExperience(generationRun, 'guided', activeTab)
+    ? generationRun
+    : null
+  const hasVariants = Boolean(visibleRun?.variants.length)
   const resultsDescription =
-    generationRun.status === 'rendering'
+    visibleRun?.status === 'rendering'
       ? 'Guided runs populate one result tile per planned shot as each task completes.'
       : 'Guided runs render one tile per planned shot and keep the prompts attached to each result.'
 
@@ -1403,15 +1413,15 @@ function GuidedResultsSection({ generationRun }: { generationRun: GenerationRun 
 
           {hasVariants ? (
             <Badge className="self-start" variant="outline">
-              {generationRun.variants.length} variation
-              {generationRun.variants.length === 1 ? '' : 's'}
+              {visibleRun?.variants.length} variation
+              {visibleRun?.variants.length === 1 ? '' : 's'}
             </Badge>
           ) : null}
         </div>
 
         {hasVariants ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {generationRun.variants.map((variant) => (
+            {visibleRun?.variants.map((variant) => (
               <GuidedResultTile key={variant.variantId} variant={variant} />
             ))}
           </div>
@@ -1860,7 +1870,7 @@ export function GuidedWorkspace({
               </TabsContent>
 
               <TabsContent className="mt-0" value="results">
-                <GuidedResultsSection generationRun={generationRun} />
+                <GuidedResultsSection activeTab={activeTab} generationRun={generationRun} />
               </TabsContent>
             </div>
 

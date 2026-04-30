@@ -38,3 +38,7 @@ Thumbs.db
 
 # local tooling
 /.codex
+
+
+# output files
+/medias/

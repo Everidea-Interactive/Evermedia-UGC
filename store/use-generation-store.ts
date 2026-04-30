@@ -172,6 +172,7 @@ function createEmptyRunState(): GenerationRun {
     completedAt: null,
     createdAt: null,
     error: null,
+    experience: 'manual',
     model: null,
     provider: null,
     runId: null,

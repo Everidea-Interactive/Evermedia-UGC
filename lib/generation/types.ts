@@ -154,6 +154,7 @@ export type GenerationRun = {
   completedAt: string | null
   createdAt: string | null
   error: string | null
+  experience: GenerationExperience
   model: string | null
   provider: GenerationProvider | null
   runId: string | null
