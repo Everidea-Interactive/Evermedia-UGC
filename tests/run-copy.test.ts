@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   getGenerateButtonLabel,
+  getGenerationFailureNotice,
   getGenerationHelperMessage,
   getRunBodyCopy,
 } from '@/lib/generation/run-copy'
@@ -148,5 +149,25 @@ describe('run copy helpers', () => {
     )
 
     expect(errorBody).toContain('generate again')
+  })
+
+  it('extracts provider payload errors into a cleaner failure notice', () => {
+    const notice = getGenerationFailureNotice(
+      'KIE file upload did not return a usable remote URL. payload={"success":false,"code":401,"msg":"Authentication failed: Free users can upload up to 30 files within 30 days"}',
+    )
+
+    expect(notice.title).toBe('Generation blocked by provider limits')
+    expect(notice.message).toBe(
+      'Authentication failed: Free users can upload up to 30 files within 30 days (code 401)',
+    )
+    expect(notice.detail).toBe('KIE file upload did not return a usable remote URL.')
+  })
+
+  it('returns a generic failure notice when no payload metadata exists', () => {
+    const notice = getGenerationFailureNotice('Unable to start generation.')
+
+    expect(notice.title).toBe('Generation failed')
+    expect(notice.message).toBe('Unable to start generation.')
+    expect(notice.detail).toBeNull()
   })
 })

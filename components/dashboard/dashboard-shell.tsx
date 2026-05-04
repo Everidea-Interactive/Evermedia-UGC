@@ -38,6 +38,7 @@ import { GuidedWorkspace } from '@/components/dashboard/guided-workspace'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ErrorNoticeDialog } from '@/components/ui/error-notice-dialog'
 import { Select } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -55,8 +56,8 @@ import {
   getActiveTaskCount,
   getCompletedVariantCount,
   getFailedVariantCount,
+  getGenerationFailureNotice,
   getGenerateButtonLabel,
-  getGenerationHelperMessage,
 } from '@/lib/generation/run-copy'
 import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
 import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
@@ -413,6 +414,9 @@ export function DashboardShell() {
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setExperience = useGenerationStore((state) => state.setExperience)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const generationErrorEventId = useGenerationStore(
+    (state) => state.generationErrorEventId,
+  )
   const kiePricingState = useKiePricing()
   const kieStatusState = useKieStatus(generationRun)
   const controller = useGenerationController({
@@ -424,6 +428,10 @@ export function DashboardShell() {
   const [manualSection, setManualSection] = useState<
     'references' | 'preset' | 'motion' | 'outputs'
   >('references')
+  const [isErrorNoticeOpen, setIsErrorNoticeOpen] = useState(false)
+  const [errorNotice, setErrorNotice] = useState(() =>
+    getGenerationFailureNotice(null),
+  )
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -458,8 +466,31 @@ export function DashboardShell() {
     }
   }, [generationRun.experience, generationRun.runId, generationRun.status])
 
+  useEffect(() => {
+    if (
+      generationErrorEventId === 0 ||
+      generationRun.status !== 'error' ||
+      !generationRun.error
+    ) {
+      return
+    }
+    setErrorNotice(getGenerationFailureNotice(generationRun.error))
+    setIsErrorNoticeOpen(true)
+  }, [
+    generationErrorEventId,
+    generationRun.error,
+    generationRun.status,
+  ])
+
   return (
     <div className="min-h-screen overflow-x-hidden">
+      <ErrorNoticeDialog
+        description={errorNotice.message}
+        detail={errorNotice.detail}
+        onOpenChange={setIsErrorNoticeOpen}
+        open={isErrorNoticeOpen}
+        title={errorNotice.title}
+      />
       <a
         href="#dashboard-main"
         className="sr-only left-4 top-4 z-50 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed"
@@ -1283,10 +1314,6 @@ function RunControlPanel({
     activeTab,
   )
   const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
-  const generationFooterMessage =
-    !runMatchesWorkspace || generationRun.status === 'idle'
-      ? getGenerationHelperMessage(disabledReason, generationRun)
-      : null
 
   useEffect(() => {
     if (activeTab === 'video' && batchSize !== 1) {
@@ -1400,24 +1427,10 @@ function RunControlPanel({
                       ))}
                     </ToggleGroup>
                   </div>
-
-                  <div className="h-px bg-border/70" />
                 </>
               ) : null}
 
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Generation
-                </p>
-                {generationFooterMessage ? (
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {generationFooterMessage}
-                  </p>
-                ) : null}
-
-                <div
-                  className={cn(generationFooterMessage ? 'mt-4' : 'mt-2', 'grid gap-2.5')}
-                >
+              <div className={cn('mt-2 grid gap-2.5')}>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       {activeTab === 'image' ? 'Image model' : 'Video model'}
@@ -1526,7 +1539,7 @@ function RunControlPanel({
                     </>
                   ) : null}
 
-                </div>
+              </div>
 
                 <div className="mt-2.5 flex w-full flex-col gap-2">
                   <GenerationEstimateStrip
@@ -1568,7 +1581,6 @@ function RunControlPanel({
                     {getGenerateButtonLabel(generationRun, batchSize)}
                   </Button>
                 </div>
-              </div>
             </div>
           </div>
         </div>

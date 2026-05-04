@@ -1,5 +1,81 @@
 import type { BatchSize, GenerationRun } from '@/lib/generation/types'
 
+type GenerationFailureNotice = {
+  detail: string | null
+  message: string
+  title: string
+}
+
+const fallbackFailureMessage = 'The provider rejected this generation request.'
+
+function parsePayloadJsonFromError(message: string) {
+  const marker = ' payload='
+  const markerIndex = message.indexOf(marker)
+
+  if (markerIndex < 0) {
+    return null
+  }
+
+  const rawPayload = message.slice(markerIndex + marker.length).trim()
+
+  if (!rawPayload.startsWith('{')) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawPayload) as {
+      code?: number
+      msg?: string
+      success?: boolean
+    }
+  } catch {
+    return null
+  }
+}
+
+function stripPayloadFromErrorMessage(message: string) {
+  const marker = ' payload='
+  const markerIndex = message.indexOf(marker)
+
+  if (markerIndex < 0) {
+    return message
+  }
+
+  return message.slice(0, markerIndex).trim()
+}
+
+export function getGenerationFailureNotice(
+  error: string | null | undefined,
+): GenerationFailureNotice {
+  if (!error) {
+    return {
+      detail: null,
+      message: fallbackFailureMessage,
+      title: 'Generation failed',
+    }
+  }
+
+  const payload = parsePayloadJsonFromError(error)
+  const payloadMessage = payload?.msg?.trim()
+
+  if (payloadMessage) {
+    const codeText =
+      typeof payload?.code === 'number' ? ` (code ${payload.code})` : ''
+
+    return {
+      detail: stripPayloadFromErrorMessage(error),
+      message: `${payloadMessage}${codeText}`,
+      title: 'Generation blocked by provider limits',
+    }
+  }
+
+  return {
+    detail: null,
+    message: stripPayloadFromErrorMessage(error) || fallbackFailureMessage,
+    title: 'Generation failed',
+  }
+}
+
 export function getCompletedVariantCount(run: GenerationRun) {
   return run.variants.filter((variant) => variant.status === 'success').length
 }

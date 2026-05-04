@@ -55,6 +55,7 @@ type GenerationStateShape = {
   experience: GenerationExperience
   figureArtDirection: FigureArtDirection
   generationRun: GenerationRun
+  generationErrorEventId: number
   guidedInput: GuidedInputState
   guidedPlan: GuidedAnalysisPlan | null
   imageModel: ImageModelOption
@@ -230,6 +231,7 @@ function createInitialState(): GenerationStateShape {
     experience: 'manual',
     figureArtDirection: 'none',
     generationRun: createEmptyRunState(),
+    generationErrorEventId: 0,
     guidedInput: createGuidedInputState(),
     guidedPlan: null,
     imageModel: 'nano-banana',
@@ -457,6 +459,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     }),
   resetGenerationRun: () =>
     set(() => ({
+      generationErrorEventId: 0,
       generationRun: createEmptyRunState(),
       sessionStats: createEmptySessionStats(),
     })),
@@ -477,6 +480,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       creativeStyle: nextState.creativeStyle,
       figureArtDirection: nextState.figureArtDirection,
       generationRun: nextState.generationRun,
+      generationErrorEventId: nextState.generationErrorEventId,
       imageModel: nextState.imageModel,
       outputQuality: nextState.outputQuality,
       productCategory: nextState.productCategory,
@@ -498,6 +502,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set({
       analysisError: nextState.analysisError,
       analysisStatus: nextState.analysisStatus,
+      generationErrorEventId: nextState.generationErrorEventId,
       generationRun: nextState.generationRun,
       guidedInput: nextState.guidedInput,
       guidedPlan: nextState.guidedPlan,
@@ -554,6 +559,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       )
 
       return {
+        generationErrorEventId: state.generationErrorEventId + 1,
         generationRun:
           variants.length > 0
             ? {
