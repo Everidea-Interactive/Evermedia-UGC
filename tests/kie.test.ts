@@ -222,6 +222,74 @@ describe('KIE batch submission', () => {
     )
   })
 
+  it.each([
+    [
+      'data string',
+      {
+        success: true,
+        code: 200,
+        msg: 'File uploaded successfully',
+        data: 'https://files.example.com/product.png',
+      },
+    ],
+    [
+      'snake case download URL',
+      {
+        success: true,
+        code: 200,
+        data: {
+          download_url: 'https://files.example.com/product.png',
+        },
+      },
+    ],
+    [
+      'nested file URL object',
+      {
+        success: true,
+        code: 200,
+        data: {
+          file: {
+            remote_url: 'https://files.example.com/product.png',
+          },
+        },
+      },
+    ],
+    [
+      'URL inside array payload',
+      {
+        success: true,
+        code: 200,
+        result: [
+          {
+            meta: 'uploaded',
+          },
+          {
+            asset: {
+              href: 'https://files.example.com/product.png',
+            },
+          },
+        ],
+      },
+    ],
+  ])('accepts KIE upload responses with a %s', async (_label, payload) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      uploadFileToKie(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+        'image',
+      ),
+    ).resolves.toBe('https://files.example.com/product.png')
+  })
+
   it('returns a clear timeout error when a KIE request is aborted', async () => {
     vi.stubGlobal(
       'fetch',

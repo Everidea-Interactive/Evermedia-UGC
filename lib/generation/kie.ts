@@ -219,36 +219,86 @@ function extractCredits(payload: unknown): number | null {
   return null
 }
 
+function isRemoteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value)
+}
+
+function summarizePayload(payload: unknown): string {
+  try {
+    const text = JSON.stringify(payload)
+    return text.length > 500 ? `${text.slice(0, 500)}...` : text
+  } catch {
+    return String(payload)
+  }
+}
+
 function extractRemoteUrl(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') {
+  const visited = new WeakSet<object>()
+
+  function visit(node: unknown): string | null {
+    if (typeof node === 'string') {
+      const candidate = node.trim()
+      return isRemoteHttpUrl(candidate) ? candidate : null
+    }
+
+    if (!node || typeof node !== 'object') {
+      return null
+    }
+
+    if (visited.has(node)) {
+      return null
+    }
+
+    visited.add(node)
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const nestedUrl = visit(item)
+
+        if (nestedUrl) {
+          return nestedUrl
+        }
+      }
+
+      return null
+    }
+
+    const record = node as Record<string, unknown>
+    const directCandidates = [
+      record.url,
+      record.fileUrl,
+      record.fileURL,
+      record.file_url,
+      record.downloadUrl,
+      record.downloadURL,
+      record.download_url,
+      record.remoteUrl,
+      record.remote_url,
+      record.link,
+      record.href,
+      record.src,
+    ]
+
+    for (const candidate of directCandidates) {
+      const directUrl = visit(candidate)
+
+      if (directUrl) {
+        return directUrl
+      }
+    }
+
+    for (const value of Object.values(record)) {
+      const nestedUrl = visit(value)
+
+      if (nestedUrl) {
+        return nestedUrl
+      }
+    }
+
     return null
   }
 
-  const record = payload as Record<string, unknown>
-  const directCandidates = [
-    record.url,
-    record.fileUrl,
-    record.file_url,
-    record.downloadUrl,
-  ]
-
-  for (const candidate of directCandidates) {
-    if (typeof candidate === 'string' && candidate.length > 0) {
-      return candidate
-    }
-  }
-
-  const nestedCandidates = [record.data, record.result, record.response]
-
-  for (const candidate of nestedCandidates) {
-    const nested = extractRemoteUrl(candidate)
-
-    if (nested) {
-      return nested
-    }
-  }
-
-  return null
+  return visit(payload)
 }
 
 function extractResultUrls(payload: unknown): string[] {
@@ -874,7 +924,9 @@ export async function uploadFileToKie(
   const remoteUrl = extractRemoteUrl(payload)
 
   if (!remoteUrl) {
-    throw new Error('KIE file upload did not return a usable remote URL.')
+    throw new Error(
+      `KIE file upload did not return a usable remote URL. payload=${summarizePayload(payload)}`,
+    )
   }
 
   return remoteUrl
