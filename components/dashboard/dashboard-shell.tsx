@@ -1032,7 +1032,7 @@ function MotionControlsSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            description="Only Veo uses end-frame guidance in Phase 2. Other models ignore this slot."
+            description="Only Veo uses end-frame guidance. Other models ignore this slot."
             title="End frame reference"
           >
             <ReferenceCard

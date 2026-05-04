@@ -19,7 +19,7 @@ export function AuthenticatedShell({
               className="font-display text-lg font-semibold text-foreground"
               href="/"
             >
-              Evermedia UGC
+              Evermedia Studio
             </Link>
             <nav className="flex items-center gap-2.5">
               <Link

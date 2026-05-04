@@ -10,7 +10,7 @@ import { redirectIfAuthenticated } from '@/lib/auth/session'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
 export const metadata: Metadata = {
-  title: 'Sign In | Evermedia UGC',
+  title: 'Sign In | Evermedia Studio',
 }
 
 export default async function SignInPage({
@@ -76,7 +76,7 @@ export default async function SignInPage({
 
         <div className="auth-card">
           <div>
-            <p className="auth-eyebrow auth-signin-only">Phase 4 Access</p>
+            <p className="auth-eyebrow auth-signin-only">Secure Access</p>
             <p className="auth-eyebrow auth-reset-only">Password Recovery</p>
 
             <h1 className="auth-title auth-signin-only">
@@ -84,10 +84,6 @@ export default async function SignInPage({
             </h1>
             <h1 className="auth-title auth-reset-only">Reset your password</h1>
 
-            <p className="auth-copy auth-signin-only">
-              Use your Supabase email and password to access the protected studio
-              and library.
-            </p>
             <p className="auth-copy auth-reset-only">
               Request a password reset email for your Supabase account. You can
               return to sign in any time.

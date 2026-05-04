@@ -6,7 +6,7 @@ import { buildSignInPath } from '@/lib/auth/navigation'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 
 export const metadata: Metadata = {
-  title: 'Update Password | Evermedia UGC',
+  title: 'Update Password | Evermedia Studio',
 }
 
 export default async function UpdatePasswordPage({
