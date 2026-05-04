@@ -292,7 +292,8 @@ const videoModels: Array<{
   },
 ]
 
-const qualities: OutputQuality[] = ['720p', '1080p', '4k']
+const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
+const videoQualities: OutputQuality[] = ['720p', '1080p']
 const durations: VideoDuration[] = ['base', 'extended']
 
 function getVideoDurationLabel(model: VideoModelOption, duration: VideoDuration) {
@@ -317,7 +318,7 @@ function getImageQualityOptions(
 ) {
   return (
     kiePricing?.supportedImageQualities?.[imageModel] ??
-    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : qualities)
+    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : imageQualities)
   )
 }
 
@@ -1489,9 +1490,9 @@ function RunControlPanel({
                         }
                         value={outputQuality}
                       >
-                        {qualities.map((quality) => (
+                        {videoQualities.map((quality) => (
                           <option key={quality} value={quality}>
-                            {quality === '4k' ? '4K' : quality}
+                            {quality}
                           </option>
                         ))}
                       </Select>
@@ -1525,20 +1526,6 @@ function RunControlPanel({
                     </>
                   ) : null}
 
-                  {activeTab === 'video' && videoModel === 'veo-3.1' && outputQuality === '4k' ? (
-                    <p className="text-xs text-muted-foreground">
-                      4K Veo upgrades are reserved for a later phase, so generation
-                      stays disabled until you switch back to 720p or 1080p.
-                    </p>
-                  ) : null}
-                  {activeTab === 'video' &&
-                  videoModel === 'seedance-1.5-pro' &&
-                  outputQuality === '4k' ? (
-                    <p className="text-xs text-muted-foreground">
-                      Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
-                      back to 720p or 1080p before generating.
-                    </p>
-                  ) : null}
                 </div>
 
                 <div className="mt-2.5 flex w-full flex-col gap-2">

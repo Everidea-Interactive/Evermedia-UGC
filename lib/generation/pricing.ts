@@ -1,18 +1,21 @@
 import {
   choosePrimaryReferenceSlot,
+  getImageResolution,
   getGrokDuration,
   getGrokResolution,
   getKlingDuration,
-  getNanoBananaResolution,
   getSeedanceDuration,
+  getVideoResolution,
   hasVeoReferenceSlot,
 } from '@/lib/generation/model-mapping'
 import type {
   GenerationCostEstimate,
   GenerationCostRate,
   GenerationSnapshot,
+  ImageResolution,
   KiePricingMatrix,
   OutputQuality,
+  VideoResolution,
   VideoDuration,
 } from '@/lib/generation/types'
 
@@ -146,21 +149,21 @@ export function buildKiePricingMatrix(input: {
   }
   const gptImageRatesByMode = {
     promptOnly: {
-      '720p': parseRate(
+      '1K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\btext-to-image\b/,
           /\b1k\b/,
         ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 1K'),
       ),
-      '1080p': parseRate(
+      '2K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\btext-to-image\b/,
           /\b2k\b/,
         ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 2K'),
       ),
-      '4k': parseRate(
+      '4K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\btext-to-image\b/,
@@ -171,21 +174,21 @@ export function buildKiePricingMatrix(input: {
       ),
     },
     withReference: {
-      '720p': parseRate(
+      '1K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\bimage-to-image\b/,
           /\b1k\b/,
         ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 1K'),
       ),
-      '1080p': parseRate(
+      '2K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\bimage-to-image\b/,
           /\b2k\b/,
         ]) ?? findRecord(input.nanoRecords, 'Google nano banana 2, 2K'),
       ),
-      '4k': parseRate(
+      '4K': parseRate(
         findRecordByPatterns(gptImageRecords, [
           /\bgpt image 2\b/,
           /\bimage-to-image\b/,
@@ -283,7 +286,7 @@ export function buildKiePricingMatrix(input: {
     },
   }
 
-  const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
+  const videoQualities: VideoResolution[] = ['720p', '1080p']
   const videoDurations: VideoDuration[] = ['base', 'extended']
   const grokPricingByInputMode = {
     promptOnly: grokVideoRatesByInput['text-to-video'],
@@ -296,10 +299,9 @@ export function buildKiePricingMatrix(input: {
   }
 
   for (const mode of ['promptOnly', 'withReference'] as const) {
-    for (const quality of imageQualities) {
+    for (const quality of videoQualities) {
       const resolution = getGrokResolution(quality)
       const perSecondRate = grokPricingByInputMode[mode][resolution]
-
       grokVideoMatrix[mode][quality] = {
         base: multiplyRate(
           perSecondRate,
@@ -362,12 +364,10 @@ export function buildKiePricingMatrix(input: {
       },
       'gpt-image-2': gptImageRatesByMode,
       'nano-banana': {
-        '720p': nanoRatesByResolution[getNanoBananaResolution('720p')],
-        '1080p':
-          nanoRatesByResolution[getNanoBananaResolution('1080p')] ??
-          nanoRatesByResolution['1K'],
-        '4k':
-          nanoRatesByResolution[getNanoBananaResolution('4k')] ??
+        '1K': nanoRatesByResolution['1K'],
+        '2K': nanoRatesByResolution['2K'],
+        '4K':
+          nanoRatesByResolution['4K'] ??
           nanoRatesByResolution['2K'] ??
           nanoRatesByResolution['1K'],
       },
@@ -462,9 +462,10 @@ export function getGenerationCostEstimate(
   let perTaskRate: GenerationCostRate | null = null
 
   if (snapshot.activeTab === 'image') {
+    const imageResolution = getImageResolution(snapshot.outputQuality)
+
     if (snapshot.imageModel === 'nano-banana') {
-      perTaskRate =
-        pricingMatrix.image['nano-banana'][snapshot.outputQuality] ?? null
+      perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
     } else if (snapshot.imageModel === 'gpt-image-2') {
       const hasReference = Boolean(
         choosePrimaryReferenceSlot({
@@ -475,8 +476,8 @@ export function getGenerationCostEstimate(
       )
 
       perTaskRate = hasReference
-        ? pricingMatrix.image['gpt-image-2'].withReference[snapshot.outputQuality]
-        : pricingMatrix.image['gpt-image-2'].promptOnly[snapshot.outputQuality]
+        ? pricingMatrix.image['gpt-image-2'].withReference[imageResolution]
+        : pricingMatrix.image['gpt-image-2'].promptOnly[imageResolution]
     } else {
       const hasReference = Boolean(
         choosePrimaryReferenceSlot({
@@ -491,10 +492,6 @@ export function getGenerationCostEstimate(
         : pricingMatrix.image['grok-imagine'].promptOnly
     }
   } else if (snapshot.videoModel === 'veo-3.1') {
-    if (snapshot.outputQuality === '4k') {
-      return unavailableEstimate('4K Veo upgrades are not enabled.')
-    }
-
     perTaskRate = hasVeoReferenceSlot({
       assets: snapshot.assets,
       products: snapshot.products,
@@ -515,10 +512,7 @@ export function getGenerationCostEstimate(
       ? pricingMatrix.video.kling.withReference[snapshot.videoDuration]
       : pricingMatrix.video.kling.promptOnly[snapshot.videoDuration]
   } else if (snapshot.videoModel === 'seedance-1.5-pro') {
-    if (snapshot.outputQuality === '4k') {
-      return unavailableEstimate('4K Seedance 1.5 Pro output is not supported.')
-    }
-
+    const videoResolution = getVideoResolution(snapshot.outputQuality)
     const hasReference = Boolean(
       choosePrimaryReferenceSlot({
         assets: snapshot.assets,
@@ -528,26 +522,27 @@ export function getGenerationCostEstimate(
     )
 
     perTaskRate = hasReference
-      ? pricingMatrix.video['seedance-1.5-pro'].withReference[
-          snapshot.outputQuality
-        ][snapshot.videoDuration]
-      : pricingMatrix.video['seedance-1.5-pro'].promptOnly[
-          snapshot.outputQuality
-        ][snapshot.videoDuration]
-  } else {
-    const hasReference = Boolean(
-      choosePrimaryReferenceSlot({
-        assets: snapshot.assets,
-        products: snapshot.products,
-        subjectMode: snapshot.subjectMode,
-      }),
-    )
-
-    perTaskRate = hasReference
-      ? pricingMatrix.video['grok-imagine'].withReference[snapshot.outputQuality][
+      ? pricingMatrix.video['seedance-1.5-pro'].withReference[videoResolution][
           snapshot.videoDuration
         ]
-      : pricingMatrix.video['grok-imagine'].promptOnly[snapshot.outputQuality][
+      : pricingMatrix.video['seedance-1.5-pro'].promptOnly[videoResolution][
+          snapshot.videoDuration
+        ]
+  } else {
+    const videoResolution = getVideoResolution(snapshot.outputQuality)
+    const hasReference = Boolean(
+      choosePrimaryReferenceSlot({
+        assets: snapshot.assets,
+        products: snapshot.products,
+        subjectMode: snapshot.subjectMode,
+      }),
+    )
+
+    perTaskRate = hasReference
+      ? pricingMatrix.video['grok-imagine'].withReference[videoResolution][
+          snapshot.videoDuration
+        ]
+      : pricingMatrix.video['grok-imagine'].promptOnly[videoResolution][
           snapshot.videoDuration
         ]
   }

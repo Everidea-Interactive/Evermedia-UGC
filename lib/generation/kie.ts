@@ -11,11 +11,13 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
+  getImageResolution,
   getGrokDuration,
   getGrokResolution,
   getKlingDuration,
   getNanoBananaResolution,
   getSeedanceDuration,
+  getVideoResolution,
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
@@ -424,15 +426,7 @@ function getGptImage2AspectRatio(subjectMode: SubjectMode) {
 }
 
 function getGptImage2Resolution(outputQuality: OutputQuality) {
-  if (outputQuality === '4k') {
-    return '4K'
-  }
-
-  if (outputQuality === '1080p') {
-    return '2K'
-  }
-
-  return '1K'
+  return getImageResolution(outputQuality)
 }
 
 function getVideoAspectRatio(subjectMode: SubjectMode) {
@@ -787,12 +781,9 @@ function buildVideoPayload(input: {
   const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
+  const videoResolution = getVideoResolution(input.outputQuality)
 
   if (input.videoModel === 'veo-3.1') {
-    if (input.outputQuality === '4k') {
-      throw new Error('4K Veo upgrades are not enabled in Phase 3.')
-    }
-
     const imageUrls = [
       primaryReference?.remoteUrl,
       endFrameReference?.remoteUrl,
@@ -840,17 +831,13 @@ function buildVideoPayload(input: {
           aspect_ratio: aspectRatio,
           mode: 'normal',
           duration: getGrokDuration(input.videoDuration),
-          resolution: getGrokResolution(input.outputQuality),
+          resolution: getGrokResolution(videoResolution),
         },
       },
     }
   }
 
   if (input.videoModel === 'seedance-1.5-pro') {
-    if (input.outputQuality === '4k') {
-      throw new Error('4K Seedance 1.5 Pro output is not supported.')
-    }
-
     const inputUrls = [
       primaryReference?.remoteUrl,
       endFrameReference?.remoteUrl,
@@ -866,7 +853,7 @@ function buildVideoPayload(input: {
           prompt: input.prompt,
           ...(inputUrls.length > 0 ? { input_urls: inputUrls } : null),
           aspect_ratio: aspectRatio,
-          resolution: input.outputQuality,
+          resolution: videoResolution,
           duration: getSeedanceDuration(input.videoDuration),
           fixed_lens: false,
           generate_audio: false,
@@ -955,6 +942,15 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     'videoModel',
     ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
   )
+  const outputQuality = readEnum(
+    formData,
+    'outputQuality',
+    ['720p', '1080p', '4k'] as const,
+  )
+
+  if (workspace === 'video' && outputQuality === '4k') {
+    throw new Error('Video output quality supports only 720p or 1080p.')
+  }
   const manifestValue = readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
 
@@ -1105,11 +1101,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ),
     guided,
     imageModel,
-    outputQuality: readEnum(
-      formData,
-      'outputQuality',
-      ['720p', '1080p', '4k'] as const,
-    ),
+    outputQuality,
     productCategory: readEnum(
       formData,
       'productCategory',

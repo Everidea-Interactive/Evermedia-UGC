@@ -69,7 +69,8 @@ const rowClassName = 'rounded-lg border border-border bg-background'
 const fieldLabelClassName =
   'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 
-const outputQualities: OutputQuality[] = ['720p', '1080p', '4k']
+const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
+const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoDurations: VideoDuration[] = ['base', 'extended']
 
 const conceptCopy = {
@@ -122,7 +123,7 @@ function getImageQualityOptions(
     kiePricing?.supportedImageQualities?.[imageModel] ??
     (imageModel === 'grok-imagine'
       ? (['1080p'] as OutputQuality[])
-      : outputQualities)
+      : imageQualities)
   )
 }
 
@@ -1280,7 +1281,7 @@ function GuidedRunPanel({
                 }
                 value={outputQuality}
               >
-                {imageQualityOptions.map((quality) => (
+                {(activeTab === 'image' ? imageQualityOptions : videoQualities).map((quality) => (
                   <option key={quality} value={quality}>
                     {activeTab === 'image'
                       ? getImageQualityLabel(quality)
@@ -1289,22 +1290,6 @@ function GuidedRunPanel({
                 ))}
               </Select>
             </FieldBlock>
-
-            {activeTab === 'video' && videoModel === 'veo-3.1' && outputQuality === '4k' ? (
-              <p className="text-xs leading-5 text-muted-foreground">
-                4K Veo upgrades are reserved for a later phase, so guided video
-                generation stays disabled until you switch back to 720p or 1080p.
-              </p>
-            ) : null}
-
-            {activeTab === 'video' &&
-            videoModel === 'seedance-1.5-pro' &&
-            outputQuality === '4k' ? (
-              <p className="text-xs leading-5 text-muted-foreground">
-                Seedance 1.5 Pro supports up to 1080p in this workflow. Switch
-                back to 720p or 1080p before generating.
-              </p>
-            ) : null}
 
             {activeTab === 'video' ? (
               <GuidedEndFrameUploadCard slot={endFrameAsset} />

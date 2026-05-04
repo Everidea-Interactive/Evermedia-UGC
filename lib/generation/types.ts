@@ -28,6 +28,8 @@ export type CharacterAgeGroup =
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
 export type OutputQuality = '720p' | '1080p' | '4k'
+export type ImageResolution = '1K' | '2K' | '4K'
+export type VideoResolution = '720p' | '1080p'
 export type BatchSize = 1 | 2 | 3 | 4
 export type CameraMovement =
   | 'orbit'
@@ -236,20 +238,20 @@ export type GenerationCostRate = {
 
 export type KiePricingMatrix = {
   image: {
-    'nano-banana': Record<OutputQuality, GenerationCostRate>
+    'nano-banana': Record<ImageResolution, GenerationCostRate>
     'grok-imagine': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
     }
     'gpt-image-2': {
-      promptOnly: Record<OutputQuality, GenerationCostRate>
-      withReference: Record<OutputQuality, GenerationCostRate>
+      promptOnly: Record<ImageResolution, GenerationCostRate>
+      withReference: Record<ImageResolution, GenerationCostRate>
     }
   }
   video: {
     'grok-imagine': {
-      promptOnly: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
     kling: {
       promptOnly: Record<VideoDuration, GenerationCostRate>
@@ -260,8 +262,8 @@ export type KiePricingMatrix = {
       withReference: GenerationCostRate
     }
     'seedance-1.5-pro': {
-      promptOnly: Record<Exclude<OutputQuality, '4k'>, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<Exclude<OutputQuality, '4k'>, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
   }
 }
