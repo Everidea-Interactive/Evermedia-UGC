@@ -12,6 +12,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 
 const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face1',
@@ -262,6 +263,7 @@ export function buildIdeationAnalysisFormData(input: {
   briefText: string
   contentConcept: ContentConcept
   heroAsset: AssetSlot
+  outputLanguage: Locale
   productUrl: string
 }) {
   const briefText = input.briefText.trim()
@@ -277,6 +279,7 @@ export function buildIdeationAnalysisFormData(input: {
   formData.append('analysisModel', input.analysisModel)
   formData.append('briefText', briefText)
   formData.append('contentConcept', input.contentConcept)
+  formData.append('outputLanguage', input.outputLanguage)
   if (heroFile) {
     formData.append('heroImage', heroFile)
   }

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { Manrope, Space_Grotesk } from 'next/font/google'
 
+import { LocaleProvider } from '@/components/i18n/locale-provider'
+import { getLocale } from '@/lib/i18n/server'
+
 import './globals.css'
 
 const manrope = Manrope({
@@ -22,18 +25,20 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const locale = await getLocale()
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang={locale} className="dark" suppressHydrationWarning>
       <body
         suppressHydrationWarning
         className={`${manrope.variable} ${spaceGrotesk.variable} font-sans`}
       >
-        {children}
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
       </body>
     </html>
   )

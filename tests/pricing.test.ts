@@ -205,11 +205,16 @@ describe('generation pricing', () => {
   })
 
   it('normalizes KIE rows into the app-facing pricing matrix', () => {
-    expect(pricingMatrix.image['nano-banana']['720p']).toEqual({
+    expect(Object.keys(pricingMatrix.image['nano-banana']).toSorted()).toEqual([
+      '1K',
+      '2K',
+      '4K',
+    ])
+    expect(pricingMatrix.image['nano-banana']['1K']).toEqual({
       credits: 8,
       usd: 0.04,
     })
-    expect(pricingMatrix.image['nano-banana']['4k']).toEqual({
+    expect(pricingMatrix.image['nano-banana']['4K']).toEqual({
       credits: 12,
       usd: 0.06,
     })

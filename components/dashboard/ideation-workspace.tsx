@@ -2,7 +2,6 @@
 
 import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import {
-  AlertTriangle,
   BadgeCheck,
   Copy,
   ExternalLink,
@@ -13,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { useLocale } from '@/components/i18n/locale-provider'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -318,7 +318,6 @@ function IdeationResultCard({
 function IdeationAnalyzePanel({
   analysisWarning,
   clearIdeationHeroAsset,
-  ideationError,
   ideationInput,
   onReset,
   setIdeationBriefText,
@@ -328,7 +327,6 @@ function IdeationAnalyzePanel({
 }: {
   analysisWarning: string | null
   clearIdeationHeroAsset: () => void
-  ideationError: string | null
   ideationInput: {
     briefText: string
     contentConcept: ContentConcept
@@ -455,15 +453,6 @@ function IdeationAnalyzePanel({
             </div>
           </div>
         </div>
-
-        {ideationError ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" suppressHydrationWarning />
-              <p>{ideationError}</p>
-            </div>
-          </div>
-        ) : null}
 
         {analysisWarning ? (
           <div className="rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
@@ -661,6 +650,7 @@ function IdeationControlPanel({
 }
 
 export function IdeationWorkspace() {
+  const { locale } = useLocale()
   const ideationInput = useGenerationStore((state) => state.ideationInput)
   const ideationStatus = useGenerationStore((state) => state.ideationStatus)
   const ideationError = useGenerationStore((state) => state.ideationError)
@@ -682,6 +672,7 @@ export function IdeationWorkspace() {
     (state) => state.setIdeationProductUrl,
   )
   const setIdeationError = useGenerationStore((state) => state.setIdeationError)
+  const setIdeationFailure = useGenerationStore((state) => state.setIdeationFailure)
   const setIdeationResult = useGenerationStore((state) => state.setIdeationResult)
   const setIdeationStatus = useGenerationStore((state) => state.setIdeationStatus)
   const resetIdeationState = useGenerationStore((state) => state.resetIdeationState)
@@ -727,6 +718,7 @@ export function IdeationWorkspace() {
         briefText: ideationInput.briefText,
         contentConcept: ideationInput.contentConcept,
         heroAsset: ideationInput.heroAsset,
+        outputLanguage: locale,
         productUrl: ideationInput.productUrl,
       })
       const response = await fetch('/api/ideation/analyze', {
@@ -749,10 +741,9 @@ export function IdeationWorkspace() {
       setIdeationSection('results')
     } catch (error) {
       setIdeationResult(null)
-      setIdeationError(
+      setIdeationFailure(
         error instanceof Error ? error.message : 'Unable to generate the ideation brief.',
       )
-      setIdeationStatus('error')
     }
   }
 
@@ -777,7 +768,6 @@ export function IdeationWorkspace() {
             <IdeationAnalyzePanel
               analysisWarning={analysisWarning}
               clearIdeationHeroAsset={clearIdeationHeroAsset}
-              ideationError={ideationError}
               ideationInput={ideationInput}
               onReset={resetIdeationState}
               setIdeationBriefText={setIdeationBriefText}

@@ -75,6 +75,7 @@ function buildBaseFormData() {
   formData.append('briefText', 'Premium acne serum for humid climates.')
   formData.append('contentConcept', 'affiliate')
   formData.append('heroImage', new File(['image'], 'hero.png', { type: 'image/png' }))
+  formData.append('outputLanguage', 'id')
   formData.append('productUrl', 'https://example.com/product')
 
   return formData
@@ -129,6 +130,7 @@ describe('POST /api/ideation/analyze', () => {
       expect.objectContaining({
         briefText: 'Premium acne serum for humid climates.',
         heroImageUrl: 'https://files.example.com/hero.png',
+        outputLanguage: 'id',
       }),
     )
     expect(createSavedIdeationForUser).toHaveBeenCalledWith(

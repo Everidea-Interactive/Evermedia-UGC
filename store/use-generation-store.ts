@@ -31,6 +31,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
@@ -48,6 +49,7 @@ type IdeationInputState = {
   briefText: string
   contentConcept: ContentConcept
   heroAsset: AssetSlot
+  outputLanguage: Locale
   productUrl: string
 }
 
@@ -120,6 +122,7 @@ type GenerationStore = GenerationStateShape & {
   setIdeationBriefText: (briefText: string) => void
   setIdeationContentConcept: (concept: ContentConcept) => void
   setIdeationError: (error: string | null) => void
+  setIdeationFailure: (error: string) => void
   setIdeationHeroFile: (file: File | null) => void
   setIdeationProductUrl: (productUrl: string) => void
   setIdeationResult: (result: IdeationResult | null) => void
@@ -197,6 +200,7 @@ function createIdeationInputState(): IdeationInputState {
     briefText: '',
     contentConcept: 'affiliate',
     heroAsset: createSlot('ideation-hero', 'Hero Product'),
+    outputLanguage: 'en',
     productUrl: '',
   }
 }
@@ -718,6 +722,17 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setIdeationError: (ideationError) => set({ ideationError }),
+  setIdeationFailure: (error) =>
+    set((state) => ({
+      generationErrorEventId: state.generationErrorEventId + 1,
+      generationRun: {
+        ...state.generationRun,
+        error,
+        status: 'error',
+      },
+      ideationError: error,
+      ideationStatus: 'error',
+    })),
   setIdeationHeroFile: (file) =>
     set((state) => ({
       ideationInput: {

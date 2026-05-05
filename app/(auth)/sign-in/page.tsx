@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { LanguageSelector } from '@/components/i18n/language-selector'
 import {
   resolveNextPath,
   resolveSignInMode,
@@ -8,6 +9,8 @@ import {
 import { getSignInViewState } from '@/lib/auth/sign-in-view'
 import { redirectIfAuthenticated } from '@/lib/auth/session'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
+import { getDictionary } from '@/lib/i18n'
+import { getLocale } from '@/lib/i18n/server'
 
 export const metadata: Metadata = {
   title: 'Sign In | Evermedia Studio',
@@ -21,6 +24,8 @@ export default async function SignInPage({
   const resolvedSearchParams = await searchParams
   const next = resolveNextPath(resolvedSearchParams.next)
   const mode = resolveSignInMode(resolvedSearchParams.mode)
+  const locale = await getLocale()
+  const copy = getDictionary(locale).auth
 
   await redirectIfAuthenticated(next)
 
@@ -43,6 +48,7 @@ export default async function SignInPage({
   const view = getSignInViewState({
     email,
     error,
+    locale,
     mode,
     passwordUpdated,
     reset,
@@ -75,26 +81,26 @@ export default async function SignInPage({
         />
 
         <div className="auth-card">
+          <div className="mb-5 flex justify-end">
+            <LanguageSelector />
+          </div>
           <div>
-            <p className="auth-eyebrow auth-signin-only">Secure Access</p>
-            <p className="auth-eyebrow auth-reset-only">Password Recovery</p>
+            <p className="auth-eyebrow auth-signin-only">{copy.secureAccess}</p>
+            <p className="auth-eyebrow auth-reset-only">{copy.passwordRecovery}</p>
 
             <h1 className="auth-title auth-signin-only">
-              Sign in to your studio
+              {copy.signInTitle}
             </h1>
-            <h1 className="auth-title auth-reset-only">Reset your password</h1>
+            <h1 className="auth-title auth-reset-only">{copy.resetPassword}</h1>
 
             <p className="auth-copy auth-reset-only">
-              Request a password reset email for your Supabase account. You can
-              return to sign in any time.
+              {copy.resetCopy}
             </p>
           </div>
 
           {!isSupabaseReady ? (
             <div className="auth-banner auth-banner-error" role="alert">
-              Configure <code className="auth-inline-code">SUPABASE_URL</code> and{' '}
-              <code className="auth-inline-code">SUPABASE_ANON_KEY</code> before
-              using authentication.
+              {copy.configureSupabase}
             </div>
           ) : null}
 
@@ -133,7 +139,7 @@ export default async function SignInPage({
 
             <div className="auth-field">
               <label className="auth-label" htmlFor="sign-in-email">
-                Email
+                {copy.email}
               </label>
               <input
                 autoComplete="email"
@@ -149,25 +155,25 @@ export default async function SignInPage({
 
             <div className="auth-field">
               <label className="auth-label" htmlFor="sign-in-password">
-                Password
+                {copy.password}
               </label>
               <input
                 autoComplete="current-password"
                 className="auth-input"
                 id="sign-in-password"
                 name="password"
-                placeholder="Enter your password"
+                placeholder={copy.passwordPlaceholder}
                 required
                 type="password"
               />
             </div>
 
             <button className="auth-button" disabled={!isSupabaseReady} type="submit">
-              Sign In
+              {copy.signIn}
             </button>
 
             <label className="auth-switch-link" htmlFor="auth-mode-reset">
-              Forgot password?
+              {copy.forgotPassword}
             </label>
           </form>
 
@@ -179,13 +185,12 @@ export default async function SignInPage({
             <input name="next" type="hidden" value={next} />
 
             <div className="auth-banner auth-banner-info">
-              If an account exists for the email you enter, we&apos;ll send a reset
-              link with instructions to create a new password.
+              {copy.resetInfo}
             </div>
 
             <div className="auth-field">
               <label className="auth-label" htmlFor="reset-email">
-                Email
+                {copy.email}
               </label>
               <input
                 autoComplete="email"
@@ -200,11 +205,11 @@ export default async function SignInPage({
             </div>
 
             <button className="auth-button" disabled={!isSupabaseReady} type="submit">
-              Send Reset Email
+              {copy.sendResetEmail}
             </button>
 
             <label className="auth-switch-link" htmlFor="auth-mode-signin">
-              Back to sign in
+              {copy.backToSignIn}
             </label>
           </form>
         </div>

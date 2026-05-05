@@ -6,6 +6,7 @@ import type {
 import type {
   IdeationInputSnapshot,
 } from '@/lib/persistence/types'
+import { normalizeLocale } from '@/lib/i18n'
 
 function normalizeConceptCard(
   value: unknown,
@@ -124,6 +125,7 @@ export function normalizeIdeationInputSnapshot(
     contentConcept,
     heroImageName: normalizedHeroImageName,
     heroImageUrl: normalizedHeroImageUrl,
+    outputLanguage: normalizeLocale(record.outputLanguage),
     productUrl: normalizedProductUrl,
   }
 }

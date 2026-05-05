@@ -20,6 +20,7 @@ import type {
   VideoDuration,
   VideoModelOption,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 
 export type AuthenticatedUserSummary = {
   email: string | null
@@ -60,6 +61,7 @@ export type IdeationInputSnapshot = {
   contentConcept: ContentConcept
   heroImageName: string | null
   heroImageUrl: string | null
+  outputLanguage?: Locale
   productUrl: string | null
 }
 

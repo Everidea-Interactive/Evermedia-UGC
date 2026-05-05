@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { buildSignInPath } from '@/lib/auth/navigation'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/browser'
+import type { Dictionary } from '@/lib/i18n'
 
 function isMissingSessionError(message: string) {
   return /auth session missing|session.*not found|invalid refresh token/i.test(
@@ -14,7 +15,11 @@ function isMissingSessionError(message: string) {
   )
 }
 
-export function UpdatePasswordForm() {
+export function UpdatePasswordForm({
+  copy,
+}: {
+  copy: Dictionary['auth']
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -33,12 +38,12 @@ export function UpdatePasswordForm() {
         const confirmPassword = String(formData.get('confirmPassword') ?? '')
 
         if (password.trim().length === 0 || confirmPassword.trim().length === 0) {
-          setError('Enter and confirm your new password.')
+          setError(copy.updatePasswordErrorEmpty)
           return
         }
 
         if (password !== confirmPassword) {
-          setError('Passwords do not match.')
+          setError(copy.updatePasswordErrorMismatch)
           return
         }
 
@@ -84,13 +89,13 @@ export function UpdatePasswordForm() {
     >
       <div className="grid gap-2">
         <label className="text-sm font-medium text-foreground" htmlFor="password">
-          New password
+          {copy.newPassword}
         </label>
         <Input
           autoComplete="new-password"
           id="password"
           name="password"
-          placeholder="Create a new password"
+          placeholder={copy.newPasswordPlaceholder}
           required
           type="password"
         />
@@ -101,13 +106,13 @@ export function UpdatePasswordForm() {
           className="text-sm font-medium text-foreground"
           htmlFor="confirmPassword"
         >
-          Confirm password
+          {copy.confirmPassword}
         </label>
         <Input
           autoComplete="new-password"
           id="confirmPassword"
           name="confirmPassword"
-          placeholder="Confirm your new password"
+          placeholder={copy.confirmPasswordPlaceholder}
           required
           type="password"
         />
@@ -120,7 +125,7 @@ export function UpdatePasswordForm() {
       ) : null}
 
       <Button disabled={disabled} type="submit">
-        {disabled ? 'Updating Password...' : 'Update Password'}
+        {disabled ? copy.updatePasswordBusy : copy.updatePassword}
       </Button>
     </form>
   )

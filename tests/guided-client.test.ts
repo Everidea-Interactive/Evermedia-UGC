@@ -175,10 +175,12 @@ describe('ideation client payloads', () => {
       briefText: 'Focus on first-purchase trust.',
       contentConcept: 'affiliate',
       heroAsset: emptyHeroAsset,
+      outputLanguage: 'id',
       productUrl: 'https://example.com/product',
     })
 
     expect(formData.get('heroImage')).toBeNull()
+    expect(formData.get('outputLanguage')).toBe('id')
     expect(formData.get('productUrl')).toBe('https://example.com/product')
   })
 
@@ -194,6 +196,7 @@ describe('ideation client payloads', () => {
       briefText: '',
       contentConcept: 'affiliate',
       heroAsset,
+      outputLanguage: 'en',
       productUrl: '   ',
     })
 
@@ -210,6 +213,7 @@ describe('ideation client payloads', () => {
         briefText: '',
         contentConcept: 'affiliate',
         heroAsset: emptyHeroAsset,
+        outputLanguage: 'en',
         productUrl: '  ',
       }),
     ).toThrow('hero product image or a product URL')

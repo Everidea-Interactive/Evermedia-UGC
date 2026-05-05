@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { useLocale } from '@/components/i18n/locale-provider'
+import { translateText } from '@/lib/i18n'
 import type { KieStatusResponse } from '@/lib/generation/types'
 
 const emptyKieStatus: KieStatusResponse = {
@@ -14,23 +16,24 @@ const emptyKieStatus: KieStatusResponse = {
 
 const refreshIntervalMs = 60_000
 
-function getCreditsValue(status: KieStatusResponse, isLoading: boolean) {
+function getCreditsValue(status: KieStatusResponse, isLoading: boolean, locale: string) {
   if (isLoading) {
     return '...'
   }
 
   if (!status.connected) {
-    return 'Offline'
+    return locale === 'id' ? 'Offline' : 'Offline'
   }
 
   if (status.credits === null) {
     return '-'
   }
 
-  return status.credits.toLocaleString('en-US')
+  return status.credits.toLocaleString(locale === 'id' ? 'id-ID' : 'en-US')
 }
 
 export function KieCreditsChip() {
+  const { locale, t } = useLocale()
   const [status, setStatus] = useState<KieStatusResponse>(emptyKieStatus)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -52,7 +55,9 @@ export function KieCreditsChip() {
             : {
                 connected: false,
                 credits: null,
-                error: payload.error ?? 'Unable to read KIE status.',
+                error:
+                  payload.error ??
+                  translateText(locale, 'Unable to read KIE status.'),
                 fetchedAt: new Date().toISOString(),
                 source: null,
               },
@@ -65,7 +70,10 @@ export function KieCreditsChip() {
         setStatus({
           connected: false,
           credits: null,
-          error: error instanceof Error ? error.message : 'Unable to read KIE status.',
+          error:
+            error instanceof Error
+              ? error.message
+              : translateText(locale, 'Unable to read KIE status.'),
           fetchedAt: new Date().toISOString(),
           source: null,
         })
@@ -85,7 +93,7 @@ export function KieCreditsChip() {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [])
+  }, [locale])
 
   return (
     <div
@@ -93,10 +101,10 @@ export function KieCreditsChip() {
       className="flex items-baseline gap-2 px-1 py-1"
     >
       <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-        KIE Credits
+        {t('KIE Credits')}
       </span>
       <span className="text-sm font-semibold text-foreground/90">
-        {getCreditsValue(status, isLoading)}
+        {getCreditsValue(status, isLoading, locale)}
       </span>
     </div>
   )

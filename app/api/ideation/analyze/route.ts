@@ -8,6 +8,7 @@ import {
 import { analyzeContentIdeation } from '@/lib/generation/kie-ideation'
 import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
+import { normalizeLocale } from '@/lib/i18n'
 import { createSavedIdeationForUser } from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
     )
     const briefText = readOptionalString(formData, 'briefText')
     const contentConcept = readString(formData, 'contentConcept')
+    const outputLanguage = normalizeLocale(readOptionalString(formData, 'outputLanguage'))
     const productUrl = readOptionalString(formData, 'productUrl')
     const hasHeroImage = heroImage instanceof File && heroImage.size > 0
 
@@ -128,6 +130,7 @@ export async function POST(request: Request) {
       briefText,
       contentConcept: contentConcept as (typeof contentConcepts)[number],
       heroImageUrl,
+      outputLanguage,
       productPage,
     })
     const savedIdeation = await createSavedIdeationForUser({
@@ -137,6 +140,7 @@ export async function POST(request: Request) {
         contentConcept: contentConcept as (typeof contentConcepts)[number],
         heroImageName: hasHeroImage ? heroImage.name : null,
         heroImageUrl,
+        outputLanguage,
         productUrl: productUrl || null,
       },
       result,

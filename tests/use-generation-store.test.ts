@@ -359,4 +359,19 @@ describe('useGenerationStore', () => {
     expect(state.ideationResult).toBeNull()
     expect(state.ideationStatus).toBe('idle')
   })
+
+  it('routes ideation failures through the shared error modal state', () => {
+    const store = useGenerationStore.getState()
+
+    store.resetGenerationRun()
+    store.setIdeationFailure('Unable to generate the ideation brief.')
+
+    const state = useGenerationStore.getState()
+
+    expect(state.ideationStatus).toBe('error')
+    expect(state.ideationError).toBe('Unable to generate the ideation brief.')
+    expect(state.generationErrorEventId).toBe(1)
+    expect(state.generationRun.status).toBe('error')
+    expect(state.generationRun.error).toBe('Unable to generate the ideation brief.')
+  })
 })
