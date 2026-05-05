@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
-import { listSavedOutputHistoryForUser } from '@/lib/persistence/repository'
+import {
+  listSavedIdeationHistoryForUser,
+  listSavedOutputHistoryForUser,
+} from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
 
@@ -13,6 +16,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    ideations: await listSavedIdeationHistoryForUser(user.id),
     outputs: await listSavedOutputHistoryForUser(user.id),
   })
 }

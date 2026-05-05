@@ -1,5 +1,5 @@
 export type WorkspaceTab = 'image' | 'video'
-export type GenerationExperience = 'manual' | 'guided'
+export type GenerationExperience = 'manual' | 'guided' | 'ideation'
 export type ContentConcept = 'driven-ads' | 'affiliate'
 
 export type ProductCategory =
@@ -122,6 +122,21 @@ export type GuidedAnalysisPlan = {
 }
 
 export type GuidedAnalysisStatus = 'idle' | 'analyzing' | 'ready' | 'error'
+
+export type IdeationConceptCard = {
+  angle: string
+  audience: string
+  cta: string
+  hook: string
+  keyMessage: string
+  title: string
+  visualDirection: string
+}
+
+export type IdeationResult = {
+  concepts: [IdeationConceptCard, IdeationConceptCard, IdeationConceptCard]
+  summary: string
+}
 
 export type GuidedGenerationConfig = {
   analysisModel: KieAnalysisModel

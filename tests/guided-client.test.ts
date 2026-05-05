@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildGuidedAnalysisFormData,
   buildGuidedGenerationFormData,
+  buildIdeationAnalysisFormData,
 } from '@/lib/generation/client'
 import type { AssetSlot, GuidedAnalysisPlan } from '@/lib/generation/types'
 
@@ -162,5 +163,55 @@ describe('guided generation client payloads', () => {
         productId: 'guided-hero',
       },
     ])
+  })
+})
+
+describe('ideation client payloads', () => {
+  it('allows ideation analysis with a product URL only', () => {
+    const emptyHeroAsset = createSlot('ideation-hero', 'Hero Product', null)
+
+    const { formData } = buildIdeationAnalysisFormData({
+      analysisModel: 'gemini-2.5-flash',
+      briefText: 'Focus on first-purchase trust.',
+      contentConcept: 'affiliate',
+      heroAsset: emptyHeroAsset,
+      productUrl: 'https://example.com/product',
+    })
+
+    expect(formData.get('heroImage')).toBeNull()
+    expect(formData.get('productUrl')).toBe('https://example.com/product')
+  })
+
+  it('allows ideation analysis with a hero image only', () => {
+    const heroAsset = createSlot(
+      'ideation-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+
+    const { formData } = buildIdeationAnalysisFormData({
+      analysisModel: 'gemini-2.5-flash',
+      briefText: '',
+      contentConcept: 'affiliate',
+      heroAsset,
+      productUrl: '   ',
+    })
+
+    expect(formData.get('heroImage')).toBe(heroAsset.file)
+    expect(formData.get('productUrl')).toBeNull()
+  })
+
+  it('rejects ideation analysis when both source inputs are missing', () => {
+    const emptyHeroAsset = createSlot('ideation-hero', 'Hero Product', null)
+
+    expect(() =>
+      buildIdeationAnalysisFormData({
+        analysisModel: 'gemini-2.5-flash',
+        briefText: '',
+        contentConcept: 'affiliate',
+        heroAsset: emptyHeroAsset,
+        productUrl: '  ',
+      }),
+    ).toThrow('hero product image or a product URL')
   })
 })

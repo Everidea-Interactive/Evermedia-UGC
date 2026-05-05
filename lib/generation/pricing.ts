@@ -12,9 +12,7 @@ import type {
   GenerationCostEstimate,
   GenerationCostRate,
   GenerationSnapshot,
-  ImageResolution,
   KiePricingMatrix,
-  OutputQuality,
   VideoResolution,
   VideoDuration,
 } from '@/lib/generation/types'

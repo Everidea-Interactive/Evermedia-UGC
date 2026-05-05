@@ -257,6 +257,36 @@ export function buildGuidedGenerationFormData(input: {
   return { assetManifest, formData }
 }
 
+export function buildIdeationAnalysisFormData(input: {
+  analysisModel: KieAnalysisModel
+  briefText: string
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  productUrl: string
+}) {
+  const briefText = input.briefText.trim()
+  const productUrl = input.productUrl.trim()
+  const heroFile = input.heroAsset.file
+
+  if (!heroFile && !productUrl) {
+    throw new Error('Add a hero product image or a product URL.')
+  }
+
+  const formData = new FormData()
+
+  formData.append('analysisModel', input.analysisModel)
+  formData.append('briefText', briefText)
+  formData.append('contentConcept', input.contentConcept)
+  if (heroFile) {
+    formData.append('heroImage', heroFile)
+  }
+  if (productUrl) {
+    formData.append('productUrl', productUrl)
+  }
+
+  return { formData }
+}
+
 export function formatBytes(size: number | null) {
   if (!size) {
     return null

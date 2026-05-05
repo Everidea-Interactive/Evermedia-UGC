@@ -4,8 +4,13 @@ import { getDatabase } from '@/lib/db/client'
 import {
   generationRuns,
   generationVariants,
+  savedIdeations,
   savedOutputs,
 } from '@/lib/db/schema'
+import {
+  normalizeIdeationInputSnapshot,
+  normalizeIdeationResult,
+} from '@/lib/generation/ideation'
 import {
   deleteRunDirectory,
   deleteStoredFile,
@@ -21,6 +26,8 @@ import type {
   GenerationRunBundle,
   GenerationRunRecord,
   GenerationVariantRecord,
+  SavedIdeationHistoryEntry,
+  SavedIdeationRecord,
   SavedOutputHistoryEntry,
   SavedOutputRecord,
 } from '@/lib/persistence/types'
@@ -61,6 +68,24 @@ function mapSavedOutput(row: typeof savedOutputs.$inferSelect): SavedOutputRecor
     originalName: row.originalName,
     runId: row.runId,
     storagePath: row.storagePath,
+    userId: row.userId,
+  }
+}
+
+function mapSavedIdeation(
+  row: typeof savedIdeations.$inferSelect,
+): SavedIdeationRecord {
+  const inputSnapshot = normalizeIdeationInputSnapshot(row.inputSnapshot)
+
+  if (!inputSnapshot) {
+    throw new Error(`Saved ideation ${row.id} has an invalid input snapshot.`)
+  }
+
+  return {
+    createdAt: row.createdAt.toISOString(),
+    id: row.id,
+    inputSnapshot,
+    result: normalizeIdeationResult(row.result),
     userId: row.userId,
   }
 }
@@ -273,6 +298,38 @@ export async function listSavedOutputHistoryForUser(
       variantIndex: row.variant.variantIndex as GenerationVariantRecord['variantIndex'],
     },
   }))
+}
+
+export async function createSavedIdeationForUser(input: {
+  inputSnapshot: SavedIdeationRecord['inputSnapshot']
+  result: SavedIdeationRecord['result']
+  userId: string
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .insert(savedIdeations)
+    .values({
+      id: createRecordId('ideation'),
+      inputSnapshot: input.inputSnapshot,
+      result: input.result,
+      userId: input.userId,
+    })
+    .returning()
+
+  return mapSavedIdeation(row)
+}
+
+export async function listSavedIdeationHistoryForUser(
+  userId: string,
+): Promise<SavedIdeationHistoryEntry[]> {
+  const db = getDatabase()
+  const rows = await db
+    .select()
+    .from(savedIdeations)
+    .where(eq(savedIdeations.userId, userId))
+    .orderBy(desc(savedIdeations.createdAt))
+
+  return rows.map((row) => mapSavedIdeation(row))
 }
 
 export async function saveGeneratedOutputForVariant(input: {

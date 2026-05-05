@@ -7,6 +7,7 @@ import type {
   FigureArtDirection,
   GenerationExperience,
   GuidedGenerationConfig,
+  IdeationResult,
   GenerationProvider,
   GenerationRunStatus,
   GenerationVariantStatus,
@@ -51,6 +52,23 @@ export type GuidedProjectInputSnapshot = {
   analysisModel: KieAnalysisModel
   contentConcept: ContentConcept
   productUrl: string
+}
+
+export type IdeationInputSnapshot = {
+  analysisModel: KieAnalysisModel
+  briefText: string
+  contentConcept: ContentConcept
+  heroImageName: string | null
+  heroImageUrl: string | null
+  productUrl: string | null
+}
+
+export type SavedIdeationRecord = {
+  createdAt: string
+  id: string
+  inputSnapshot: IdeationInputSnapshot
+  result: IdeationResult
+  userId: string
 }
 
 export type SavedOutputRecord = {
@@ -109,3 +127,5 @@ export type SavedOutputHistoryEntry = {
     'completedAt' | 'createdAt' | 'error' | 'id' | 'profile' | 'prompt' | 'status' | 'taskId' | 'variantIndex'
   >
 }
+
+export type SavedIdeationHistoryEntry = SavedIdeationRecord

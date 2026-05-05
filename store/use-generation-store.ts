@@ -19,6 +19,7 @@ import type {
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  IdeationResult,
   KieAnalysisModel,
   NamedAssetKey,
   NamedAssetSlots,
@@ -42,6 +43,14 @@ type GuidedInputState = {
   shotCount: BatchSize
 }
 
+type IdeationInputState = {
+  analysisModel: KieAnalysisModel
+  briefText: string
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  productUrl: string
+}
+
 type GenerationStateShape = {
   activeTab: WorkspaceTab
   analysisError: string | null
@@ -58,6 +67,10 @@ type GenerationStateShape = {
   generationErrorEventId: number
   guidedInput: GuidedInputState
   guidedPlan: GuidedAnalysisPlan | null
+  ideationError: string | null
+  ideationInput: IdeationInputState
+  ideationResult: IdeationResult | null
+  ideationStatus: GuidedAnalysisStatus
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -74,6 +87,7 @@ type GenerationStore = GenerationStateShape & {
   clearNamedAsset: (slot: NamedAssetKey) => void
   clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
+  clearIdeationHeroAsset: () => void
   clearProductSlot: (id: string) => void
   disposeGenerationState: () => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
@@ -81,6 +95,7 @@ type GenerationStore = GenerationStateShape & {
   resetGenerationRun: () => void
   resetGenerationState: () => void
   resetGuidedState: () => void
+  resetIdeationState: () => void
   selectGenerationVariant: (variantId: string | null) => void
   setActiveTab: (activeTab: WorkspaceTab) => void
   setAnalysisError: (error: string | null) => void
@@ -101,6 +116,14 @@ type GenerationStore = GenerationStateShape & {
   setGuidedPlan: (plan: GuidedAnalysisPlan | null) => void
   setGuidedProductUrl: (productUrl: string) => void
   setGuidedShotCount: (shotCount: BatchSize) => void
+  setIdeationAnalysisModel: (model: KieAnalysisModel) => void
+  setIdeationBriefText: (briefText: string) => void
+  setIdeationContentConcept: (concept: ContentConcept) => void
+  setIdeationError: (error: string | null) => void
+  setIdeationHeroFile: (file: File | null) => void
+  setIdeationProductUrl: (productUrl: string) => void
+  setIdeationResult: (result: IdeationResult | null) => void
+  setIdeationStatus: (status: GuidedAnalysisStatus) => void
   setImageModel: (imageModel: ImageModelOption) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
@@ -165,6 +188,16 @@ function createGuidedInputState(): GuidedInputState {
     heroAsset: createSlot('guided-hero', 'Hero Product'),
     productUrl: '',
     shotCount: 4,
+  }
+}
+
+function createIdeationInputState(): IdeationInputState {
+  return {
+    analysisModel: 'gemini-2.5-flash',
+    briefText: '',
+    contentConcept: 'affiliate',
+    heroAsset: createSlot('ideation-hero', 'Hero Product'),
+    productUrl: '',
   }
 }
 
@@ -234,6 +267,10 @@ function createInitialState(): GenerationStateShape {
     generationErrorEventId: 0,
     guidedInput: createGuidedInputState(),
     guidedPlan: null,
+    ideationError: null,
+    ideationInput: createIdeationInputState(),
+    ideationResult: null,
+    ideationStatus: 'idle',
     imageModel: 'nano-banana',
     outputQuality: '1080p',
     productCategory: 'cosmetics',
@@ -256,6 +293,10 @@ function releaseSlots(slots: AssetSlot[]) {
 function releaseGuidedInput(input: GuidedInputState) {
   revokePreviewUrl(input.heroAsset.previewUrl)
   revokePreviewUrl(input.endFrameAsset.previewUrl)
+}
+
+function releaseIdeationInput(input: IdeationInputState) {
+  revokePreviewUrl(input.heroAsset.previewUrl)
 }
 
 function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
@@ -369,6 +410,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         heroAsset: setSlotFile(state.guidedInput.heroAsset, null),
       },
     })),
+  clearIdeationHeroAsset: () =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        heroAsset: setSlotFile(state.ideationInput.heroAsset, null),
+      },
+    })),
   clearProductSlot: (id) =>
     set((state) => ({
       products: state.products.map((slot) =>
@@ -381,6 +429,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
     releaseGuidedInput(state.guidedInput)
+    releaseIdeationInput(state.ideationInput)
 
     set(createInitialState())
   },
@@ -422,6 +471,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
       releaseGuidedInput(state.guidedInput)
+      releaseIdeationInput(state.ideationInput)
 
       return {
         ...createInitialState(),
@@ -469,6 +519,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseIdeationInput(state.ideationInput)
 
     set({
       activeTab: nextState.activeTab,
@@ -479,9 +530,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       characterGender: nextState.characterGender,
       creativeStyle: nextState.creativeStyle,
       figureArtDirection: nextState.figureArtDirection,
-      generationRun: nextState.generationRun,
-      generationErrorEventId: nextState.generationErrorEventId,
-      imageModel: nextState.imageModel,
+        generationRun: nextState.generationRun,
+        generationErrorEventId: nextState.generationErrorEventId,
+        ideationError: nextState.ideationError,
+        ideationInput: nextState.ideationInput,
+        ideationResult: nextState.ideationResult,
+        ideationStatus: nextState.ideationStatus,
+        imageModel: nextState.imageModel,
       outputQuality: nextState.outputQuality,
       productCategory: nextState.productCategory,
       products: nextState.products,
@@ -506,6 +561,20 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       generationRun: nextState.generationRun,
       guidedInput: nextState.guidedInput,
       guidedPlan: nextState.guidedPlan,
+      sessionStats: state.sessionStats,
+    })
+  },
+  resetIdeationState: () => {
+    const state = get()
+    const nextState = createInitialState()
+
+    releaseIdeationInput(state.ideationInput)
+
+    set({
+      ideationError: nextState.ideationError,
+      ideationInput: nextState.ideationInput,
+      ideationResult: nextState.ideationResult,
+      ideationStatus: nextState.ideationStatus,
       sessionStats: state.sessionStats,
     })
   },
@@ -627,6 +696,49 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         shotCount,
       },
     })),
+  setIdeationAnalysisModel: (analysisModel) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        analysisModel,
+      },
+    })),
+  setIdeationBriefText: (briefText) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        briefText,
+      },
+    })),
+  setIdeationContentConcept: (contentConcept) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        contentConcept,
+      },
+    })),
+  setIdeationError: (ideationError) => set({ ideationError }),
+  setIdeationHeroFile: (file) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+      },
+    })),
+  setIdeationProductUrl: (productUrl) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        productUrl,
+      },
+    })),
+  setIdeationResult: (ideationResult) =>
+    set(() => ({
+      ideationError: null,
+      ideationResult,
+      ideationStatus: ideationResult ? 'ready' : 'idle',
+    })),
+  setIdeationStatus: (ideationStatus) => set({ ideationStatus }),
   setImageModel: (imageModel) => set({ imageModel }),
   setNamedAssetFile: (slot, file) =>
     set((state) => ({
@@ -706,6 +818,7 @@ export type {
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  IdeationResult,
   KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,

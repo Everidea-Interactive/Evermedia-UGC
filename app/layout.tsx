@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: 'Evermedia Studio',
   description:
     'Dark, AI-native workspace for configuring image and video UGC generation flows.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

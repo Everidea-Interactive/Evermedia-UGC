@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 
 import { KieCreditsChip } from '@/components/layout/kie-credits-chip'
@@ -16,10 +17,18 @@ export function AuthenticatedShell({
         <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-3 sm:px-6 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:gap-5">
             <Link
-              className="font-display text-lg font-semibold text-foreground"
+              className="inline-flex items-center gap-2.5 font-display text-lg font-semibold text-foreground"
               href="/"
             >
-              Evermedia Studio
+              <Image
+                alt="Evermedia Studio logo"
+                className="h-6 w-6"
+                height={24}
+                priority
+                src="/favicon.svg"
+                width={24}
+              />
+              <span>Evermedia Studio</span>
             </Link>
             <nav className="flex items-center gap-2.5">
               <Link

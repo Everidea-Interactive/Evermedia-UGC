@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 
 import { GuidedWorkspace } from '@/components/dashboard/guided-workspace'
+import { IdeationWorkspace } from '@/components/dashboard/ideation-workspace'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -126,6 +127,11 @@ const experienceTabs: Array<{
     helper: 'Analyze one product image, edit the shot list, then render it',
     label: 'Guided',
     value: 'guided',
+  },
+  {
+    helper: 'LLM-assisted content strategy and concept planning',
+    label: 'Ideation',
+    value: 'ideation',
   },
 ]
 
@@ -474,8 +480,15 @@ export function DashboardShell() {
     ) {
       return
     }
-    setErrorNotice(getGenerationFailureNotice(generationRun.error))
-    setIsErrorNoticeOpen(true)
+
+    const timeoutId = window.setTimeout(() => {
+      setErrorNotice(getGenerationFailureNotice(generationRun.error ?? ''))
+      setIsErrorNoticeOpen(true)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [
     generationErrorEventId,
     generationRun.error,
@@ -508,7 +521,7 @@ export function DashboardShell() {
               onValueChange={(value) => setExperience(value as GenerationExperience)}
               value={experience}
             >
-              <TabsList aria-label="Studio Experience" className="w-full grid-cols-2 p-1.5">
+              <TabsList aria-label="Studio Experience" className="w-full grid-cols-3 p-1.5">
                 {experienceTabs.map((tab) => (
                   <TabsTrigger
                     className="min-h-[3.15rem] px-3 py-2"
@@ -523,29 +536,31 @@ export function DashboardShell() {
               </TabsList>
             </Tabs>
 
-            <Tabs
-              onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-              value={activeTab}
-            >
-              <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
-                {workspaceTabs.map((tab) => {
-                  const Icon = tab.icon
+            {experience !== 'ideation' ? (
+              <Tabs
+                onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+                value={activeTab}
+              >
+                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
+                  {workspaceTabs.map((tab) => {
+                    const Icon = tab.icon
 
-                  return (
-                    <TabsTrigger
-                      className="min-h-[3.15rem] px-3 py-2"
-                      key={tab.value}
-                      value={tab.value}
-                    >
-                      <span className="mx-auto flex items-center justify-center gap-2">
-                        <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
-                        <span className="text-sm font-semibold sm:text-base">{tab.label}</span>
-                      </span>
-                    </TabsTrigger>
-                  )
-                })}
-              </TabsList>
-            </Tabs>
+                    return (
+                      <TabsTrigger
+                        className="min-h-[3.15rem] px-3 py-2"
+                        key={tab.value}
+                        value={tab.value}
+                      >
+                        <span className="mx-auto flex items-center justify-center gap-2">
+                          <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
+                          <span className="text-sm font-semibold sm:text-base">{tab.label}</span>
+                        </span>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            ) : null}
           </div>
         </section>
 
@@ -556,6 +571,8 @@ export function DashboardShell() {
             kiePricingError={kiePricingState.error}
             kieStatus={kieStatusState.status}
           />
+        ) : experience === 'ideation' ? (
+          <IdeationWorkspace />
         ) : (
           <div className="flex flex-1 flex-col gap-4">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
@@ -602,7 +619,6 @@ export function DashboardShell() {
               <RunControlPanel
                 canGenerate={controller.canGenerate}
                 className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
-                disabledReason={controller.disabledReason}
                 generationCostEstimate={controller.generationCostEstimate}
                 generationCostReason={controller.generationCostReason}
                 isBusy={controller.isBusy}
@@ -1236,7 +1252,6 @@ function ReferenceCard({
 function RunControlPanel({
   canGenerate,
   className,
-  disabledReason,
   generationCostEstimate,
   generationCostReason,
   isBusy,
@@ -1247,7 +1262,6 @@ function RunControlPanel({
 }: {
   canGenerate: boolean
   className?: string
-  disabledReason: string | null
   generationCostEstimate: GenerationCostEstimate
   generationCostReason: string
   isBusy: boolean

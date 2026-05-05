@@ -8,8 +8,15 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/generation/client'
+import {
+  formatIdeationConceptCardText,
+  formatIdeationResultText,
+} from '@/lib/generation/ideation'
 import { isImageMimeType } from '@/lib/media/image-preview'
-import type { SavedOutputHistoryEntry } from '@/lib/persistence/types'
+import type {
+  SavedIdeationHistoryEntry,
+  SavedOutputHistoryEntry,
+} from '@/lib/persistence/types'
 
 type RunGroup = {
   id: string
@@ -29,6 +36,8 @@ type DeleteTarget =
       outputCount: number
       type: 'session'
     }
+
+type ArchiveView = 'outputs' | 'ideations'
 
 function getAssetMediaUrl(assetId: string) {
   return `/api/media/${assetId}`
@@ -162,28 +171,36 @@ function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
 }
 
 export function LibraryPage({
+  ideations,
   outputs,
 }: {
+  ideations: SavedIdeationHistoryEntry[]
   outputs: SavedOutputHistoryEntry[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [archiveView, setArchiveView] = useState<ArchiveView>('outputs')
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
 
   const runGroups = useMemo(() => buildRunGroups(outputs), [outputs])
   const archiveStats = useMemo(
     () => ({
       latestSavedAt: outputs[0]?.output.createdAt ?? null,
+      latestIdeationAt: ideations[0]?.createdAt ?? null,
+      totalIdeations: ideations.length,
       totalOutputs: outputs.length,
       totalSize: outputs.reduce((sum, entry) => sum + entry.output.fileSize, 0),
       workspaceCount: new Set(outputs.map((entry) => entry.run.workspace)).size,
     }),
-    [outputs],
+    [ideations, outputs],
   )
 
   const activeRun = runGroups.find((run) => run.id === selectedRunId) ?? runGroups[0] ?? null
+  const activeIdeation =
+    ideations.find((ideation) => ideation.id === selectedIdeationId) ?? ideations[0] ?? null
 
   const deleteOutput = async (outputId: string) => {
     const response = await fetch(`/api/outputs/${outputId}`, {
@@ -284,217 +301,391 @@ export function LibraryPage({
                 : 'No saved outputs yet'}
             </p>
           </div>
+          <div className="rounded-xl border border-border bg-background p-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Saved briefs
+            </p>
+            <p className="mt-2 text-lg font-semibold text-foreground">
+              {archiveStats.totalIdeations}
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {archiveStats.latestIdeationAt
+                ? formatLibraryTimestamp(archiveStats.latestIdeationAt)
+                : 'No saved briefs yet'}
+            </p>
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <section className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Sessions
-          </p>
-          <div className="mt-4 grid gap-3">
-            {runGroups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No saved sessions exist yet. Finished generations will appear here.
-              </p>
-            ) : null}
-            {runGroups.map((run) => (
-              <div
-                key={run.id}
-                className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                  run.id === activeRun?.id
-                    ? 'border-foreground/35 bg-secondary'
-                    : 'border-border bg-background hover:border-foreground/20'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <button
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => {
-                      setSelectedRunId(run.id)
-                    }}
-                    type="button"
-                  >
-                    <p className="font-medium text-foreground">
-                      {run.run.workspace === 'video' ? 'Video session' : 'Image session'}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {run.outputs.length} saved variation
-                      {run.outputs.length === 1 ? '' : 's'} ·{' '}
-                      {formatLibraryTimestamp(
-                        run.outputs[0]?.output.createdAt ?? run.run.createdAt,
-                      )}
-                    </p>
-                  </button>
-                  <Button
-                    aria-label="Delete session"
-                    className="-mr-2 text-destructive hover:text-destructive"
-                    disabled={isDeleting || isPending}
-                    onClick={() => {
-                      setDeleteTarget({
-                        id: run.id,
-                        label:
-                          run.run.workspace === 'video'
-                            ? 'Video session'
-                            : 'Image session',
-                        outputCount: run.outputs.length,
-                        type: 'session',
-                      })
-                    }}
-                    size="icon"
-                    title="Delete session"
-                    variant="ghost"
-                  >
-                    <Trash2 suppressHydrationWarning />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      <section className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setArchiveView('outputs')}
+            size="sm"
+            variant={archiveView === 'outputs' ? 'default' : 'secondary'}
+          >
+            Saved outputs
+          </Button>
+          <Button
+            onClick={() => setArchiveView('ideations')}
+            size="sm"
+            variant={archiveView === 'ideations' ? 'default' : 'secondary'}
+          >
+            Saved briefs
+          </Button>
+        </div>
+      </section>
 
-        <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Session
-              </p>
-              <h2 className="mt-2 text-lg font-semibold">
-                {activeRun
-                  ? activeRun.run.workspace === 'video'
-                    ? 'Video session'
-                    : 'Image session'
-                  : 'No session selected'}
-              </h2>
+      {archiveView === 'outputs' ? (
+        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Sessions
+            </p>
+            <div className="mt-4 grid gap-3">
+              {runGroups.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No saved sessions exist yet. Finished generations will appear here.
+                </p>
+              ) : null}
+              {runGroups.map((run) => (
+                <div
+                  key={run.id}
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    run.id === activeRun?.id
+                      ? 'border-foreground/35 bg-secondary'
+                      : 'border-border bg-background hover:border-foreground/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => {
+                        setSelectedRunId(run.id)
+                      }}
+                      type="button"
+                    >
+                      <p className="font-medium text-foreground">
+                        {run.run.workspace === 'video' ? 'Video session' : 'Image session'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {run.outputs.length} saved variation
+                        {run.outputs.length === 1 ? '' : 's'} ·{' '}
+                        {formatLibraryTimestamp(
+                          run.outputs[0]?.output.createdAt ?? run.run.createdAt,
+                        )}
+                      </p>
+                    </button>
+                    <Button
+                      aria-label="Delete session"
+                      className="-mr-2 text-destructive hover:text-destructive"
+                      disabled={isDeleting || isPending}
+                      onClick={() => {
+                        setDeleteTarget({
+                          id: run.id,
+                          label:
+                            run.run.workspace === 'video'
+                              ? 'Video session'
+                              : 'Image session',
+                          outputCount: run.outputs.length,
+                          type: 'session',
+                        })
+                      }}
+                      size="icon"
+                      title="Delete session"
+                      variant="ghost"
+                    >
+                      <Trash2 suppressHydrationWarning />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Session
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">
+                  {activeRun
+                    ? activeRun.run.workspace === 'video'
+                      ? 'Video session'
+                      : 'Image session'
+                    : 'No session selected'}
+                </h2>
+              </div>
             </div>
 
-          </div>
-
-          <div className="mt-4 grid gap-4">
-            {activeRun ? (
-              <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
-                <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{activeRun.run.model}</span>
-                      <span>·</span>
-                      <span>{activeRun.run.status}</span>
-                      <span>·</span>
-                      <span>{new Date(activeRun.run.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                      {activeRun.run.promptSnapshot}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 justify-center gap-3 self-center text-center text-sm sm:grid-cols-[repeat(2,88px)] lg:grid-cols-[repeat(2,88px)]">
-                    <div className="flex min-h-24 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                        Outputs
-                      </p>
-                      <p className="mt-1 font-semibold text-foreground">
-                        {activeRun.outputs.length}
+            <div className="mt-4 grid gap-4">
+              {activeRun ? (
+                <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
+                  <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{activeRun.run.model}</span>
+                        <span>·</span>
+                        <span>{activeRun.run.status}</span>
+                        <span>·</span>
+                        <span>{new Date(activeRun.run.createdAt).toLocaleString()}</span>
+                      </div>
+                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                        {activeRun.run.promptSnapshot}
                       </p>
                     </div>
-                    <div className="flex min-h-24 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                        Archive
-                      </p>
-                      <p className="mt-1 font-semibold text-foreground">
-                        {formatBytes(
-                          activeRun.outputs.reduce(
-                            (sum, entry) => sum + entry.output.fileSize,
-                            0,
-                          ),
-                        ) ?? '0 KB'}
-                      </p>
+                    <div className="grid grid-cols-2 justify-center gap-3 self-center text-center text-sm sm:grid-cols-[repeat(2,88px)] lg:grid-cols-[repeat(2,88px)]">
+                      <div className="flex min-h-24 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Outputs
+                        </p>
+                        <p className="mt-1 font-semibold text-foreground">
+                          {activeRun.outputs.length}
+                        </p>
+                      </div>
+                      <div className="flex min-h-24 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Archive
+                        </p>
+                        <p className="mt-1 font-semibold text-foreground">
+                          {formatBytes(
+                            activeRun.outputs.reduce(
+                              (sum, entry) => sum + entry.output.fileSize,
+                              0,
+                            ),
+                          ) ?? '0 KB'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
 
-            {activeRun?.outputs.length ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {activeRun.outputs.map((entry) => (
-                  <article
-                    key={entry.output.id}
-                    className="overflow-hidden rounded-xl border border-border bg-background"
-                  >
-                    <AssetCardMedia
-                      alt={entry.output.label}
-                      label={entry.output.label}
-                      mimeType={entry.output.mimeType}
-                      size="large"
-                      src={getAssetMediaUrl(entry.output.id)}
-                    />
-                    <div className="p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground">
-                            {entry.output.label}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Variation {entry.variant.variantIndex} ·{' '}
-                            {formatBytes(entry.output.fileSize) ?? 'Unknown size'}
-                          </p>
+              {activeRun?.outputs.length ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {activeRun.outputs.map((entry) => (
+                    <article
+                      key={entry.output.id}
+                      className="overflow-hidden rounded-xl border border-border bg-background"
+                    >
+                      <AssetCardMedia
+                        alt={entry.output.label}
+                        label={entry.output.label}
+                        mimeType={entry.output.mimeType}
+                        size="large"
+                        src={getAssetMediaUrl(entry.output.id)}
+                      />
+                      <div className="p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">
+                              {entry.output.label}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Variation {entry.variant.variantIndex} ·{' '}
+                              {formatBytes(entry.output.fileSize) ?? 'Unknown size'}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                            {entry.variant.status}
+                          </span>
                         </div>
-                        <span className="rounded-full border border-border px-2 py-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                          {entry.variant.status}
-                        </span>
-                      </div>
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                        {entry.variant.profile}
-                      </p>
-                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                        {entry.variant.prompt}
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <AssetPreviewButton
-                          alt={entry.output.label}
-                          label={entry.output.label}
-                          mimeType={entry.output.mimeType}
-                          src={getAssetMediaUrl(entry.output.id)}
-                        />
-                        <Button asChild size="sm" variant="secondary">
-                          <a
-                            download={entry.output.originalName}
-                            href={getAssetDownloadUrl(entry.output.id)}
+                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                          {entry.variant.profile}
+                        </p>
+                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                          {entry.variant.prompt}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <AssetPreviewButton
+                            alt={entry.output.label}
+                            label={entry.output.label}
+                            mimeType={entry.output.mimeType}
+                            src={getAssetMediaUrl(entry.output.id)}
+                          />
+                          <Button asChild size="sm" variant="secondary">
+                            <a
+                              download={entry.output.originalName}
+                              href={getAssetDownloadUrl(entry.output.id)}
+                            >
+                              Download
+                            </a>
+                          </Button>
+                          <Button
+                            className="text-destructive hover:text-destructive"
+                            disabled={isDeleting || isPending}
+                            onClick={() => {
+                              setDeleteTarget({
+                                id: entry.output.id,
+                                label: entry.output.label,
+                                type: 'output',
+                              })
+                            }}
+                            size="sm"
+                            variant="ghost"
                           >
-                            Download
-                          </a>
-                        </Button>
-                        <Button
-                          className="text-destructive hover:text-destructive"
-                          disabled={isDeleting || isPending}
-                          onClick={() => {
-                            setDeleteTarget({
-                              id: entry.output.id,
-                              label: entry.output.label,
-                              type: 'output',
-                            })
-                          }}
-                          size="sm"
-                          variant="ghost"
-                        >
-                          <Trash2 data-icon="inline-start" suppressHydrationWarning />
-                          Delete
-                        </Button>
+                            <Trash2 data-icon="inline-start" suppressHydrationWarning />
+                            Delete
+                          </Button>
+                        </div>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {new Date(entry.output.createdAt).toLocaleString()}
+                        </p>
                       </div>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        {new Date(entry.output.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                  No saved outputs exist for this session yet.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Briefs
+            </p>
+            <div className="mt-4 grid gap-3">
+              {ideations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No saved ideation briefs exist yet.
+                </p>
+              ) : null}
+              {ideations.map((ideation) => (
+                <button
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    ideation.id === activeIdeation?.id
+                      ? 'border-foreground/35 bg-secondary'
+                      : 'border-border bg-background hover:border-foreground/20'
+                  }`}
+                  key={ideation.id}
+                  onClick={() => setSelectedIdeationId(ideation.id)}
+                  type="button"
+                >
+                  <p className="font-medium text-foreground">Ideation brief</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {ideation.result.summary}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {formatLibraryTimestamp(ideation.createdAt)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Brief
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">
+                  {activeIdeation ? 'Saved ideation brief' : 'No brief selected'}
+                </h2>
               </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                No saved outputs exist for this session yet.
-              </p>
-            )}
-          </div>
-        </section>
-      </div>
+              {activeIdeation ? (
+                <Button
+                  onClick={() => {
+                    void navigator.clipboard.writeText(
+                      formatIdeationResultText(activeIdeation.result),
+                    )
+                  }}
+                  size="sm"
+                  variant="secondary"
+                >
+                  Copy full brief
+                </Button>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-4">
+              {activeIdeation ? (
+                <>
+                  <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{activeIdeation.inputSnapshot.analysisModel}</span>
+                      <span>·</span>
+                      <span>{activeIdeation.inputSnapshot.contentConcept}</span>
+                      <span>·</span>
+                      <span>{new Date(activeIdeation.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      {activeIdeation.result.summary}
+                    </p>
+                    <div className="mt-4 grid gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Product URL
+                        </p>
+                        <p className="mt-1 break-all text-sm text-foreground">
+                          {activeIdeation.inputSnapshot.productUrl ?? 'No product URL captured.'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Written brief
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                          {activeIdeation.inputSnapshot.briefText}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {activeIdeation.result.concepts.map((concept, index) => (
+                      <article
+                        className="rounded-xl border border-border bg-background p-4"
+                        key={`${activeIdeation.id}-${index}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                              Concept {index + 1}
+                            </p>
+                            <p className="mt-2 font-medium text-foreground">
+                              {concept.title}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              void navigator.clipboard.writeText(
+                                formatIdeationConceptCardText(concept, index),
+                              )
+                            }}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                        <div className="mt-4 grid gap-3 text-sm leading-6 text-muted-foreground">
+                          <p><span className="font-medium text-foreground">Audience:</span> {concept.audience}</p>
+                          <p><span className="font-medium text-foreground">Angle:</span> {concept.angle}</p>
+                          <p><span className="font-medium text-foreground">Hook:</span> {concept.hook}</p>
+                          <p><span className="font-medium text-foreground">Key message:</span> {concept.keyMessage}</p>
+                          <p><span className="font-medium text-foreground">Visual direction:</span> {concept.visualDirection}</p>
+                          <p><span className="font-medium text-foreground">CTA:</span> {concept.cta}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                  No saved ideation briefs exist yet.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       <ConfirmDialog
         confirmLabel={isDeleting ? 'Deleting' : 'Delete'}

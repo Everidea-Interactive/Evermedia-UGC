@@ -19,6 +19,13 @@
       "when": 1775748373000,
       "tag": "0002_stateless_generator",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777922526712,
+      "tag": "0003_needy_komodo",
+      "breakpoints": true
     }
   ]
 }

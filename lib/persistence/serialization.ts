@@ -102,7 +102,11 @@ export function normalizeProjectConfigSnapshot(
   const mergedSnapshot: GenerationConfigSnapshot = {
     ...defaultProjectConfigSnapshot,
     ...snapshot,
-    experience: snapshot.experience === 'guided' ? 'guided' : 'manual',
+    experience:
+      snapshot.experience === 'guided' ||
+      snapshot.experience === 'ideation'
+        ? snapshot.experience
+        : 'manual',
     guided: normalizeGuidedSnapshot(snapshot.guided),
   }
 

@@ -96,6 +96,14 @@ describe('normalizeProjectConfigSnapshot', () => {
       summary: 'Summary',
     })
   })
+
+  it('preserves ideation experience values in normalized snapshots', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      experience: 'ideation',
+    })
+
+    expect(snapshot.experience).toBe('ideation')
+  })
 })
 
 describe('createGenerationRunState', () => {

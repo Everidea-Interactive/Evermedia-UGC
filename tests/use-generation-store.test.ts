@@ -302,4 +302,61 @@ describe('useGenerationStore', () => {
     expect(state.guidedPlan).toBeNull()
     expect(state.analysisStatus).toBe('idle')
   })
+
+  it('keeps ideation state separate and resets it independently', () => {
+    const store = useGenerationStore.getState()
+
+    store.setTextPrompt('Manual draft prompt')
+    store.setIdeationProductUrl('https://example.com/product')
+    store.setIdeationBriefText('Creator-first acne serum campaign.')
+    store.setIdeationResult({
+      concepts: [
+        {
+          angle: 'Angle 1',
+          audience: 'Audience 1',
+          cta: 'CTA 1',
+          hook: 'Hook 1',
+          keyMessage: 'Message 1',
+          title: 'Concept 1',
+          visualDirection: 'Visual 1',
+        },
+        {
+          angle: 'Angle 2',
+          audience: 'Audience 2',
+          cta: 'CTA 2',
+          hook: 'Hook 2',
+          keyMessage: 'Message 2',
+          title: 'Concept 2',
+          visualDirection: 'Visual 2',
+        },
+        {
+          angle: 'Angle 3',
+          audience: 'Audience 3',
+          cta: 'CTA 3',
+          hook: 'Hook 3',
+          keyMessage: 'Message 3',
+          title: 'Concept 3',
+          visualDirection: 'Visual 3',
+        },
+      ],
+      summary: 'Three ideation concepts.',
+    })
+    store.setExperience('ideation')
+
+    let state = useGenerationStore.getState()
+
+    expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.ideationInput.productUrl).toBe('https://example.com/product')
+    expect(state.ideationResult?.summary).toBe('Three ideation concepts.')
+    expect(state.experience).toBe('ideation')
+
+    store.resetIdeationState()
+    state = useGenerationStore.getState()
+
+    expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.ideationInput.productUrl).toBe('')
+    expect(state.ideationInput.briefText).toBe('')
+    expect(state.ideationResult).toBeNull()
+    expect(state.ideationStatus).toBe('idle')
+  })
 })
