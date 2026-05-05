@@ -1,20 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
 import { useLocale } from '@/components/i18n/locale-provider'
-import { translateText } from '@/lib/i18n'
 import type { KieStatusResponse } from '@/lib/generation/types'
-
-const emptyKieStatus: KieStatusResponse = {
-  connected: false,
-  credits: null,
-  error: null,
-  fetchedAt: null,
-  source: null,
-}
-
-const refreshIntervalMs = 60_000
+import { useSharedKieStatus } from '@/lib/generation/use-kie-status'
 
 function getCreditsValue(status: KieStatusResponse, isLoading: boolean, locale: string) {
   if (isLoading) {
@@ -22,7 +10,7 @@ function getCreditsValue(status: KieStatusResponse, isLoading: boolean, locale: 
   }
 
   if (!status.connected) {
-    return locale === 'id' ? 'Offline' : 'Offline'
+    return 'Offline'
   }
 
   if (status.credits === null) {
@@ -34,66 +22,7 @@ function getCreditsValue(status: KieStatusResponse, isLoading: boolean, locale: 
 
 export function KieCreditsChip() {
   const { locale, t } = useLocale()
-  const [status, setStatus] = useState<KieStatusResponse>(emptyKieStatus)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const refresh = async () => {
-      try {
-        const response = await fetch('/api/kie/status', { cache: 'no-store' })
-        const payload = (await response.json()) as KieStatusResponse
-
-        if (cancelled) {
-          return
-        }
-
-        setStatus(
-          response.ok
-            ? payload
-            : {
-                connected: false,
-                credits: null,
-                error:
-                  payload.error ??
-                  translateText(locale, 'Unable to read KIE status.'),
-                fetchedAt: new Date().toISOString(),
-                source: null,
-              },
-        )
-      } catch (error) {
-        if (cancelled) {
-          return
-        }
-
-        setStatus({
-          connected: false,
-          credits: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : translateText(locale, 'Unable to read KIE status.'),
-          fetchedAt: new Date().toISOString(),
-          source: null,
-        })
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void refresh()
-    const intervalId = window.setInterval(() => {
-      void refresh()
-    }, refreshIntervalMs)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
-    }
-  }, [locale])
+  const { isLoading, status } = useSharedKieStatus()
 
   return (
     <div
