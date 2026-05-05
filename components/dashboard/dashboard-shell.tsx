@@ -34,8 +34,6 @@ import {
   X,
 } from 'lucide-react'
 
-import { GuidedWorkspace } from '@/components/dashboard/guided-workspace'
-import { IdeationWorkspace } from '@/components/dashboard/ideation-workspace'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,8 +60,6 @@ import {
 } from '@/lib/generation/run-copy'
 import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
 import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
-import { useKiePricing } from '@/lib/generation/use-kie-pricing'
-import { useKieStatus } from '@/lib/generation/use-kie-status'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
@@ -73,7 +69,6 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
-  GenerationExperience,
   GenerationCostEstimate,
   GenerationRun,
   ImageModelOption,
@@ -92,48 +87,6 @@ import type {
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
-
-const workspaceTabs: Array<{
-  helper: string
-  icon: LucideIcon
-  label: string
-  value: WorkspaceTab
-}> = [
-  {
-    helper: 'Still renders',
-    icon: ImageIcon,
-    label: 'Image',
-    value: 'image',
-  },
-  {
-    helper: 'Motion renders',
-    icon: Film,
-    label: 'Video',
-    value: 'video',
-  },
-]
-
-const experienceTabs: Array<{
-  helper: string
-  label: string
-  value: GenerationExperience
-}> = [
-  {
-    helper: 'Reference board, presets, and manual batch generation',
-    label: 'Manual',
-    value: 'manual',
-  },
-  {
-    helper: 'Analyze one product image, edit the shot list, then render it',
-    label: 'Guided',
-    value: 'guided',
-  },
-  {
-    helper: 'LLM-assisted content strategy and concept planning',
-    label: 'Ideation',
-    value: 'ideation',
-  },
-]
 
 const productCategories: Array<{
   icon: LucideIcon
@@ -384,6 +337,18 @@ const presetSubgroupClassName =
   'rounded-lg border border-border/70 bg-secondary/35 p-3'
 const assetAccept = 'image/*,video/*'
 const runPollIntervalMs = 2_500
+type ManualSection = 'references' | 'preset' | 'motion' | 'outputs'
+
+export function normalizeManualSection(
+  manualSection: ManualSection,
+  activeTab: WorkspaceTab,
+): ManualSection {
+  if (activeTab !== 'video' && manualSection === 'motion') {
+    return 'references'
+  }
+
+  return manualSection
+}
 
 function ImagePreviewTrigger({
   alt,
@@ -414,37 +379,35 @@ function ImagePreviewTrigger({
   )
 }
 
-export function DashboardShell() {
+export function DashboardShell({
+  isPricingLoading,
+  kiePricing,
+  kiePricingError,
+  kieStatus,
+}: {
+  isPricingLoading: boolean
+  kiePricing: KiePricingResponse | null
+  kiePricingError: string | null
+  kieStatus: KieStatusResponse
+}) {
   const activeTab = useGenerationStore((state) => state.activeTab)
-  const experience = useGenerationStore((state) => state.experience)
-  const setActiveTab = useGenerationStore((state) => state.setActiveTab)
-  const setExperience = useGenerationStore((state) => state.setExperience)
   const generationRun = useGenerationStore((state) => state.generationRun)
   const generationErrorEventId = useGenerationStore(
     (state) => state.generationErrorEventId,
   )
-  const kiePricingState = useKiePricing()
-  const kieStatusState = useKieStatus(generationRun)
   const controller = useGenerationController({
-    enabled: experience === 'manual',
-    kiePricing: kiePricingState.pricing,
-    kieStatus: kieStatusState.status,
-    pricingError: kiePricingState.error,
+    enabled: true,
+    kiePricing,
+    kieStatus,
+    pricingError: kiePricingError,
   })
-  const [manualSection, setManualSection] = useState<
-    'references' | 'preset' | 'motion' | 'outputs'
-  >('references')
+  const [manualSection, setManualSection] = useState<ManualSection>('references')
   const [isErrorNoticeOpen, setIsErrorNoticeOpen] = useState(false)
   const [errorNotice, setErrorNotice] = useState(() =>
     getGenerationFailureNotice(null),
   )
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      useGenerationStore.getState().disposeGenerationState()
-    }
-  }, [])
+  const visibleManualSection = normalizeManualSection(manualSection, activeTab)
 
   useEffect(() => {
     const isTerminalStatus =
@@ -496,7 +459,7 @@ export function DashboardShell() {
   ])
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <>
       <ErrorNoticeDialog
         description={errorNotice.message}
         detail={errorNotice.detail}
@@ -504,134 +467,60 @@ export function DashboardShell() {
         open={isErrorNoticeOpen}
         title={errorNotice.title}
       />
-      <a
-        href="#dashboard-main"
-        className="sr-only left-4 top-4 z-50 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed"
-      >
-        Skip to Main Content
-      </a>
-
-      <main
-        className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5"
-        id="dashboard-main"
-      >
-        <section className={cn(panelClassName, 'p-2.5 sm:p-3')}>
-          <div className="grid gap-3">
+      <div className="flex flex-1 flex-col gap-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
+          <div className="xl:col-start-1">
             <Tabs
-              onValueChange={(value) => setExperience(value as GenerationExperience)}
-              value={experience}
+              className="flex flex-col gap-3"
+              onValueChange={(value) => setManualSection(value as ManualSection)}
+              value={visibleManualSection}
             >
-              <TabsList aria-label="Studio Experience" className="w-full grid-cols-3 p-1.5">
-                {experienceTabs.map((tab) => (
-                  <TabsTrigger
-                    className="min-h-[3.15rem] px-3 py-2"
-                    key={tab.value}
-                    value={tab.value}
-                  >
-                    <span className="mx-auto text-sm font-semibold sm:text-base">
-                      {tab.label}
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-
-            {experience !== 'ideation' ? (
-              <Tabs
-                onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-                value={activeTab}
+              <TabsList
+                aria-label="Workspace Sections"
+                className={cn(
+                  'w-full',
+                  activeTab === 'video' ? 'grid-cols-4' : 'grid-cols-3',
+                )}
               >
-                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
-                  {workspaceTabs.map((tab) => {
-                    const Icon = tab.icon
+                <TabsTrigger value="references">References</TabsTrigger>
+                <TabsTrigger value="preset">Preset</TabsTrigger>
+                {activeTab === 'video' ? (
+                  <TabsTrigger value="motion">Motion</TabsTrigger>
+                ) : null}
+                <TabsTrigger value="outputs">Outputs</TabsTrigger>
+              </TabsList>
 
-                    return (
-                      <TabsTrigger
-                        className="min-h-[3.15rem] px-3 py-2"
-                        key={tab.value}
-                        value={tab.value}
-                      >
-                        <span className="mx-auto flex items-center justify-center gap-2">
-                          <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
-                          <span className="text-sm font-semibold sm:text-base">{tab.label}</span>
-                        </span>
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
-              </Tabs>
-            ) : null}
+              <TabsContent className="mt-0" value="references">
+                <ReferenceWorkspaceSection />
+              </TabsContent>
+              <TabsContent className="mt-0" value="preset">
+                <RefineRenderSection />
+              </TabsContent>
+              {activeTab === 'video' ? (
+                <TabsContent className="mt-0" value="motion">
+                  <MotionControlsSection />
+                </TabsContent>
+              ) : null}
+              <TabsContent className="mt-0" value="outputs">
+                <OutputPanel />
+              </TabsContent>
+            </Tabs>
           </div>
-        </section>
 
-        {experience === 'guided' ? (
-          <GuidedWorkspace
-            isPricingLoading={kiePricingState.isLoading}
-            kiePricing={kiePricingState.pricing}
-            kiePricingError={kiePricingState.error}
-            kieStatus={kieStatusState.status}
+          <RunControlPanel
+            canGenerate={controller.canGenerate}
+            className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
+            generationCostEstimate={controller.generationCostEstimate}
+            generationCostReason={controller.generationCostReason}
+            isBusy={controller.isBusy}
+            isPricingLoading={isPricingLoading}
+            kiePricing={kiePricing}
+            onCancelRun={controller.handleCancel}
+            onGenerate={controller.handleGenerate}
           />
-        ) : experience === 'ideation' ? (
-          <IdeationWorkspace />
-        ) : (
-          <div className="flex flex-1 flex-col gap-4">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
-              <div className="xl:col-start-1">
-                <Tabs
-                  className="flex flex-col gap-3"
-                  onValueChange={(value) =>
-                    setManualSection(value as 'references' | 'preset' | 'motion' | 'outputs')
-                  }
-                  value={manualSection}
-                >
-                  <TabsList
-                    aria-label="Workspace Sections"
-                    className={cn(
-                      'w-full',
-                      activeTab === 'video' ? 'grid-cols-4' : 'grid-cols-3',
-                    )}
-                  >
-                    <TabsTrigger value="references">References</TabsTrigger>
-                    <TabsTrigger value="preset">Preset</TabsTrigger>
-                    {activeTab === 'video' ? (
-                      <TabsTrigger value="motion">Motion</TabsTrigger>
-                    ) : null}
-                    <TabsTrigger value="outputs">Outputs</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent className="mt-0" value="references">
-                    <ReferenceWorkspaceSection />
-                  </TabsContent>
-                  <TabsContent className="mt-0" value="preset">
-                    <RefineRenderSection />
-                  </TabsContent>
-                  {activeTab === 'video' ? (
-                    <TabsContent className="mt-0" value="motion">
-                      <MotionControlsSection />
-                    </TabsContent>
-                  ) : null}
-                  <TabsContent className="mt-0" value="outputs">
-                    <OutputPanel />
-                  </TabsContent>
-                </Tabs>
-              </div>
-
-              <RunControlPanel
-                canGenerate={controller.canGenerate}
-                className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
-                generationCostEstimate={controller.generationCostEstimate}
-                generationCostReason={controller.generationCostReason}
-                isBusy={controller.isBusy}
-                isPricingLoading={kiePricingState.isLoading}
-                kiePricing={kiePricingState.pricing}
-                onCancelRun={controller.handleCancel}
-                onGenerate={controller.handleGenerate}
-              />
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
+        </div>
+      </div>
+    </>
   )
 }
 

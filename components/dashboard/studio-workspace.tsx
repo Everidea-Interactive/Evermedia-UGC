@@ -1,7 +1,16 @@
 'use client'
 
-import { DashboardShell } from '@/components/dashboard/dashboard-shell'
+import { useEffect } from 'react'
+
+import { StudioShell } from '@/components/dashboard/studio-shell'
+import { useGenerationStore } from '@/store/use-generation-store'
 
 export function StudioWorkspace() {
-  return <DashboardShell />
+  useEffect(() => {
+    return () => {
+      useGenerationStore.getState().disposeGenerationState()
+    }
+  }, [])
+
+  return <StudioShell />
 }
