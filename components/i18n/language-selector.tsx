@@ -16,7 +16,7 @@ export function LanguageSelector({ className }: { className?: string }) {
   const labelId = useId()
   const [isSaving, setIsSaving] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const { dictionary, locale } = useLocale()
+  const { dictionary, locale, setLocale: setActiveLocale } = useLocale()
 
   async function setLocale(nextLocale: Locale) {
     if (nextLocale === locale) {
@@ -33,6 +33,8 @@ export function LanguageSelector({ className }: { className?: string }) {
         },
         method: 'POST',
       })
+
+      setActiveLocale(nextLocale)
     } finally {
       setIsSaving(false)
     }

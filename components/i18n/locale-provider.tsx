@@ -2,9 +2,11 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useState,
   type ReactNode,
 } from 'react'
 
@@ -19,6 +21,7 @@ import {
 type LocaleContextValue = {
   dictionary: Dictionary
   locale: Locale
+  setLocale: (locale: Locale) => void
   t: (value: string) => string
 }
 
@@ -27,6 +30,7 @@ type TranslatableAttribute = 'placeholder' | 'aria-label' | 'title'
 const LocaleContext = createContext<LocaleContextValue>({
   dictionary: getDictionary(defaultLocale),
   locale: defaultLocale,
+  setLocale: () => undefined,
   t: (value) => value,
 })
 
@@ -61,12 +65,17 @@ function translateNodeText(locale: Locale, root: ParentNode) {
     const currentValue = node.nodeValue ?? ''
     const original = originalTextByNode.get(node) ?? currentValue
     const trimmed = original.trim()
+    const translatedTrimmed = translateText(locale, trimmed)
     const nextValue =
       locale === 'id'
-        ? original.replace(trimmed, translateText(locale, trimmed))
+        ? original.replace(trimmed, translatedTrimmed)
         : original
 
-    if (locale === 'id' && !originalTextByNode.has(node)) {
+    if (
+      locale === 'id' &&
+      translatedTrimmed !== trimmed &&
+      !originalTextByNode.has(node)
+    ) {
       originalTextByNode.set(node, currentValue)
     }
 
@@ -87,10 +96,14 @@ function translateNodeText(locale: Locale, root: ParentNode) {
 
       const originalAttributes = originalAttributesByElement.get(element) ?? {}
       const originalValue = originalAttributes[attr] ?? currentValue
-      const nextValue =
-        locale === 'id' ? translateText(locale, originalValue) : originalValue
+      const translatedValue = translateText(locale, originalValue)
+      const nextValue = locale === 'id' ? translatedValue : originalValue
 
-      if (locale === 'id' && !(attr in originalAttributes)) {
+      if (
+        locale === 'id' &&
+        translatedValue !== originalValue &&
+        !(attr in originalAttributes)
+      ) {
         originalAttributes[attr] = currentValue
         originalAttributesByElement.set(element, originalAttributes)
       }
@@ -109,19 +122,30 @@ export function LocaleProvider({
   children: ReactNode
   locale: Locale
 }) {
+  const [activeLocale, setActiveLocale] = useState(locale)
+
+  useEffect(() => {
+    setActiveLocale(locale)
+  }, [locale])
+
+  const setLocale = useCallback((nextLocale: Locale) => {
+    setActiveLocale(nextLocale)
+  }, [])
+
   const value = useMemo<LocaleContextValue>(
     () => ({
-      dictionary: getDictionary(locale),
-      locale,
-      t: (text) => translateText(locale, text),
+      dictionary: getDictionary(activeLocale),
+      locale: activeLocale,
+      setLocale,
+      t: (text) => translateText(activeLocale, text),
     }),
-    [locale],
+    [activeLocale, setLocale],
   )
 
   useEffect(() => {
-    translateNodeText(locale, document.body)
+    translateNodeText(activeLocale, document.body)
 
-    if (locale !== 'id') {
+    if (activeLocale !== 'id') {
       return
     }
 
@@ -130,7 +154,7 @@ export function LocaleProvider({
         return
       }
 
-      translateNodeText(locale, document.body)
+      translateNodeText(activeLocale, document.body)
     })
 
     observer.observe(document.body, {
@@ -143,7 +167,7 @@ export function LocaleProvider({
     return () => {
       observer.disconnect()
     }
-  }, [locale])
+  }, [activeLocale])
 
   return (
     <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>

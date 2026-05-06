@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthenticatedShell } from '@/components/layout/authenticated-shell'
@@ -58,5 +58,41 @@ describe('AuthenticatedShell', () => {
     )
 
     expect(screen.queryByRole('link', { name: 'Accounts' })).toBeNull()
+  })
+
+  it('reveals the mobile menu content after toggling the menu button', () => {
+    render(
+      <AuthenticatedShell
+        locale="en"
+        user={{
+          canManageAccounts: true,
+          email: 'owner@example.com',
+          id: 'owner-1',
+          roles: ['super_admin'],
+          status: 'active',
+        }}
+      >
+        <div>child</div>
+      </AuthenticatedShell>,
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Open navigation menu' })
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getAllByRole('link', { name: 'Accounts' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Sign out' })).toHaveLength(1)
+
+    fireEvent.click(toggle)
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    const [, mobileCredits] = screen.getAllByText('KIE Credits')
+    const [, mobileStudioLink] = screen.getAllByRole('link', { name: 'Studio' })
+
+    expect(
+      mobileCredits.compareDocumentPosition(mobileStudioLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(screen.getAllByRole('link', { name: 'Accounts' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Sign out' })).toHaveLength(2)
+    expect(screen.getAllByText('owner@example.com')).toHaveLength(2)
   })
 })
