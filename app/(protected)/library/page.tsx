@@ -9,8 +9,10 @@ export const dynamic = 'force-dynamic'
 
 export default async function LibraryRoutePage() {
   const user = await requireAuthenticatedUser('/library')
-  const outputs = await listSavedOutputHistoryForUser(user.id)
-  const ideations = await listSavedIdeationHistoryForUser(user.id)
+  const [outputs, ideations] = await Promise.all([
+    listSavedOutputHistoryForUser(user.id),
+    listSavedIdeationHistoryForUser(user.id),
+  ])
 
   return <LibraryPage ideations={ideations} outputs={outputs} />
 }

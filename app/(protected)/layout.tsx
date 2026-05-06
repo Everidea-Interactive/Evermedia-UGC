@@ -9,8 +9,10 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await getOptionalAuthenticatedUser()
-  const locale = await getLocale()
+  const [user, locale] = await Promise.all([
+    getOptionalAuthenticatedUser(),
+    getLocale(),
+  ])
 
   if (!user) {
     return <>{children}</>

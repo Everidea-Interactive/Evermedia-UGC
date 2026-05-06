@@ -181,8 +181,10 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const parsedRequest = parseGenerationFormData(formData)
-    const pricing = await getKiePricing()
-    const kieStatus = await getKieStatus()
+    const [pricing, kieStatus] = await Promise.all([
+      getKiePricing(),
+      getKieStatus(),
+    ])
     const estimate = getGenerationCostEstimate(
       createEstimateSnapshot(parsedRequest),
       pricing.matrix,

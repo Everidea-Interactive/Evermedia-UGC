@@ -15,8 +15,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const [ideations, outputs] = await Promise.all([
+    listSavedIdeationHistoryForUser(user.id),
+    listSavedOutputHistoryForUser(user.id),
+  ])
+
   return NextResponse.json({
-    ideations: await listSavedIdeationHistoryForUser(user.id),
-    outputs: await listSavedOutputHistoryForUser(user.id),
+    ideations,
+    outputs,
   })
 }
