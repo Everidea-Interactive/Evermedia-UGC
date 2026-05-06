@@ -1,8 +1,12 @@
 import type {
+  AudiencePreset,
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
   ContentConcept,
+  CreativeBrief,
+  CreativeGoal,
+  CreativePlan,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -15,6 +19,7 @@ import type {
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
+  PlatformPreset,
   WorkspaceTab,
   VideoDuration,
   VideoModelOption,
@@ -49,8 +54,18 @@ export type ProjectConfigSnapshot = GenerationConfigSnapshot
 
 export type GuidedProjectInputSnapshot = {
   analysisModel: KieAnalysisModel
+  creativeBrief?: CreativeBrief | null
+  creativePlan?: CreativePlan | null
   contentConcept: ContentConcept
   productUrl: string
+}
+
+export type CreativeBriefSnapshot = {
+  audience: AudiencePreset
+  goal: CreativeGoal
+  platform: PlatformPreset
+  productHighlights: string
+  tone: string
 }
 
 export type SavedOutputRecord = {

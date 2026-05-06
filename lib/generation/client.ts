@@ -1,5 +1,7 @@
 import type {
   AssetSlot,
+  CreativeBrief,
+  CreativePlan,
   BatchSize,
   ContentConcept,
   GenerationSnapshot,
@@ -161,6 +163,8 @@ export function buildGuidedAnalysisFormData(input: {
 
 export function buildGuidedGenerationFormData(input: {
   analysisModel: KieAnalysisModel
+  creativeBrief: CreativeBrief
+  creativePlan: CreativePlan | null
   contentConcept: ContentConcept
   heroAsset: AssetSlot
   imageModel: GenerationSnapshot['imageModel']
@@ -204,11 +208,32 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('guidedSummary', input.plan.summary)
   formData.append('guidedContentConcept', input.contentConcept)
   formData.append('analysisModel', input.analysisModel)
+  formData.append('creativeBrief', JSON.stringify(input.creativeBrief))
+  formData.append('creativePlan', JSON.stringify(input.creativePlan))
   formData.append('productUrl', input.productUrl)
   formData.append('assetManifest', JSON.stringify(assetManifest))
   formData.append('product_guided_hero', input.heroAsset.file)
 
   return { assetManifest, formData }
+}
+
+export function buildCreativePlanningFormData(input: {
+  brief: CreativeBrief
+  plan: GuidedAnalysisPlan
+}) {
+  const formData = new FormData()
+
+  formData.append('audience', input.brief.audience)
+  formData.append('goal', input.brief.goal)
+  formData.append('platform', input.brief.platform)
+  formData.append('productHighlights', input.brief.productHighlights)
+  formData.append('tone', input.brief.tone)
+  formData.append('creativeStyle', input.plan.creativeStyle)
+  formData.append('productCategory', input.plan.productCategory)
+  formData.append('guidedSummary', input.plan.summary)
+  formData.append('guidedShots', JSON.stringify(input.plan.shots))
+
+  return { formData }
 }
 
 export function formatBytes(size: number | null) {

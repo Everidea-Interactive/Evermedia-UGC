@@ -9,6 +9,9 @@ import type {
   CharacterAgeGroup,
   CharacterGender,
   ContentConcept,
+  CreativeBrief,
+  CreativePlan,
+  CreativePlanningStatus,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -25,6 +28,7 @@ import type {
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
+  StoryboardShot,
   SubjectMode,
   VideoDuration,
   VideoModelOption,
@@ -41,6 +45,8 @@ type GuidedInputState = {
   shotCount: BatchSize
 }
 
+type CreativeBriefField = keyof CreativeBrief
+
 type GenerationStateShape = {
   activeTab: WorkspaceTab
   analysisError: string | null
@@ -49,6 +55,10 @@ type GenerationStateShape = {
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
   characterAgeGroup: CharacterAgeGroup
+  creativeBrief: CreativeBrief
+  creativePlan: CreativePlan | null
+  creativePlanningError: string | null
+  creativePlanningStatus: CreativePlanningStatus
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
   experience: GenerationExperience
@@ -86,6 +96,13 @@ type GenerationStore = GenerationStateShape & {
   setCameraMovement: (cameraMovement: CameraMovement | null) => void
   setCharacterAgeGroup: (characterAgeGroup: CharacterAgeGroup) => void
   setCharacterGender: (characterGender: CharacterGender) => void
+  setCreativePlan: (plan: CreativePlan | null) => void
+  setCreativePlanningError: (error: string | null) => void
+  setCreativePlanningStatus: (status: CreativePlanningStatus) => void
+  setCreativeBriefField: <Key extends CreativeBriefField>(
+    key: Key,
+    value: CreativeBrief[Key],
+  ) => void
   setCreativeStyle: (creativeStyle: CreativeStyle) => void
   setExperience: (experience: GenerationExperience) => void
   setFigureArtDirection: (figureArtDirection: FigureArtDirection) => void
@@ -107,6 +124,11 @@ type GenerationStore = GenerationStateShape & {
   setTextPrompt: (textPrompt: string) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
   setVideoModel: (videoModel: VideoModelOption) => void
+  selectCreativePlanCta: (ctaId: string) => void
+  updateStoryboardShot: (
+    slug: string,
+    patch: Partial<StoryboardShot>,
+  ) => void
   updateGuidedShotPrompt: (slug: string, prompt: string) => void
   updateGenerationRun: (patch: Partial<GenerationRun>) => void
   updateGenerationVariant: (variantId: string, patch: Partial<GenerationVariant>) => void
@@ -163,6 +185,16 @@ function createGuidedInputState(): GuidedInputState {
   }
 }
 
+function createCreativeBrief(): CreativeBrief {
+  return {
+    audience: 'broad',
+    goal: 'conversion',
+    platform: 'tiktok',
+    productHighlights: '',
+    tone: '',
+  }
+}
+
 function createEmptyRunState(): GenerationRun {
   return {
     completedAt: null,
@@ -202,7 +234,24 @@ function createSubjectModeState(subjectMode: SubjectMode) {
     : {
         subjectMode,
         ...createLifestyleDefaults(),
-      }
+    }
+}
+
+function composeStoryboardRenderPrompt(shot: StoryboardShot) {
+  const segments = [
+    shot.visualPrompt,
+    shot.environmentPrompt,
+    shot.objective ? `Objective: ${shot.objective}` : '',
+    shot.voiceoverLine ? `Voiceover cue: ${shot.voiceoverLine}` : '',
+    shot.soundPrompt ? `Sound cue: ${shot.soundPrompt}` : '',
+    shot.ctaText ? `End with CTA text: ${shot.ctaText}.` : '',
+  ]
+
+  return segments
+    .filter((segment) => segment.trim().length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function createInitialState(): GenerationStateShape {
@@ -221,6 +270,10 @@ function createInitialState(): GenerationStateShape {
     cameraMovement: 'orbit',
     characterAgeGroup: 'any',
     characterGender: 'any',
+    creativeBrief: createCreativeBrief(),
+    creativePlan: null,
+    creativePlanningError: null,
+    creativePlanningStatus: 'idle',
     creativeStyle: 'ugc-lifestyle',
     experience: 'manual',
     figureArtDirection: 'none',
@@ -417,6 +470,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         cameraMovement: normalizedConfig.cameraMovement,
         characterAgeGroup: normalizedConfig.characterAgeGroup,
         characterGender: normalizedConfig.characterGender,
+        creativeBrief:
+          normalizedConfig.guided?.creativeBrief ?? createCreativeBrief(),
+        creativePlan: normalizedConfig.guided?.creativePlan ?? null,
+        creativePlanningError: null,
+        creativePlanningStatus: normalizedConfig.guided?.creativePlan
+          ? 'ready'
+          : 'idle',
         creativeStyle: normalizedConfig.creativeStyle,
         experience: normalizedConfig.experience,
         figureArtDirection: normalizedConfig.figureArtDirection,
@@ -461,6 +521,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       cameraMovement: nextState.cameraMovement,
       characterAgeGroup: nextState.characterAgeGroup,
       characterGender: nextState.characterGender,
+      creativeBrief: nextState.creativeBrief,
       creativeStyle: nextState.creativeStyle,
       figureArtDirection: nextState.figureArtDirection,
       generationRun: nextState.generationRun,
@@ -485,6 +546,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set({
       analysisError: nextState.analysisError,
       analysisStatus: nextState.analysisStatus,
+      creativeBrief: nextState.creativeBrief,
+      creativePlan: nextState.creativePlan,
+      creativePlanningError: nextState.creativePlanningError,
+      creativePlanningStatus: nextState.creativePlanningStatus,
       generationRun: nextState.generationRun,
       guidedInput: nextState.guidedInput,
       guidedPlan: nextState.guidedPlan,
@@ -514,6 +579,43 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) =>
       state.subjectMode === 'lifestyle' ? { characterGender } : {},
     ),
+  setCreativePlan: (creativePlan) =>
+    set((state) => ({
+      creativePlan,
+      creativePlanningError: null,
+      creativePlanningStatus: creativePlan ? 'ready' : 'idle',
+      guidedPlan:
+        creativePlan && state.guidedPlan
+          ? {
+              ...state.guidedPlan,
+              shots: state.guidedPlan.shots.map((shot) => {
+                const storyboardShot = creativePlan.storyboard.find(
+                  (candidate) => candidate.slug === shot.slug,
+                )
+
+                return storyboardShot
+                  ? {
+                      ...shot,
+                      prompt: storyboardShot.renderPrompt,
+                      shotEnvironment: storyboardShot.shotEnvironment,
+                      subjectMode: storyboardShot.subjectMode,
+                      title: storyboardShot.title,
+                      tags: storyboardShot.tags,
+                    }
+                  : shot
+              }),
+            }
+          : state.guidedPlan,
+    })),
+  setCreativePlanningError: (creativePlanningError) => set({ creativePlanningError }),
+  setCreativePlanningStatus: (creativePlanningStatus) => set({ creativePlanningStatus }),
+  setCreativeBriefField: (key, value) =>
+    set((state) => ({
+      creativeBrief: {
+        ...state.creativeBrief,
+        [key]: value,
+      },
+    })),
   setCreativeStyle: (creativeStyle) => set({ creativeStyle }),
   setExperience: (experience) => set({ experience }),
   setFigureArtDirection: (figureArtDirection) =>
@@ -575,9 +677,14 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setGuidedPlan: (guidedPlan) =>
-    set(() => ({
+    set((state) => ({
       analysisError: null,
       analysisStatus: guidedPlan ? 'ready' : 'idle',
+      creativePlan: guidedPlan ? state.creativePlan : null,
+      creativePlanningError: guidedPlan ? state.creativePlanningError : null,
+      creativePlanningStatus: guidedPlan
+        ? state.creativePlanningStatus
+        : 'idle',
       guidedPlan,
     })),
   setGuidedProductUrl: (productUrl) =>
@@ -615,9 +722,120 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setTextPrompt: (textPrompt) => set({ textPrompt }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) => set({ videoModel }),
+  selectCreativePlanCta: (ctaId) =>
+    set((state) => {
+      if (!state.creativePlan) {
+        return {}
+      }
+
+      const selectedCta =
+        state.creativePlan.ctaOptions.find((cta) => cta.id === ctaId) ?? null
+      const storyboard = state.creativePlan.storyboard.map((shot, index, shots) => {
+        const isLastShot = index === shots.length - 1
+
+        if (!isLastShot) {
+          return shot
+        }
+
+        const ctaText = selectedCta?.label ?? shot.ctaText
+        const renderPrompt = shot.renderPrompt.replace(
+          /End with CTA text:.*?(?=\.|$)/,
+          `End with CTA text: ${ctaText}`,
+        )
+
+        return {
+          ...shot,
+          ctaText,
+          prompt: renderPrompt,
+          renderPrompt,
+        }
+      })
+
+      return {
+        creativePlan: {
+          ...state.creativePlan,
+          selectedCtaId: ctaId,
+          storyboard,
+        },
+        guidedPlan: state.guidedPlan
+          ? {
+              ...state.guidedPlan,
+              shots: state.guidedPlan.shots.map((shot, index, shots) => {
+                const isLastShot = index === shots.length - 1
+                const storyboardShot = storyboard.find(
+                  (candidate) => candidate.slug === shot.slug,
+                )
+
+                return isLastShot && storyboardShot
+                  ? {
+                      ...shot,
+                      prompt: storyboardShot.renderPrompt,
+                    }
+                  : shot
+              }),
+            }
+          : state.guidedPlan,
+      }
+    }),
+  updateStoryboardShot: (slug, patch) =>
+    set((state) => {
+      if (!state.creativePlan) {
+        return {}
+      }
+
+      const nextStoryboard = state.creativePlan.storyboard.map((shot) =>
+        shot.slug === slug
+          ? (() => {
+              const nextShot = {
+                ...shot,
+                ...patch,
+              }
+
+              return {
+                ...nextShot,
+                prompt:
+                  typeof patch.renderPrompt === 'string' || typeof patch.prompt === 'string'
+                    ? nextShot.renderPrompt
+                    : composeStoryboardRenderPrompt(nextShot),
+                renderPrompt:
+                  typeof patch.renderPrompt === 'string'
+                    ? patch.renderPrompt
+                    : composeStoryboardRenderPrompt(nextShot),
+              }
+            })()
+          : shot,
+      )
+      const updatedShot = nextStoryboard.find((shot) => shot.slug === slug)
+      const nextGuidedPlan = updatedShot && state.guidedPlan
+        ? {
+            ...state.guidedPlan,
+            shots: state.guidedPlan.shots.map((shot) =>
+              shot.slug === slug
+                ? {
+                    ...shot,
+                    prompt:
+                      updatedShot.renderPrompt || updatedShot.prompt || shot.prompt,
+                    shotEnvironment: updatedShot.shotEnvironment,
+                    subjectMode: updatedShot.subjectMode,
+                    title: updatedShot.title,
+                    tags: updatedShot.tags,
+                  }
+                : shot,
+            ),
+          }
+        : state.guidedPlan
+
+      return {
+        creativePlan: {
+          ...state.creativePlan,
+          storyboard: nextStoryboard,
+        },
+        guidedPlan: nextGuidedPlan,
+      }
+    }),
   updateGuidedShotPrompt: (slug, prompt) =>
-    set((state) => ({
-      guidedPlan: state.guidedPlan
+    set((state) => {
+      const nextGuidedPlan = state.guidedPlan
         ? {
             ...state.guidedPlan,
             shots: state.guidedPlan.shots.map((shot) =>
@@ -629,8 +847,26 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
                 : shot,
             ),
           }
-        : null,
-    })),
+        : null
+
+      return {
+        creativePlan: state.creativePlan
+          ? {
+              ...state.creativePlan,
+              storyboard: state.creativePlan.storyboard.map((shot) =>
+                shot.slug === slug
+                  ? {
+                      ...shot,
+                      prompt,
+                      renderPrompt: prompt,
+                    }
+                  : shot,
+              ),
+            }
+          : state.creativePlan,
+        guidedPlan: nextGuidedPlan,
+      }
+    }),
   updateGenerationRun: (patch) =>
     set((state) => ({
       generationRun: {
@@ -658,11 +894,16 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
 export type {
   AssetSlot,
+  AudiencePreset,
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
   ContentConcept,
+  CreativeBrief,
+  CreativeGoal,
+  CreativePlan,
+  CreativePlanningStatus,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -676,8 +917,10 @@ export type {
   KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,
+  PlatformPreset,
   ProductCategory,
   ShotEnvironment,
+  StoryboardShot,
   SubjectMode,
   VideoDuration,
   VideoModelOption,
