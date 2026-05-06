@@ -31,6 +31,7 @@ KIE_API_KEY=
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+SUPER_ADMIN_EMAILS=
 SUPABASE_AUTH_REDIRECT_URL=
 DATABASE_URL=
 MEDIA_STORAGE_DIR=
@@ -41,7 +42,8 @@ Notes:
 - `KIE_API_KEY`: required for generation features
 - `SUPABASE_URL`: required for authentication
 - `SUPABASE_ANON_KEY`: required for authentication
-- `SUPABASE_SERVICE_ROLE_KEY`: optional in the current codebase
+- `SUPABASE_SERVICE_ROLE_KEY`: required for account management and super-admin operations
+- `SUPER_ADMIN_EMAILS`: comma-separated email allowlist used to bootstrap the first in-app super admin accounts
 - `SUPABASE_AUTH_REDIRECT_URL`: recommended in production, usually your public site URL such as `https://your-domain.com`
 - `DATABASE_URL`: PostgreSQL connection string
 - `MEDIA_STORAGE_DIR`: absolute path to a writable persistent folder, for example `/var/lib/evermedia-ugc/media`

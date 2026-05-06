@@ -36,7 +36,17 @@ export function getSignInViewState({
   let resetMessage: SignInMessage | null = null
 
   if (mode === 'signin') {
-    if (error === 'invalid_credentials') {
+    if (error === 'account_disabled') {
+      signInMessage = {
+        text: messages.accountDisabled,
+        tone: 'error',
+      }
+    } else if (error === 'account_not_provisioned') {
+      signInMessage = {
+        text: messages.accountNotProvisioned,
+        tone: 'error',
+      }
+    } else if (error === 'invalid_credentials') {
       signInMessage = {
         text: messages.invalidCredentials,
         tone: 'error',

@@ -28,6 +28,10 @@ export const dictionaries = {
       email: 'Email',
       forgotPassword: 'Forgot password?',
       messages: {
+        accountDisabled:
+          'Your account is disabled. Contact a super admin to restore access.',
+        accountNotProvisioned:
+          'Your account is not provisioned for this studio yet. Contact a super admin.',
         invalidCredentials:
           'Email or password is incorrect. Try again or reset your password.',
         missingAccountEmail:
@@ -94,6 +98,7 @@ export const dictionaries = {
         indonesian: 'Bahasa Indonesia',
       },
       nav: {
+        accounts: 'Accounts',
         library: 'Library',
         signOut: 'Sign out',
         signedIn: 'Signed in',
@@ -112,6 +117,10 @@ export const dictionaries = {
       email: 'Email',
       forgotPassword: 'Lupa kata sandi?',
       messages: {
+        accountDisabled:
+          'Akun Anda dinonaktifkan. Hubungi super admin untuk memulihkan akses.',
+        accountNotProvisioned:
+          'Akun Anda belum diprovisikan untuk studio ini. Hubungi super admin.',
         invalidCredentials:
           'Email atau kata sandi salah. Coba lagi atau reset kata sandi Anda.',
         missingAccountEmail:
@@ -179,6 +188,7 @@ export const dictionaries = {
         indonesian: 'Bahasa Indonesia',
       },
       nav: {
+        accounts: 'Accounts',
         library: 'Library',
         signOut: 'Keluar',
         signedIn: 'Sudah masuk',

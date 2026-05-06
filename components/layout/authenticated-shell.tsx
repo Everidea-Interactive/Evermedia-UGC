@@ -49,6 +49,14 @@ export function AuthenticatedShell({
               >
                 {copy.nav.library}
               </Link>
+              {user.canManageAccounts ? (
+                <Link
+                  className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+                  href="/accounts"
+                >
+                  {copy.nav.accounts}
+                </Link>
+              ) : null}
             </nav>
           </div>
 

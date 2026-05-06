@@ -1,4 +1,6 @@
 export type SignInErrorCode =
+  | 'account_disabled'
+  | 'account_not_provisioned'
   | 'invalid_credentials'
   | 'missing_fields'
   | 'recovery_expired'

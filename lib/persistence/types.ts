@@ -24,8 +24,11 @@ import type {
 import type { Locale } from '@/lib/i18n'
 
 export type AuthenticatedUserSummary = {
+  canManageAccounts: boolean
   email: string | null
   id: string
+  roles: string[]
+  status: 'active' | 'disabled'
 }
 
 export type GenerationConfigSnapshot = {

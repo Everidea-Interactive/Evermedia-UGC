@@ -1,4 +1,5 @@
 import {
+  primaryKey,
   index,
   integer,
   jsonb,
@@ -6,6 +7,47 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core'
+
+export const appUsers = pgTable(
+  'app_users',
+  {
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    status: text('status').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    userId: text('user_id').primaryKey(),
+  },
+  (table) => ({
+    statusLookup: index('app_users_status_idx').on(table.status, table.updatedAt),
+  }),
+)
+
+export const authRoles = pgTable('auth_roles', {
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  id: text('id').primaryKey(),
+  label: text('label').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const userRoleAssignments = pgTable(
+  'user_role_assignments',
+  {
+    assignedAt: timestamp('assigned_at', { withTimezone: true }).defaultNow().notNull(),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => authRoles.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => appUsers.userId, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    roleLookup: index('user_role_assignments_role_id_idx').on(table.roleId, table.userId),
+    userLookup: index('user_role_assignments_user_id_idx').on(table.userId, table.roleId),
+    pk: primaryKey({
+      columns: [table.userId, table.roleId],
+      name: 'user_role_assignments_pk',
+    }),
+  }),
+)
 
 export const generationRuns = pgTable(
   'generation_runs',
