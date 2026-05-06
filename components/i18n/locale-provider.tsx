@@ -22,6 +22,8 @@ type LocaleContextValue = {
   t: (value: string) => string
 }
 
+type TranslatableAttribute = 'placeholder' | 'aria-label' | 'title'
+
 const LocaleContext = createContext<LocaleContextValue>({
   dictionary: getDictionary(defaultLocale),
   locale: defaultLocale,
@@ -31,8 +33,13 @@ const LocaleContext = createContext<LocaleContextValue>({
 const originalTextByNode = new WeakMap<Text, string>()
 const originalAttributesByElement = new WeakMap<
   HTMLElement,
-  Partial<Record<'placeholder' | 'aria-label' | 'title', string>>
+  Partial<Record<TranslatableAttribute, string>>
 >()
+const translatableAttributes: readonly TranslatableAttribute[] = [
+  'placeholder',
+  'aria-label',
+  'title',
+]
 
 function translateNodeText(locale: Locale, root: ParentNode) {
   if (typeof document === 'undefined') {
@@ -68,8 +75,10 @@ function translateNodeText(locale: Locale, root: ParentNode) {
     }
   }
 
-  for (const element of Array.from(root.querySelectorAll<HTMLElement>('[placeholder],[aria-label],[title]'))) {
-    for (const attr of ['placeholder', 'aria-label', 'title']) {
+  for (const element of Array.from(
+    root.querySelectorAll<HTMLElement>('[placeholder],[aria-label],[title]'),
+  )) {
+    for (const attr of translatableAttributes) {
       const currentValue = element.getAttribute(attr)
 
       if (!currentValue) {
