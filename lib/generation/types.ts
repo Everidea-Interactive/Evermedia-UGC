@@ -1,6 +1,7 @@
 export type WorkspaceTab = 'image' | 'video'
 export type GenerationExperience = 'manual' | 'guided' | 'ideation'
 export type ContentConcept = 'driven-ads' | 'affiliate'
+export type ContentFormat = 'video' | 'photos'
 
 export type ProductCategory =
   | 'food-drink'

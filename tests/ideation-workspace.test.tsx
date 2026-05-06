@@ -8,6 +8,7 @@ import { IdeationWorkspace } from '@/components/dashboard/ideation-workspace'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 const outputLanguageLabel = /Output Language|Bahasa Output/i
+const contentFormatLabel = /Content Format|Format Konten/i
 const productUrlLabel = /Product URL|URL Produk/i
 const analyzeIdeationButtonLabel = /Analyze Content Ideation|Analisis Ideasi Konten/i
 
@@ -124,5 +125,65 @@ describe('IdeationWorkspace', () => {
     const formData = request?.body as FormData
 
     expect(formData.get('outputLanguage')).toBe('en')
+  })
+
+  it('submits the selected ideation content format to the analyze endpoint', async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        result: {
+          concepts: [
+            {
+              angle: 'Angle 1',
+              audience: 'Audience 1',
+              cta: 'CTA 1',
+              hook: 'Hook 1',
+              keyMessage: 'Message 1',
+              title: 'Concept 1',
+              visualDirection: 'Visual 1',
+            },
+            {
+              angle: 'Angle 2',
+              audience: 'Audience 2',
+              cta: 'CTA 2',
+              hook: 'Hook 2',
+              keyMessage: 'Message 2',
+              title: 'Concept 2',
+              visualDirection: 'Visual 2',
+            },
+            {
+              angle: 'Angle 3',
+              audience: 'Audience 3',
+              cta: 'CTA 3',
+              hook: 'Hook 3',
+              keyMessage: 'Message 3',
+              title: 'Concept 3',
+              visualDirection: 'Visual 3',
+            },
+          ],
+          summary: 'Three ideation concepts.',
+        },
+      }),
+      ok: true,
+    } as Response)
+
+    renderIdeationWorkspace('en')
+
+    fireEvent.change(screen.getByLabelText(productUrlLabel), {
+      target: { value: 'https://example.com/product' },
+    })
+    fireEvent.change(screen.getByLabelText(contentFormatLabel), {
+      target: { value: 'photos' },
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: analyzeIdeationButtonLabel }),
+      )
+    })
+
+    const [, request] = fetchMock.mock.calls[0]
+    const formData = request?.body as FormData
+
+    expect(formData.get('contentFormat')).toBe('photos')
   })
 })

@@ -3,6 +3,7 @@ import type {
   CharacterAgeGroup,
   CharacterGender,
   ContentConcept,
+  ContentFormat,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -59,6 +60,7 @@ export type IdeationInputSnapshot = {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageName: string | null
   heroImageUrl: string | null
   outputLanguage?: Locale

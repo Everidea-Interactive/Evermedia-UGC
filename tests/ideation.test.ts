@@ -80,6 +80,7 @@ describe('normalizeIdeationInputSnapshot', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: 'Premium acne serum campaign brief.',
         contentConcept: 'affiliate',
+        contentFormat: 'video',
         heroImageName: 'hero.png',
         heroImageUrl: 'https://files.example.com/hero.png',
         productUrl: 'https://example.com/product',
@@ -87,6 +88,7 @@ describe('normalizeIdeationInputSnapshot', () => {
     ).toMatchObject({
       analysisModel: 'gemini-2.5-flash',
       contentConcept: 'affiliate',
+      contentFormat: 'video',
     })
   })
 
@@ -96,6 +98,7 @@ describe('normalizeIdeationInputSnapshot', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: '',
         contentConcept: 'affiliate',
+        contentFormat: 'photos',
         heroImageName: 'hero.png',
         heroImageUrl: 'https://files.example.com/hero.png',
         productUrl: 'https://example.com/product',
@@ -104,6 +107,7 @@ describe('normalizeIdeationInputSnapshot', () => {
       analysisModel: 'gemini-2.5-flash',
       briefText: '',
       contentConcept: 'affiliate',
+      contentFormat: 'photos',
     })
   })
 
@@ -113,6 +117,7 @@ describe('normalizeIdeationInputSnapshot', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: 'Link-only brief.',
         contentConcept: 'affiliate',
+        contentFormat: 'video',
         heroImageName: null,
         heroImageUrl: null,
         productUrl: 'https://example.com/product',
@@ -130,6 +135,7 @@ describe('normalizeIdeationInputSnapshot', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: 'Image-only brief.',
         contentConcept: 'affiliate',
+        contentFormat: 'photos',
         heroImageName: 'hero.png',
         heroImageUrl: 'https://files.example.com/hero.png',
         productUrl: null,
@@ -147,6 +153,7 @@ describe('normalizeIdeationInputSnapshot', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: '',
         contentConcept: 'affiliate',
+        contentFormat: 'video',
         heroImageName: null,
         heroImageUrl: null,
         productUrl: null,

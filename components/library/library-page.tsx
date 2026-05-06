@@ -613,12 +613,28 @@ export function LibraryPage({
                       <span>·</span>
                       <span>{activeIdeation.inputSnapshot.contentConcept}</span>
                       <span>·</span>
+                      <span>
+                        {activeIdeation.inputSnapshot.contentFormat === 'photos'
+                          ? 'Photos'
+                          : 'Video'}
+                      </span>
+                      <span>·</span>
                       <span>{new Date(activeIdeation.createdAt).toLocaleString()}</span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
                       {activeIdeation.result.summary}
                     </p>
                     <div className="mt-4 grid gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Content format
+                        </p>
+                        <p className="mt-1 text-sm text-foreground">
+                          {activeIdeation.inputSnapshot.contentFormat === 'photos'
+                            ? 'Photos'
+                            : 'Video'}
+                        </p>
+                      </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                           Product URL

@@ -37,6 +37,7 @@ import { kieAnalysisModels } from '@/lib/generation/guided'
 import type {
   AssetSlot,
   ContentConcept,
+  ContentFormat,
   GuidedAnalysisStatus,
   IdeationResult,
   KieAnalysisModel,
@@ -84,6 +85,14 @@ const ideationOutputLanguageOptions: Array<{
 }> = [
   { label: 'English', value: 'en' },
   { label: 'Bahasa Indonesia', value: 'id' },
+]
+
+const ideationContentFormatOptions: Array<{
+  label: string
+  value: ContentFormat
+}> = [
+  { label: 'Video', value: 'video' },
+  { label: 'Photos', value: 'photos' },
 ]
 
 function handleFileInput(
@@ -345,6 +354,7 @@ function IdeationAnalyzePanel({
   ideationInput: {
     briefText: string
     contentConcept: ContentConcept
+    contentFormat: ContentFormat
     heroAsset: AssetSlot
     productUrl: string
   }
@@ -564,6 +574,7 @@ function IdeationControlPanel({
   ideationStatus,
   onAnalyze,
   setIdeationAnalysisModel,
+  setIdeationContentFormat,
   setIdeationOutputLanguage,
 }: {
   canAnalyze: boolean
@@ -572,12 +583,14 @@ function IdeationControlPanel({
   hasResult: boolean
   ideationInput: {
     analysisModel: KieAnalysisModel
+    contentFormat: ContentFormat
     outputLanguage: Locale
     productUrl: string
   }
   ideationStatus: GuidedAnalysisStatus
   onAnalyze: () => void
   setIdeationAnalysisModel: (model: KieAnalysisModel) => void
+  setIdeationContentFormat: (contentFormat: ContentFormat) => void
   setIdeationOutputLanguage: (outputLanguage: Locale) => void
 }) {
   const statusCopy = getIdeationStatusCopy({
@@ -605,6 +618,29 @@ function IdeationControlPanel({
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
+            <div className="grid gap-1">
+              <label className={fieldLabelClassName} htmlFor="ideation-content-format">
+                Content Format
+              </label>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Choose whether ideation should target motion-first video deliverables or still-photo deliverables.
+              </p>
+            </div>
+            <Select
+              aria-label="Content Format"
+              id="ideation-content-format"
+              onChange={(event) =>
+                setIdeationContentFormat(event.target.value as ContentFormat)
+              }
+              value={ideationInput.contentFormat}
+            >
+              {ideationContentFormatOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+
             <div className="grid gap-1">
               <label className={fieldLabelClassName} htmlFor="ideation-output-language">
                 Output Language
@@ -706,6 +742,9 @@ export function IdeationWorkspace() {
   const setIdeationContentConcept = useGenerationStore(
     (state) => state.setIdeationContentConcept,
   )
+  const setIdeationContentFormat = useGenerationStore(
+    (state) => state.setIdeationContentFormat,
+  )
   const setIdeationHeroFile = useGenerationStore((state) => state.setIdeationHeroFile)
   const setIdeationOutputLanguage = useGenerationStore(
     (state) => state.setIdeationOutputLanguage,
@@ -774,6 +813,7 @@ export function IdeationWorkspace() {
         analysisModel: ideationInput.analysisModel,
         briefText: ideationInput.briefText,
         contentConcept: ideationInput.contentConcept,
+        contentFormat: ideationInput.contentFormat,
         heroAsset: ideationInput.heroAsset,
         outputLanguage: ideationInput.outputLanguage,
         productUrl: ideationInput.productUrl,
@@ -861,6 +901,7 @@ export function IdeationWorkspace() {
           void handleAnalyze()
         }}
         setIdeationAnalysisModel={setIdeationAnalysisModel}
+        setIdeationContentFormat={setIdeationContentFormat}
         setIdeationOutputLanguage={setIdeationOutputLanguage}
       />
     </div>

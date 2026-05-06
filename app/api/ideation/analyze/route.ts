@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   contentConcepts,
+  contentFormats,
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import { analyzeContentIdeation } from '@/lib/generation/kie-ideation'
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
     )
     const briefText = readOptionalString(formData, 'briefText')
     const contentConcept = readString(formData, 'contentConcept')
+    const contentFormat = readString(formData, 'contentFormat')
     const outputLanguage = normalizeLocale(readOptionalString(formData, 'outputLanguage'))
     const productUrl = readOptionalString(formData, 'productUrl')
     const hasHeroImage = heroImage instanceof File && heroImage.size > 0
@@ -105,6 +107,10 @@ export async function POST(request: Request) {
 
     if (!contentConcepts.includes(contentConcept as (typeof contentConcepts)[number])) {
       throw new Error('Unsupported content concept.')
+    }
+
+    if (!contentFormats.includes(contentFormat as (typeof contentFormats)[number])) {
+      throw new Error('Unsupported content format.')
     }
 
     let warning: string | null = null
@@ -129,6 +135,7 @@ export async function POST(request: Request) {
       analysisModel,
       briefText,
       contentConcept: contentConcept as (typeof contentConcepts)[number],
+      contentFormat: contentFormat as (typeof contentFormats)[number],
       heroImageUrl,
       outputLanguage,
       productPage,
@@ -138,6 +145,7 @@ export async function POST(request: Request) {
         analysisModel,
         briefText,
         contentConcept: contentConcept as (typeof contentConcepts)[number],
+        contentFormat: contentFormat as (typeof contentFormats)[number],
         heroImageName: hasHeroImage ? heroImage.name : null,
         heroImageUrl,
         outputLanguage,

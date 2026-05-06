@@ -2,6 +2,7 @@ import 'server-only'
 
 import type {
   ContentConcept,
+  ContentFormat,
   IdeationResult,
   KieAnalysisModel,
 } from '@/lib/generation/types'
@@ -73,6 +74,12 @@ function getConceptInstruction(concept: ContentConcept) {
   return concept === 'driven-ads'
     ? 'Bias toward sharper conversion framing, stronger offer positioning, and direct-response angles.'
     : 'Bias toward believable creator-led storytelling, trust-building hooks, and affiliate-style relatability.'
+}
+
+function getContentFormatInstruction(contentFormat: ContentFormat) {
+  return contentFormat === 'photos'
+    ? 'Content format: photos. Build each concept for still-image deliverables, framing, composition, product styling, and static execution.'
+    : 'Content format: video. Build each concept for motion-based deliverables, sequencing, spoken hooks, pacing, and shot-driven execution.'
 }
 
 function formatProductPageContext(productPage: ScrapedProductPage | null) {
@@ -156,6 +163,7 @@ function createClaudeSystemPrompt(outputLanguage: Locale = 'en') {
 function createUserPrompt(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }) {
@@ -168,6 +176,7 @@ function createUserPrompt(input: {
   return [
     'Create exactly 3 content concepts for this product.',
     getConceptInstruction(input.contentConcept),
+    getContentFormatInstruction(input.contentFormat),
     'Each concept must include a distinct audience, strategic angle, hook, key message, visual direction, and CTA.',
     'Keep the output strategy-oriented and channel-ready, not prompt-engineering-oriented.',
     'Language rule:',
@@ -186,6 +195,7 @@ function createUserPrompt(input: {
 export function buildGeminiIdeationBody(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
   model: Extract<KieAnalysisModel, 'gemini-2.5-flash'>
   outputLanguage: Locale
@@ -235,6 +245,7 @@ export function buildGeminiIdeationBody(input: {
 export function buildClaudeIdeationBody(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
   model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
   outputLanguage: Locale
@@ -495,6 +506,7 @@ export async function analyzeContentIdeation(input: {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
   outputLanguage: Locale
   productPage: ScrapedProductPage | null

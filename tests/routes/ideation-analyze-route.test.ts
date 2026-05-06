@@ -74,6 +74,7 @@ function buildBaseFormData() {
   formData.append('analysisModel', 'gemini-2.5-flash')
   formData.append('briefText', 'Premium acne serum for humid climates.')
   formData.append('contentConcept', 'affiliate')
+  formData.append('contentFormat', 'video')
   formData.append('heroImage', new File(['image'], 'hero.png', { type: 'image/png' }))
   formData.append('outputLanguage', 'id')
   formData.append('productUrl', 'https://example.com/product')
@@ -98,6 +99,7 @@ describe('POST /api/ideation/analyze', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: 'Premium acne serum for humid climates.',
         contentConcept: 'affiliate',
+        contentFormat: 'video',
         heroImageName: 'hero.png',
         heroImageUrl: 'https://files.example.com/hero.png',
         productUrl: 'https://example.com/product',
@@ -129,6 +131,7 @@ describe('POST /api/ideation/analyze', () => {
     expect(analyzeContentIdeation).toHaveBeenCalledWith(
       expect.objectContaining({
         briefText: 'Premium acne serum for humid climates.',
+        contentFormat: 'video',
         heroImageUrl: 'https://files.example.com/hero.png',
         outputLanguage: 'id',
       }),
@@ -155,6 +158,18 @@ describe('POST /api/ideation/analyze', () => {
         productPage: null,
       }),
     )
+  })
+
+  it('rejects unsupported content formats before ideation runs', async () => {
+    const formData = buildBaseFormData()
+    formData.set('contentFormat', 'carousel')
+
+    const response = await POST(createRequest(formData))
+    const payload = (await response.json()) as { error?: string }
+
+    expect(response.status).toBe(400)
+    expect(payload.error).toBe('Unsupported content format.')
+    expect(analyzeContentIdeation).not.toHaveBeenCalled()
   })
 
   it('rejects missing product URLs before ideation runs', async () => {
@@ -221,6 +236,7 @@ describe('POST /api/ideation/analyze', () => {
     expect(createSavedIdeationForUser).toHaveBeenCalledWith(
       expect.objectContaining({
         inputSnapshot: expect.objectContaining({
+          contentFormat: 'video',
           heroImageName: 'hero.png',
           heroImageUrl: 'https://files.example.com/hero.png',
           productUrl: null,
@@ -251,6 +267,7 @@ describe('POST /api/ideation/analyze', () => {
     expect(createSavedIdeationForUser).toHaveBeenCalledWith(
       expect.objectContaining({
         inputSnapshot: expect.objectContaining({
+          contentFormat: 'video',
           heroImageName: null,
           heroImageUrl: null,
           productUrl: 'https://example.com/product',

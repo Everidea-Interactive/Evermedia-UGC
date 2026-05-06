@@ -3,6 +3,7 @@ import type {
   BatchSize,
   CameraMovement,
   ContentConcept,
+  ContentFormat,
   GenerationSnapshot,
   GuidedAnalysisPlan,
   KieAnalysisModel,
@@ -262,6 +263,7 @@ export function buildIdeationAnalysisFormData(input: {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroAsset: AssetSlot
   outputLanguage: Locale
   productUrl: string
@@ -279,6 +281,7 @@ export function buildIdeationAnalysisFormData(input: {
   formData.append('analysisModel', input.analysisModel)
   formData.append('briefText', briefText)
   formData.append('contentConcept', input.contentConcept)
+  formData.append('contentFormat', input.contentFormat)
   formData.append('outputLanguage', input.outputLanguage)
   if (heroFile) {
     formData.append('heroImage', heroFile)

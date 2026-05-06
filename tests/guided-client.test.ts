@@ -174,12 +174,14 @@ describe('ideation client payloads', () => {
       analysisModel: 'gemini-2.5-flash',
       briefText: 'Focus on first-purchase trust.',
       contentConcept: 'affiliate',
+      contentFormat: 'video',
       heroAsset: emptyHeroAsset,
       outputLanguage: 'id',
       productUrl: 'https://example.com/product',
     })
 
     expect(formData.get('heroImage')).toBeNull()
+    expect(formData.get('contentFormat')).toBe('video')
     expect(formData.get('outputLanguage')).toBe('id')
     expect(formData.get('productUrl')).toBe('https://example.com/product')
   })
@@ -195,11 +197,13 @@ describe('ideation client payloads', () => {
       analysisModel: 'gemini-2.5-flash',
       briefText: '',
       contentConcept: 'affiliate',
+      contentFormat: 'photos',
       heroAsset,
       outputLanguage: 'en',
       productUrl: '   ',
     })
 
+    expect(formData.get('contentFormat')).toBe('photos')
     expect(formData.get('heroImage')).toBe(heroAsset.file)
     expect(formData.get('productUrl')).toBeNull()
   })
@@ -212,6 +216,7 @@ describe('ideation client payloads', () => {
         analysisModel: 'gemini-2.5-flash',
         briefText: '',
         contentConcept: 'affiliate',
+        contentFormat: 'video',
         heroAsset: emptyHeroAsset,
         outputLanguage: 'en',
         productUrl: '  ',
