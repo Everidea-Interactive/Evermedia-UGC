@@ -71,6 +71,13 @@ vi.mock('@/components/dashboard/guided-workspace', () => ({
   },
 }))
 
+vi.mock('@/components/dashboard/guided-workspace-shell', () => ({
+  GuidedWorkspaceShell: () => {
+    workspaceMountCounts.guided += 1
+    return <div>guided-workspace</div>
+  },
+}))
+
 vi.mock('@/components/dashboard/ideation-workspace', () => ({
   IdeationWorkspace: () => {
     workspaceMountCounts.ideation += 1
@@ -102,6 +109,7 @@ describe('StudioWorkspace', () => {
     const { unmount } = render(<StudioWorkspace />)
 
     expect(screen.getByText('Manual')).toBeTruthy()
+    await screen.findByText('References')
 
     await act(async () => {
       useGenerationStore.getState().setTextPrompt('persistent draft')
@@ -140,7 +148,7 @@ describe('StudioWorkspace', () => {
     render(<StudioWorkspace />)
 
     expect(screen.getByText('Manual')).toBeTruthy()
-    expect(screen.getByText('References')).toBeTruthy()
+    await screen.findByText('References')
     expect(screen.queryByText('guided-workspace')).toBeNull()
     expect(screen.queryByText('ideation-workspace')).toBeNull()
     expect(workspaceMountCounts.guided).toBe(0)

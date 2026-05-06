@@ -4,10 +4,7 @@ import dynamic from 'next/dynamic'
 import type { LucideIcon } from 'lucide-react'
 import { Film, ImageIcon } from 'lucide-react'
 
-import { ManualWorkspace } from '@/components/dashboard/manual-workspace'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useKiePricing } from '@/lib/generation/use-kie-pricing'
-import { useKieStatus } from '@/lib/generation/use-kie-status'
 import type {
   GenerationExperience,
   WorkspaceTab,
@@ -15,9 +12,14 @@ import type {
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
-const GuidedWorkspace = dynamic(() =>
-  import('@/components/dashboard/guided-workspace').then(
-    (module) => module.GuidedWorkspace,
+const ManualWorkspace = dynamic(() =>
+  import('@/components/dashboard/manual-workspace').then(
+    (module) => module.ManualWorkspace,
+  ),
+)
+const GuidedWorkspaceShell = dynamic(() =>
+  import('@/components/dashboard/guided-workspace-shell').then(
+    (module) => module.GuidedWorkspaceShell,
   ),
 )
 const IdeationWorkspace = dynamic(() =>
@@ -73,11 +75,8 @@ const panelClassName = 'rounded-2xl border border-border bg-card'
 export function StudioShell() {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const experience = useGenerationStore((state) => state.experience)
-  const generationRun = useGenerationStore((state) => state.generationRun)
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setExperience = useGenerationStore((state) => state.setExperience)
-  const kiePricingState = useKiePricing()
-  const kieStatusState = useKieStatus(generationRun)
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -144,21 +143,11 @@ export function StudioShell() {
         </section>
 
         {experience === 'guided' ? (
-          <GuidedWorkspace
-            isPricingLoading={kiePricingState.isLoading}
-            kiePricing={kiePricingState.pricing}
-            kiePricingError={kiePricingState.error}
-            kieStatus={kieStatusState.status}
-          />
+          <GuidedWorkspaceShell />
         ) : experience === 'ideation' ? (
           <IdeationWorkspace />
         ) : (
-          <ManualWorkspace
-            isPricingLoading={kiePricingState.isLoading}
-            kiePricing={kiePricingState.pricing}
-            kiePricingError={kiePricingState.error}
-            kieStatus={kieStatusState.status}
-          />
+          <ManualWorkspace />
         )}
       </main>
     </div>

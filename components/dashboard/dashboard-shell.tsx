@@ -57,17 +57,25 @@ import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
+  BatchSize,
+  CameraMovement,
+  CharacterAgeGroup,
+  CharacterGender,
   CreativeStyle,
   FigureArtDirection,
   GenerationCostEstimate,
   GenerationRun,
+  ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
   NamedAssetKey,
   NamedAssetSlots,
+  OutputQuality,
   ProductCategory,
   ShotEnvironment,
   SubjectMode,
+  VideoDuration,
+  VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
 import { isImageMimeType } from '@/lib/media/image-preview'

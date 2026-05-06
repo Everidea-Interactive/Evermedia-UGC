@@ -91,6 +91,17 @@ function buildStatusFallback(error: string): KieStatusResponse {
   }
 }
 
+function createRuntimeState<TData>(
+  data: TData,
+  error: string | null,
+): KieRuntimeState<TData> {
+  return {
+    data,
+    error,
+    isLoading: false,
+  }
+}
+
 async function fetchKiePricing() {
   const response = await fetch('/api/kie/pricing', {
     cache: 'no-store',
@@ -115,12 +126,11 @@ async function fetchKieStatus() {
     cache: 'no-store',
   })
   const payload = (await response.json()) as KieStatusResponse
-  const error = response.ok
-    ? payload.error ?? null
-    : payload.error ?? 'Unable to read KIE status.'
+  const fallbackError = payload.error ?? 'Unable to read KIE status.'
+  const error = response.ok ? payload.error ?? null : fallbackError
 
   return {
-    data: response.ok ? payload : buildStatusFallback(error),
+    data: response.ok ? payload : buildStatusFallback(fallbackError),
     error,
   }
 }
@@ -160,14 +170,14 @@ export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
   const updateBranchSnapshot = <TBranch extends KieRuntimeBranchName>(
     branch: TBranch,
     controller: KieRuntimeBranchController<KieRuntimeSnapshot[TBranch]['data']>,
-    nextState: KieRuntimeSnapshot[TBranch],
+    nextState: KieRuntimeState<KieRuntimeSnapshot[TBranch]['data']>,
   ) => {
     snapshot = {
       ...snapshot,
       [branch]: nextState,
-    }
+    } as KieRuntimeSnapshot
     emitBranchChange(controller)
-    return nextState
+    return nextState as KieRuntimeSnapshot[TBranch]
   }
 
   const refreshBranch = <TBranch extends KieRuntimeBranchName>(
@@ -179,24 +189,23 @@ export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
     }
 
     controller.inflightRefresh = controller.config.fetcher()
-      .then((result) =>
-        updateBranchSnapshot(branch, controller, {
-          data: result.data,
-          error: result.error,
-          isLoading: false,
-        }),
-      )
+      .then((result) => {
+        const nextState = createRuntimeState(result.data, result.error)
+
+        return updateBranchSnapshot(branch, controller, nextState)
+      })
       .catch((error) => {
         const resolvedError =
           error instanceof Error
             ? error
             : new Error('Unable to refresh KIE data.')
 
-        return updateBranchSnapshot(branch, controller, {
-          data: controller.config.onErrorData(resolvedError),
-          error: resolvedError.message,
-          isLoading: false,
-        })
+        const nextState = createRuntimeState(
+          controller.config.onErrorData(resolvedError),
+          resolvedError.message,
+        )
+
+        return updateBranchSnapshot(branch, controller, nextState)
       })
       .finally(() => {
         controller.inflightRefresh = null
