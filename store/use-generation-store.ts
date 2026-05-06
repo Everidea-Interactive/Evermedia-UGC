@@ -124,6 +124,7 @@ type GenerationStore = GenerationStateShape & {
   setIdeationError: (error: string | null) => void
   setIdeationFailure: (error: string) => void
   setIdeationHeroFile: (file: File | null) => void
+  setIdeationOutputLanguage: (outputLanguage: Locale) => void
   setIdeationProductUrl: (productUrl: string) => void
   setIdeationResult: (result: IdeationResult | null) => void
   setIdeationStatus: (status: GuidedAnalysisStatus) => void
@@ -738,6 +739,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       ideationInput: {
         ...state.ideationInput,
         heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+      },
+    })),
+  setIdeationOutputLanguage: (outputLanguage) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        outputLanguage,
       },
     })),
   setIdeationProductUrl: (productUrl) =>

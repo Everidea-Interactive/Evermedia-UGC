@@ -60,11 +60,14 @@ describe('parseIdeationPayload', () => {
 
     expect(systemPrompt).toContain('Do not output markdown, headings, bullets, explanations, or wrapper text.')
     expect(systemPrompt).toContain('Write every human-readable JSON value in Bahasa Indonesia.')
+    expect(systemPrompt).toContain('Keep the JSON keys exactly as provided in the schema.')
     expect(systemPrompt).toContain('If you cannot comply, still return the closest valid JSON object and nothing else.')
     expect(userText).toContain('Output contract:')
     expect(userText).toContain('"summary": string')
     expect(userText).toContain('"concepts": [')
     expect(userText).toContain('Do not return labels like "Concept 1"')
+    expect(userText).toContain('Language rule:')
+    expect(userText).toContain('All string values in the response must be written in Bahasa Indonesia.')
   })
 
   it('builds the Claude ideation payload with a strict tool-only contract', () => {
@@ -79,6 +82,7 @@ describe('parseIdeationPayload', () => {
 
     expect(body.system).toContain('Call the provided tool exactly once with the full ideation brief.')
     expect(body.system).toContain('Write every human-readable tool input value in Bahasa Indonesia.')
+    expect(body.system).toContain('Keep the JSON keys exactly as provided in the schema.')
     expect(body.system).toContain('Never answer in plain text, XML-like tags, markdown, lists, or commentary.')
     expect(body.system).toContain('Do not emit <tool_calls>')
   })

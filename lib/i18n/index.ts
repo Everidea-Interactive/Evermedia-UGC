@@ -278,6 +278,9 @@ export const uiTranslations: Record<string, string> = {
   'No session selected': 'Tidak ada sesi dipilih',
   'Offline': 'Offline',
   'Open product page': 'Buka halaman produk',
+  'Output Language': 'Bahasa Output',
+  'Controls the language used in the generated ideation brief.':
+    'Mengatur bahasa yang digunakan dalam brief ideasi yang dihasilkan.',
   'Output': 'Output',
   'Outputs': 'Output',
   'Plan': 'Rencana',

@@ -307,6 +307,7 @@ describe('useGenerationStore', () => {
     const store = useGenerationStore.getState()
 
     store.setTextPrompt('Manual draft prompt')
+    store.setIdeationOutputLanguage('id')
     store.setIdeationProductUrl('https://example.com/product')
     store.setIdeationBriefText('Creator-first acne serum campaign.')
     store.setIdeationResult({
@@ -346,6 +347,7 @@ describe('useGenerationStore', () => {
     let state = useGenerationStore.getState()
 
     expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.ideationInput.outputLanguage).toBe('id')
     expect(state.ideationInput.productUrl).toBe('https://example.com/product')
     expect(state.ideationResult?.summary).toBe('Three ideation concepts.')
     expect(state.experience).toBe('ideation')
@@ -356,6 +358,7 @@ describe('useGenerationStore', () => {
     expect(state.textPrompt).toBe('Manual draft prompt')
     expect(state.ideationInput.productUrl).toBe('')
     expect(state.ideationInput.briefText).toBe('')
+    expect(state.ideationInput.outputLanguage).toBe('en')
     expect(state.ideationResult).toBeNull()
     expect(state.ideationStatus).toBe('idle')
   })
