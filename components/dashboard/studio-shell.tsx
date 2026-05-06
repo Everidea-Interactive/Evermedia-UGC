@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import type { LucideIcon } from 'lucide-react'
 import { Film, ImageIcon } from 'lucide-react'
 
+import { GenerationErrorNoticeDialog } from '@/components/dashboard/generation-error-notice-dialog'
+import { ManualWorkspace } from '@/components/dashboard/manual-workspace'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
   GenerationExperience,
@@ -12,11 +14,6 @@ import type {
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
-const ManualWorkspace = dynamic(() =>
-  import('@/components/dashboard/manual-workspace').then(
-    (module) => module.ManualWorkspace,
-  ),
-)
 const GuidedWorkspaceShell = dynamic(() =>
   import('@/components/dashboard/guided-workspace-shell').then(
     (module) => module.GuidedWorkspaceShell,
@@ -80,6 +77,7 @@ export function StudioShell() {
 
   return (
     <div className="min-h-screen overflow-x-hidden">
+      <GenerationErrorNoticeDialog />
       <a
         href="#dashboard-main"
         className="sr-only left-4 top-4 z-50 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed"

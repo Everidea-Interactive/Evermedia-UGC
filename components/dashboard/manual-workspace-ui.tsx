@@ -203,6 +203,7 @@ export function ReferenceCard({
   const previewSrc = slot.previewUrl
   const hasMedia = Boolean(previewSrc)
   const errorLabel = getReferenceCardErrorLabel(slot)
+  const showFooterMeta = hasMedia || Boolean(slot.error) || slot.uploadStatus === 'staged'
 
   return (
     <div
@@ -216,7 +217,7 @@ export function ReferenceCard({
     >
       <input
         accept={assetAccept}
-        className="sr-only"
+        className="hidden"
         id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}
         type="file"
@@ -260,10 +261,10 @@ export function ReferenceCard({
             <Icon className="size-5" suppressHydrationWarning />
           </div>
           <div>
-            <p className="text-sm font-semibold tracking-tight">{slot.label}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Upload image or video
+            <p className="text-sm font-semibold tracking-tight text-foreground">
+              {slot.label}
             </p>
+            <p className="text-xs text-muted-foreground">Upload image or video</p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Upload className="size-3.5" suppressHydrationWarning />
@@ -272,37 +273,39 @@ export function ReferenceCard({
         </label>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/88 to-transparent px-3 pb-3 pt-8">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-              {slot.label}
-            </p>
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              {errorLabel ?? (hasMedia ? 'Ready' : 'Not loaded')}
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            {slot.uploadStatus === 'staged' ? (
-              <LoaderCircle
-                className="size-4 animate-spin text-muted-foreground"
-                suppressHydrationWarning
-              />
-            ) : null}
-            {hasMedia ? (
-              <Button
-                className="pointer-events-auto"
-                onClick={onClear}
-                size="icon"
-                type="button"
-                variant="secondary"
-              >
-                <X className="size-4" suppressHydrationWarning />
-              </Button>
-            ) : null}
+      {showFooterMeta ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/88 to-transparent px-3 pb-3 pt-8">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold tracking-tight text-foreground">
+                {slot.label}
+              </p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {errorLabel ?? (hasMedia ? 'Ready' : 'Not loaded')}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {slot.uploadStatus === 'staged' && !hasMedia ? (
+                <LoaderCircle
+                  className="size-4 animate-spin text-muted-foreground"
+                  suppressHydrationWarning
+                />
+              ) : null}
+              {hasMedia ? (
+                <Button
+                  className="pointer-events-auto"
+                  onClick={onClear}
+                  size="icon"
+                  type="button"
+                  variant="secondary"
+                >
+                  <X className="size-4" suppressHydrationWarning />
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }

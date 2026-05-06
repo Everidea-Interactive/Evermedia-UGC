@@ -28,8 +28,14 @@ const LocaleContext = createContext<LocaleContextValue>({
   t: (value) => value,
 })
 
+const originalTextByNode = new WeakMap<Text, string>()
+const originalAttributesByElement = new WeakMap<
+  HTMLElement,
+  Partial<Record<'placeholder' | 'aria-label' | 'title', string>>
+>()
+
 function translateNodeText(locale: Locale, root: ParentNode) {
-  if (locale !== 'id' || typeof document === 'undefined') {
+  if (typeof document === 'undefined') {
     return
   }
 
@@ -45,27 +51,43 @@ function translateNodeText(locale: Locale, root: ParentNode) {
   }
 
   for (const node of textNodes) {
-    const original = node.nodeValue ?? ''
+    const currentValue = node.nodeValue ?? ''
+    const original = originalTextByNode.get(node) ?? currentValue
     const trimmed = original.trim()
-    const translated = translateText(locale, trimmed)
+    const nextValue =
+      locale === 'id'
+        ? original.replace(trimmed, translateText(locale, trimmed))
+        : original
 
-    if (translated !== trimmed) {
-      node.nodeValue = original.replace(trimmed, translated)
+    if (locale === 'id' && !originalTextByNode.has(node)) {
+      originalTextByNode.set(node, currentValue)
+    }
+
+    if (nextValue !== currentValue) {
+      node.nodeValue = nextValue
     }
   }
 
   for (const element of Array.from(root.querySelectorAll<HTMLElement>('[placeholder],[aria-label],[title]'))) {
     for (const attr of ['placeholder', 'aria-label', 'title']) {
-      const value = element.getAttribute(attr)
+      const currentValue = element.getAttribute(attr)
 
-      if (!value) {
+      if (!currentValue) {
         continue
       }
 
-      const translated = translateText(locale, value)
+      const originalAttributes = originalAttributesByElement.get(element) ?? {}
+      const originalValue = originalAttributes[attr] ?? currentValue
+      const nextValue =
+        locale === 'id' ? translateText(locale, originalValue) : originalValue
 
-      if (translated !== value) {
-        element.setAttribute(attr, translated)
+      if (locale === 'id' && !(attr in originalAttributes)) {
+        originalAttributes[attr] = currentValue
+        originalAttributesByElement.set(element, originalAttributes)
+      }
+
+      if (nextValue !== currentValue) {
+        element.setAttribute(attr, nextValue)
       }
     }
   }
