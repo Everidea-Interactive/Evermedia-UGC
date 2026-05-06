@@ -126,6 +126,10 @@ export function LocaleProvider({
     }
 
     const observer = new MutationObserver(() => {
+      if (typeof document === 'undefined') {
+        return
+      }
+
       translateNodeText(locale, document.body)
     })
 

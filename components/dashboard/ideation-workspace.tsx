@@ -1,6 +1,12 @@
 'use client'
 
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react'
 import {
   BadgeCheck,
   Copy,
@@ -35,6 +41,7 @@ import type {
   IdeationResult,
   KieAnalysisModel,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -70,6 +77,14 @@ const sortedAnalysisModelOptions = kieAnalysisModels
     model,
   }))
   .sort((a, b) => a.label.localeCompare(b.label))
+
+const ideationOutputLanguageOptions: Array<{
+  label: string
+  value: Locale
+}> = [
+  { label: 'English', value: 'en' },
+  { label: 'Bahasa Indonesia', value: 'id' },
+]
 
 function handleFileInput(
   event: ChangeEvent<HTMLInputElement>,
@@ -549,6 +564,7 @@ function IdeationControlPanel({
   ideationStatus,
   onAnalyze,
   setIdeationAnalysisModel,
+  setIdeationOutputLanguage,
 }: {
   canAnalyze: boolean
   hasError: boolean
@@ -556,11 +572,13 @@ function IdeationControlPanel({
   hasResult: boolean
   ideationInput: {
     analysisModel: KieAnalysisModel
+    outputLanguage: Locale
     productUrl: string
   }
   ideationStatus: GuidedAnalysisStatus
   onAnalyze: () => void
   setIdeationAnalysisModel: (model: KieAnalysisModel) => void
+  setIdeationOutputLanguage: (outputLanguage: Locale) => void
 }) {
   const statusCopy = getIdeationStatusCopy({
     hasError,
@@ -587,6 +605,29 @@ function IdeationControlPanel({
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
+            <div className="grid gap-1">
+              <label className={fieldLabelClassName} htmlFor="ideation-output-language">
+                Output Language
+              </label>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Controls the language used in the generated ideation brief.
+              </p>
+            </div>
+            <Select
+              aria-label="Output Language"
+              id="ideation-output-language"
+              onChange={(event) =>
+                setIdeationOutputLanguage(event.target.value as Locale)
+              }
+              value={ideationInput.outputLanguage}
+            >
+              {ideationOutputLanguageOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+
             <div className="grid gap-1">
               <label className={fieldLabelClassName} htmlFor="ideation-analysis-model">
                 KIE Analysis Model
@@ -651,6 +692,7 @@ function IdeationControlPanel({
 
 export function IdeationWorkspace() {
   const { locale } = useLocale()
+  const hasInitializedOutputLanguage = useRef(false)
   const ideationInput = useGenerationStore((state) => state.ideationInput)
   const ideationStatus = useGenerationStore((state) => state.ideationStatus)
   const ideationError = useGenerationStore((state) => state.ideationError)
@@ -665,6 +707,9 @@ export function IdeationWorkspace() {
     (state) => state.setIdeationContentConcept,
   )
   const setIdeationHeroFile = useGenerationStore((state) => state.setIdeationHeroFile)
+  const setIdeationOutputLanguage = useGenerationStore(
+    (state) => state.setIdeationOutputLanguage,
+  )
   const clearIdeationHeroAsset = useGenerationStore(
     (state) => state.clearIdeationHeroAsset,
   )
@@ -682,6 +727,18 @@ export function IdeationWorkspace() {
   const [ideationSection, setIdeationSection] = useState<'analyze' | 'results'>(
     'analyze',
   )
+
+  useEffect(() => {
+    if (hasInitializedOutputLanguage.current) {
+      return
+    }
+
+    hasInitializedOutputLanguage.current = true
+
+    if (ideationInput.outputLanguage === 'en' && locale !== 'en') {
+      setIdeationOutputLanguage(locale)
+    }
+  }, [ideationInput.outputLanguage, locale, setIdeationOutputLanguage])
 
   const hasHero = isSlotLoaded(ideationInput.heroAsset)
   const hasResult = Boolean(ideationResult)
@@ -718,7 +775,7 @@ export function IdeationWorkspace() {
         briefText: ideationInput.briefText,
         contentConcept: ideationInput.contentConcept,
         heroAsset: ideationInput.heroAsset,
-        outputLanguage: locale,
+        outputLanguage: ideationInput.outputLanguage,
         productUrl: ideationInput.productUrl,
       })
       const response = await fetch('/api/ideation/analyze', {
@@ -804,6 +861,7 @@ export function IdeationWorkspace() {
           void handleAnalyze()
         }}
         setIdeationAnalysisModel={setIdeationAnalysisModel}
+        setIdeationOutputLanguage={setIdeationOutputLanguage}
       />
     </div>
   )

@@ -6,6 +6,8 @@ import { join } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { LocaleProvider } from '@/components/i18n/locale-provider'
+
 const workspaceMountCounts = vi.hoisted(() => ({
   guided: 0,
   ideation: 0,
@@ -217,6 +219,122 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Face 2')).toHaveLength(1)
     expect(screen.getAllByText('Product 1')).toHaveLength(1)
     expect(screen.getAllByText('Location')).toHaveLength(1)
+  })
+
+  it('translates manual workspace subtext when the active locale is Indonesian', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+
+    render(
+      <LocaleProvider locale="id">
+        <DashboardShell
+          isPricingLoading={false}
+          kiePricing={null}
+          kiePricingError={null}
+          kieStatus={{
+            connected: true,
+            credits: 100,
+            error: null,
+            fetchedAt: null,
+            source: 'chat-credit',
+          }}
+        />
+      </LocaleProvider>,
+    )
+
+    expect(await screen.findByText('Siapkan materi input')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByText('Orang')).toBeTruthy()
+    expect(screen.getAllByText('Unggah gambar atau video').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Pilih file').length).toBeGreaterThan(0)
+  })
+
+  it('translates review, motion, and output helper copy when the active locale is Indonesian', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('grok-imagine')
+    })
+
+    render(
+      <LocaleProvider locale="id">
+        <DashboardShell
+          isPricingLoading={false}
+          kiePricing={null}
+          kiePricingError={null}
+          kieStatus={{
+            connected: true,
+            credits: 100,
+            error: null,
+            fetchedAt: null,
+            source: 'chat-credit',
+          }}
+        />
+      </LocaleProvider>,
+    )
+
+    expect(await screen.findByText('Panel ringkasan')).toBeTruthy()
+    expect(screen.getByText('Workspace video')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Periksa pengaturannya, pilih model dan batch, lalu mulai generate.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText('Pilihan model yang sudah disesuaikan untuk workspace ini.'),
+    ).toBeTruthy()
+    expect(screen.getByText('Klip gerak singkat dari prompt')).toBeTruthy()
+
+    const presetTab = screen.getByRole('tab', { name: 'Preset' })
+    fireEvent.mouseDown(presetTab)
+    fireEvent.click(presetTab)
+
+    expect(await screen.findByText('Susun preset generasi')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Atur preset dasarnya lebih dulu, lalu tambahkan arahan bebas jika perlu.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Visual lifestyle dengan seseorang yang berinteraksi alami dengan produk.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByText('Makanan & Minuman')).toBeTruthy()
+
+    const motionTab = screen.getByRole('tab', { name: 'Gerakan' })
+    fireEvent.mouseDown(motionTab)
+    fireEvent.click(motionTab)
+
+    expect(await screen.findByText('Kontrol gerakan')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Hanya Veo yang menggunakan panduan frame akhir. Model lain mengabaikan slot ini.',
+      ),
+    ).toBeTruthy()
+
+    const outputsTab = screen.getByRole('tab', { name: 'Output' })
+    fireEvent.mouseDown(outputsTab)
+    fireEvent.click(outputsTab)
+
+    expect(await screen.findByText('Hasil render')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Buka Library' })).toBeTruthy()
+    expect(await screen.findByText('Belum ada referensi media yang dimuat')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Siapkan papan referensi terlebih dahulu, atau gunakan brief tertulis jika Anda hanya ingin generate dari prompt.',
+      ),
+    ).toBeTruthy()
   })
 
   it('does not keep the upload spinner visible after a reference preview exists', async () => {

@@ -46,6 +46,24 @@ describe('IdeationWorkspace', () => {
     expect(useGenerationStore.getState().ideationInput.outputLanguage).toBe('id')
   })
 
+  it('translates ideation helper copy and subtext when the active locale is Indonesian', async () => {
+    renderIdeationWorkspace('id')
+
+    expect(
+      await screen.findByText(
+        'Mengatur bahasa yang digunakan dalam brief ideasi yang dihasilkan.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText('Pilih bias strategis sebelum ideasi dijalankan.'),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Tambahkan minimal satu sumber materi. Ideasi bisa berjalan dari gambar utama, URL produk, atau keduanya.',
+      ),
+    ).toBeTruthy()
+  })
+
   it('submits the selected ideation output language to the analyze endpoint', async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({

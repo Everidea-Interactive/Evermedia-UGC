@@ -9,6 +9,7 @@ import type {
 } from '@/lib/generation/types'
 
 const KIE_STATUS_REFRESH_INTERVAL_MS = 60_000
+const KIE_STATUS_CACHE_KEY = 'evermedia:kie-status'
 
 const emptyKieStatus: KieStatusResponse = {
   connected: false,
@@ -68,6 +69,53 @@ export type KieRuntime = {
   refreshStatus: () => Promise<KieRuntimeState<KieStatusResponse>>
   subscribePricing: (listener: () => void) => () => void
   subscribeStatus: (listener: () => void) => () => void
+}
+
+type GlobalWithSharedKieRuntime = typeof globalThis & {
+  __evermediaSharedKieRuntime?: KieRuntime
+}
+
+function readCachedKieStatus(): KieStatusResponse | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawValue = window.sessionStorage.getItem(KIE_STATUS_CACHE_KEY)
+
+    if (!rawValue) {
+      return null
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<KieStatusResponse>
+
+    return {
+      connected: parsedValue.connected === true,
+      credits:
+        typeof parsedValue.credits === 'number' ? parsedValue.credits : null,
+      error: typeof parsedValue.error === 'string' ? parsedValue.error : null,
+      fetchedAt:
+        typeof parsedValue.fetchedAt === 'string' ? parsedValue.fetchedAt : null,
+      source:
+        parsedValue.source === 'chat-credit' || parsedValue.source === 'user-credits'
+          ? parsedValue.source
+          : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeCachedKieStatus(status: KieStatusResponse) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(KIE_STATUS_CACHE_KEY, JSON.stringify(status))
+  } catch {
+    // Ignore storage failures and fall back to in-memory state only.
+  }
 }
 
 function createKieRuntimeBranchController<TData>(
@@ -136,6 +184,7 @@ async function fetchKieStatus() {
 }
 
 export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
+  const hasInitialStatusData = options.initialStatus.fetchedAt !== null
   let snapshot: KieRuntimeSnapshot = {
     pricing: {
       data: options.initialPricing,
@@ -144,8 +193,8 @@ export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
     },
     status: {
       data: options.initialStatus,
-      error: null,
-      isLoading: true,
+      error: options.initialStatus.error,
+      isLoading: !hasInitialStatusData,
     },
   }
   const pricingController = createKieRuntimeBranchController({
@@ -190,6 +239,10 @@ export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
 
     controller.inflightRefresh = controller.config.fetcher()
       .then((result) => {
+        if (branch === 'status') {
+          writeCachedKieStatus(result.data as KieStatusResponse)
+        }
+
         const nextState = createRuntimeState(result.data, result.error)
 
         return updateBranchSnapshot(branch, controller, nextState)
@@ -272,16 +325,28 @@ export function createKieRuntime(options: CreateKieRuntimeOptions): KieRuntime {
   }
 }
 
-const sharedKieRuntime = createKieRuntime({
-  fetchPricing: fetchKiePricing,
-  fetchStatus: fetchKieStatus,
-  initialPricing: null,
-  initialStatus: emptyKieStatus,
-  pricingOnErrorData: () => null,
-  pricingRefreshIntervalMs: KIE_PRICING_TTL_MS,
-  statusOnErrorData: (error) => buildStatusFallback(error.message),
-  statusRefreshIntervalMs: KIE_STATUS_REFRESH_INTERVAL_MS,
-})
+function getSharedKieRuntime() {
+  const globalScope = globalThis as GlobalWithSharedKieRuntime
+
+  if (!globalScope.__evermediaSharedKieRuntime) {
+    const cachedStatus = readCachedKieStatus()
+
+    globalScope.__evermediaSharedKieRuntime = createKieRuntime({
+      fetchPricing: fetchKiePricing,
+      fetchStatus: fetchKieStatus,
+      initialPricing: null,
+      initialStatus: cachedStatus ?? emptyKieStatus,
+      pricingOnErrorData: () => null,
+      pricingRefreshIntervalMs: KIE_PRICING_TTL_MS,
+      statusOnErrorData: (error) => buildStatusFallback(error.message),
+      statusRefreshIntervalMs: KIE_STATUS_REFRESH_INTERVAL_MS,
+    })
+  }
+
+  return globalScope.__evermediaSharedKieRuntime
+}
+
+const sharedKieRuntime = getSharedKieRuntime()
 
 export function useKiePricingRuntime() {
   const snapshot = useSyncExternalStore(
