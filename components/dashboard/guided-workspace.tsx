@@ -227,6 +227,19 @@ function getGuidedVideoDurationLabel(
   return '8s'
 }
 
+function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
+  switch (status) {
+    case 'analyzing':
+      return 'Analyzing'
+    case 'ready':
+      return 'Ready'
+    case 'error':
+      return 'Needs Attention'
+    default:
+      return 'Waiting'
+  }
+}
+
 function getAnalyzeHelperText({
   hasHero,
   hasPlan,

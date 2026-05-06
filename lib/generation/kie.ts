@@ -86,6 +86,8 @@ export type ParsedGenerationRequest = {
   figureArtDirection: FigureArtDirection
   guided: {
     analysisModel: KieAnalysisModel
+    creativeBrief: CreativeBrief | null
+    creativePlan: CreativePlan | null
     contentConcept: ContentConcept
     productUrl: string
     shots: GuidedAnalysisShot[]
