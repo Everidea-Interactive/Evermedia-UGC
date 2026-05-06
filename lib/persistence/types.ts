@@ -11,6 +11,7 @@ import type {
   FigureArtDirection,
   GenerationExperience,
   GuidedGenerationConfig,
+  IdeationResult,
   GenerationProvider,
   GenerationRunStatus,
   GenerationVariantStatus,
@@ -68,6 +69,23 @@ export type CreativeBriefSnapshot = {
   tone: string
 }
 
+export type IdeationInputSnapshot = {
+  analysisModel: KieAnalysisModel
+  briefText: string
+  contentConcept: ContentConcept
+  heroImageName: string | null
+  heroImageUrl: string | null
+  productUrl: string | null
+}
+
+export type SavedIdeationRecord = {
+  createdAt: string
+  id: string
+  inputSnapshot: IdeationInputSnapshot
+  result: IdeationResult
+  userId: string
+}
+
 export type SavedOutputRecord = {
   createdAt: string
   fileSize: number
@@ -91,7 +109,7 @@ export type GenerationVariantRecord = {
   runId: string
   status: GenerationVariantStatus
   taskId: string | null
-  variantIndex: 1 | 2 | 3 | 4
+  variantIndex: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
 }
 
 export type GenerationRunRecord = {
@@ -124,3 +142,5 @@ export type SavedOutputHistoryEntry = {
     'completedAt' | 'createdAt' | 'error' | 'id' | 'profile' | 'prompt' | 'status' | 'taskId' | 'variantIndex'
   >
 }
+
+export type SavedIdeationHistoryEntry = SavedIdeationRecord

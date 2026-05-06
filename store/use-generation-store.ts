@@ -22,6 +22,7 @@ import type {
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  IdeationResult,
   KieAnalysisModel,
   NamedAssetKey,
   NamedAssetSlots,
@@ -40,12 +41,20 @@ import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 type GuidedInputState = {
   analysisModel: KieAnalysisModel
   contentConcept: ContentConcept
+  endFrameAsset: AssetSlot
   heroAsset: AssetSlot
   productUrl: string
   shotCount: BatchSize
 }
 
 type CreativeBriefField = keyof CreativeBrief
+type IdeationInputState = {
+  analysisModel: KieAnalysisModel
+  briefText: string
+  contentConcept: ContentConcept
+  heroAsset: AssetSlot
+  productUrl: string
+}
 
 type GenerationStateShape = {
   activeTab: WorkspaceTab
@@ -64,8 +73,13 @@ type GenerationStateShape = {
   experience: GenerationExperience
   figureArtDirection: FigureArtDirection
   generationRun: GenerationRun
+  generationErrorEventId: number
   guidedInput: GuidedInputState
   guidedPlan: GuidedAnalysisPlan | null
+  ideationError: string | null
+  ideationInput: IdeationInputState
+  ideationResult: IdeationResult | null
+  ideationStatus: GuidedAnalysisStatus
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -80,7 +94,9 @@ type GenerationStateShape = {
 
 type GenerationStore = GenerationStateShape & {
   clearNamedAsset: (slot: NamedAssetKey) => void
+  clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
+  clearIdeationHeroAsset: () => void
   clearProductSlot: (id: string) => void
   disposeGenerationState: () => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
@@ -88,6 +104,7 @@ type GenerationStore = GenerationStateShape & {
   resetGenerationRun: () => void
   resetGenerationState: () => void
   resetGuidedState: () => void
+  resetIdeationState: () => void
   selectGenerationVariant: (variantId: string | null) => void
   setActiveTab: (activeTab: WorkspaceTab) => void
   setAnalysisError: (error: string | null) => void
@@ -110,10 +127,19 @@ type GenerationStore = GenerationStateShape & {
   setGenerationVariants: (variants: GenerationVariant[]) => void
   setGuidedAnalysisModel: (model: KieAnalysisModel) => void
   setGuidedContentConcept: (concept: ContentConcept) => void
+  setGuidedEndFrameFile: (file: File | null) => void
   setGuidedHeroFile: (file: File | null) => void
   setGuidedPlan: (plan: GuidedAnalysisPlan | null) => void
   setGuidedProductUrl: (productUrl: string) => void
   setGuidedShotCount: (shotCount: BatchSize) => void
+  setIdeationAnalysisModel: (model: KieAnalysisModel) => void
+  setIdeationBriefText: (briefText: string) => void
+  setIdeationContentConcept: (concept: ContentConcept) => void
+  setIdeationError: (error: string | null) => void
+  setIdeationHeroFile: (file: File | null) => void
+  setIdeationProductUrl: (productUrl: string) => void
+  setIdeationResult: (result: IdeationResult | null) => void
+  setIdeationStatus: (status: GuidedAnalysisStatus) => void
   setImageModel: (imageModel: ImageModelOption) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
@@ -179,6 +205,7 @@ function createGuidedInputState(): GuidedInputState {
   return {
     analysisModel: 'gemini-2.5-flash',
     contentConcept: 'affiliate',
+    endFrameAsset: createSlot('guided-end-frame', 'End Frame'),
     heroAsset: createSlot('guided-hero', 'Hero Product'),
     productUrl: '',
     shotCount: 4,
@@ -195,11 +222,22 @@ function createCreativeBrief(): CreativeBrief {
   }
 }
 
+function createIdeationInputState(): IdeationInputState {
+  return {
+    analysisModel: 'gemini-2.5-flash',
+    briefText: '',
+    contentConcept: 'affiliate',
+    heroAsset: createSlot('ideation-hero', 'Hero Product'),
+    productUrl: '',
+  }
+}
+
 function createEmptyRunState(): GenerationRun {
   return {
     completedAt: null,
     createdAt: null,
     error: null,
+    experience: 'manual',
     model: null,
     provider: null,
     runId: null,
@@ -278,8 +316,13 @@ function createInitialState(): GenerationStateShape {
     experience: 'manual',
     figureArtDirection: 'none',
     generationRun: createEmptyRunState(),
+    generationErrorEventId: 0,
     guidedInput: createGuidedInputState(),
     guidedPlan: null,
+    ideationError: null,
+    ideationInput: createIdeationInputState(),
+    ideationResult: null,
+    ideationStatus: 'idle',
     imageModel: 'nano-banana',
     outputQuality: '1080p',
     productCategory: 'cosmetics',
@@ -300,6 +343,11 @@ function releaseSlots(slots: AssetSlot[]) {
 }
 
 function releaseGuidedInput(input: GuidedInputState) {
+  revokePreviewUrl(input.heroAsset.previewUrl)
+  revokePreviewUrl(input.endFrameAsset.previewUrl)
+}
+
+function releaseIdeationInput(input: IdeationInputState) {
   revokePreviewUrl(input.heroAsset.previewUrl)
 }
 
@@ -400,11 +448,25 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         [slot]: setSlotFile(state.assets[slot], null),
       },
     })),
+  clearGuidedEndFrameAsset: () =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, null),
+      },
+    })),
   clearGuidedHeroAsset: () =>
     set((state) => ({
       guidedInput: {
         ...state.guidedInput,
         heroAsset: setSlotFile(state.guidedInput.heroAsset, null),
+      },
+    })),
+  clearIdeationHeroAsset: () =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        heroAsset: setSlotFile(state.ideationInput.heroAsset, null),
       },
     })),
   clearProductSlot: (id) =>
@@ -419,6 +481,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
     releaseGuidedInput(state.guidedInput)
+    releaseIdeationInput(state.ideationInput)
 
     set(createInitialState())
   },
@@ -460,6 +523,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
       releaseGuidedInput(state.guidedInput)
+      releaseIdeationInput(state.ideationInput)
 
       return {
         ...createInitialState(),
@@ -504,6 +568,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     }),
   resetGenerationRun: () =>
     set(() => ({
+      generationErrorEventId: 0,
       generationRun: createEmptyRunState(),
       sessionStats: createEmptySessionStats(),
     })),
@@ -513,6 +578,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseIdeationInput(state.ideationInput)
 
     set({
       activeTab: nextState.activeTab,
@@ -524,8 +590,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       creativeBrief: nextState.creativeBrief,
       creativeStyle: nextState.creativeStyle,
       figureArtDirection: nextState.figureArtDirection,
-      generationRun: nextState.generationRun,
-      imageModel: nextState.imageModel,
+        generationRun: nextState.generationRun,
+        generationErrorEventId: nextState.generationErrorEventId,
+        ideationError: nextState.ideationError,
+        ideationInput: nextState.ideationInput,
+        ideationResult: nextState.ideationResult,
+        ideationStatus: nextState.ideationStatus,
+        imageModel: nextState.imageModel,
       outputQuality: nextState.outputQuality,
       productCategory: nextState.productCategory,
       products: nextState.products,
@@ -550,9 +621,24 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       creativePlan: nextState.creativePlan,
       creativePlanningError: nextState.creativePlanningError,
       creativePlanningStatus: nextState.creativePlanningStatus,
+      generationErrorEventId: nextState.generationErrorEventId,
       generationRun: nextState.generationRun,
       guidedInput: nextState.guidedInput,
       guidedPlan: nextState.guidedPlan,
+      sessionStats: state.sessionStats,
+    })
+  },
+  resetIdeationState: () => {
+    const state = get()
+    const nextState = createInitialState()
+
+    releaseIdeationInput(state.ideationInput)
+
+    set({
+      ideationError: nextState.ideationError,
+      ideationInput: nextState.ideationInput,
+      ideationResult: nextState.ideationResult,
+      ideationStatus: nextState.ideationStatus,
       sessionStats: state.sessionStats,
     })
   },
@@ -637,16 +723,24 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         {
           ...state.generationRun,
           error,
-          status: variants.length > 0 ? 'error' : state.generationRun.status,
+          status: 'error',
         },
         variants,
       )
 
       return {
-        generationRun: {
-          ...nextRun,
-          error,
-        },
+        generationErrorEventId: state.generationErrorEventId + 1,
+        generationRun:
+          variants.length > 0
+            ? {
+                ...nextRun,
+                error,
+              }
+            : {
+                ...state.generationRun,
+                error,
+                status: 'error',
+              },
         sessionStats: createSessionStats(variants),
       }
     }),
@@ -667,6 +761,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       guidedInput: {
         ...state.guidedInput,
         contentConcept,
+      },
+    })),
+  setGuidedEndFrameFile: (file) =>
+    set((state) => ({
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, file),
       },
     })),
   setGuidedHeroFile: (file) =>
@@ -701,6 +802,49 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         shotCount,
       },
     })),
+  setIdeationAnalysisModel: (analysisModel) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        analysisModel,
+      },
+    })),
+  setIdeationBriefText: (briefText) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        briefText,
+      },
+    })),
+  setIdeationContentConcept: (contentConcept) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        contentConcept,
+      },
+    })),
+  setIdeationError: (ideationError) => set({ ideationError }),
+  setIdeationHeroFile: (file) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+      },
+    })),
+  setIdeationProductUrl: (productUrl) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        productUrl,
+      },
+    })),
+  setIdeationResult: (ideationResult) =>
+    set(() => ({
+      ideationError: null,
+      ideationResult,
+      ideationStatus: ideationResult ? 'ready' : 'idle',
+    })),
+  setIdeationStatus: (ideationStatus) => set({ ideationStatus }),
   setImageModel: (imageModel) => set({ imageModel }),
   setNamedAssetFile: (slot, file) =>
     set((state) => ({
@@ -914,6 +1058,7 @@ export type {
   GenerationSessionStats,
   GenerationVariant,
   ImageModelOption,
+  IdeationResult,
   KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,

@@ -40,6 +40,38 @@ const grokRecords: KiePricingApiRecord[] = [
     usdPrice: '0.015',
   },
 ]
+const gptImageRecords: KiePricingApiRecord[] = [
+  {
+    creditPrice: '6',
+    modelDescription: 'gpt image 2, text-to-image, 1k',
+    usdPrice: '0.03',
+  },
+  {
+    creditPrice: '10',
+    modelDescription: 'gpt image 2, text-to-image, 2k',
+    usdPrice: '0.05',
+  },
+  {
+    creditPrice: '16',
+    modelDescription: 'gpt image 2, text-to-image, 4k',
+    usdPrice: '0.08',
+  },
+  {
+    creditPrice: '6',
+    modelDescription: 'gpt image 2, image-to-image, 1k',
+    usdPrice: '0.03',
+  },
+  {
+    creditPrice: '10',
+    modelDescription: 'gpt image 2, image-to-image, 2k',
+    usdPrice: '0.05',
+  },
+  {
+    creditPrice: '16',
+    modelDescription: 'gpt image 2, image-to-image, 4k',
+    usdPrice: '0.08',
+  },
+]
 
 const klingRecords: KiePricingApiRecord[] = [
   {
@@ -87,6 +119,29 @@ const veoRecords: KiePricingApiRecord[] = [
     creditPrice: '60.0',
     modelDescription: 'Google veo 3.1, text-to-video, Fast',
     usdPrice: '0.3',
+  },
+]
+
+const seedanceRecords: KiePricingApiRecord[] = [
+  {
+    creditPrice: '20',
+    modelDescription: 'bytedance/seedance-1.5-pro, 720p with video input',
+    usdPrice: '0.10',
+  },
+  {
+    creditPrice: '33',
+    modelDescription: 'bytedance/seedance-1.5-pro, 720p no video input',
+    usdPrice: '0.165',
+  },
+  {
+    creditPrice: '62',
+    modelDescription: 'bytedance/seedance-1.5-pro, 1080p with video input',
+    usdPrice: '0.31',
+  },
+  {
+    creditPrice: '102',
+    modelDescription: 'bytedance/seedance-1.5-pro, 1080p no video input',
+    usdPrice: '0.51',
   },
 ]
 
@@ -141,9 +196,11 @@ function createSnapshot(
 
 describe('generation pricing', () => {
   const pricingMatrix = buildKiePricingMatrix({
+    gptImageRecords,
     grokRecords,
     klingRecords,
     nanoRecords,
+    seedanceRecords,
     veoRecords,
   })
 
@@ -168,6 +225,10 @@ describe('generation pricing', () => {
       credits: 60,
       usd: 0.3,
     })
+    expect(pricingMatrix.video['seedance-1.5-pro'].withReference['1080p'].extended).toEqual({
+      credits: 744,
+      usd: 3.72,
+    })
   })
 
   it('estimates Nano Banana image cost for 1080p batch size 3', () => {
@@ -181,9 +242,9 @@ describe('generation pricing', () => {
 
     expect(estimate).toEqual({
       available: true,
-      credits: 24,
+      credits: 36,
       reason: null,
-      usd: 0.12,
+      usd: 0.18,
     })
   })
 
@@ -201,6 +262,23 @@ describe('generation pricing', () => {
       credits: 8,
       reason: null,
       usd: 0.04,
+    })
+  })
+
+  it('estimates GPT Image 2 prompt-only 4k image cost', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        imageModel: 'gpt-image-2',
+        outputQuality: '4k',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 16,
+      reason: null,
+      usd: 0.08,
     })
   })
 
@@ -281,6 +359,27 @@ describe('generation pricing', () => {
     })
   })
 
+  it('estimates Seedance 1.5 Pro reference video cost for extended duration', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        outputQuality: '1080p',
+        products: [createSlot('product-1', 'Product 1', true)],
+        subjectMode: 'product-only',
+        videoDuration: 'extended',
+        videoModel: 'seedance-1.5-pro',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 744,
+      reason: null,
+      usd: 3.72,
+    })
+  })
+
   it('blocks generation when the live credit balance is below the estimate', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
@@ -297,7 +396,7 @@ describe('generation pricing', () => {
       }),
     ).toEqual({
       canGenerate: false,
-      reason: 'Not enough KIE credits. 24 required, 12 available.',
+      reason: 'Not enough KIE credits. 36 required, 12 available.',
     })
   })
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
@@ -14,7 +15,6 @@ import {
   AlertTriangle,
   Brush,
   CircleSlash,
-  Clapperboard,
   CupSoda,
   Film,
   Gem,
@@ -35,11 +35,13 @@ import {
 } from 'lucide-react'
 
 import { GuidedWorkspace } from '@/components/dashboard/guided-workspace'
+import { IdeationWorkspace } from '@/components/dashboard/ideation-workspace'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ErrorNoticeDialog } from '@/components/ui/error-notice-dialog'
 import { Select } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
@@ -55,12 +57,14 @@ import {
   getActiveTaskCount,
   getCompletedVariantCount,
   getFailedVariantCount,
+  getGenerationFailureNotice,
   getGenerateButtonLabel,
-  getGenerationHelperMessage,
-  getRunHeadline,
 } from '@/lib/generation/run-copy'
+import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
+import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useKiePricing } from '@/lib/generation/use-kie-pricing'
 import { useKieStatus } from '@/lib/generation/use-kie-status'
+import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
   BatchSize,
@@ -72,7 +76,6 @@ import type {
   GenerationExperience,
   GenerationCostEstimate,
   GenerationRun,
-  GenerationVariant,
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
@@ -124,6 +127,11 @@ const experienceTabs: Array<{
     helper: 'Analyze one product image, edit the shot list, then render it',
     label: 'Guided',
     value: 'guided',
+  },
+  {
+    helper: 'LLM-assisted content strategy and concept planning',
+    label: 'Ideation',
+    value: 'ideation',
   },
 ]
 
@@ -248,14 +256,19 @@ const imageModels: Array<{
   value: ImageModelOption
 }> = [
   {
-    helper: 'Google image generation with direct reference input',
-    label: 'Nano Banana 2',
-    value: 'nano-banana',
+    helper: 'OpenAI GPT Image 2 with 1K / 2K / 4K tiers',
+    label: 'GPT Image 2',
+    value: 'gpt-image-2',
   },
   {
     helper: 'Text and image-led still renders',
     label: 'Grok Imagine',
     value: 'grok-imagine',
+  },
+  {
+    helper: 'Google image generation with direct reference input',
+    label: 'Nano Banana 2',
+    value: 'nano-banana',
   },
 ]
 
@@ -265,9 +278,9 @@ const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
-    helper: 'Reference and end-frame video renders',
-    label: 'Veo 3.1',
-    value: 'veo-3.1',
+    helper: 'Prompt-led short motion clips',
+    label: 'Grok Imagine',
+    value: 'grok-imagine',
   },
   {
     helper: 'Market-model text or image video',
@@ -275,14 +288,52 @@ const videoModels: Array<{
     value: 'kling',
   },
   {
-    helper: 'Prompt-led short motion clips',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
+    helper: 'ByteDance 8s or 12s pro video generation',
+    label: 'Seedance 1.5 Pro',
+    value: 'seedance-1.5-pro',
+  },
+  {
+    helper: 'Reference and end-frame video renders',
+    label: 'Veo 3.1',
+    value: 'veo-3.1',
   },
 ]
 
-const qualities: OutputQuality[] = ['720p', '1080p', '4k']
+const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
+const videoQualities: OutputQuality[] = ['720p', '1080p']
 const durations: VideoDuration[] = ['base', 'extended']
+
+function getVideoDurationLabel(model: VideoModelOption, duration: VideoDuration) {
+  if (model === 'kling') {
+    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
+  }
+
+  if (model === 'grok-imagine') {
+    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
+  }
+
+  if (model === 'seedance-1.5-pro') {
+    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
+  }
+
+  return '8s'
+}
+
+function getImageQualityOptions(
+  imageModel: ImageModelOption,
+  kiePricing: KiePricingResponse | null,
+) {
+  return (
+    kiePricing?.supportedImageQualities?.[imageModel] ??
+    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : imageQualities)
+  )
+}
+
+function getImageQualityLabel(quality: OutputQuality) {
+  if (quality === '720p') return '1K'
+  if (quality === '1080p') return '2K'
+  return '4K'
+}
 
 const peopleReferenceCards: Array<{
   icon: LucideIcon
@@ -369,6 +420,9 @@ export function DashboardShell() {
   const setActiveTab = useGenerationStore((state) => state.setActiveTab)
   const setExperience = useGenerationStore((state) => state.setExperience)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const generationErrorEventId = useGenerationStore(
+    (state) => state.generationErrorEventId,
+  )
   const kiePricingState = useKiePricing()
   const kieStatusState = useKieStatus(generationRun)
   const controller = useGenerationController({
@@ -377,12 +431,14 @@ export function DashboardShell() {
     kieStatus: kieStatusState.status,
     pricingError: kiePricingState.error,
   })
-  const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
-  const resolvedPreviewVariantId = generationRun.variants.some(
-    (variant) => variant.variantId === previewVariantId,
+  const [manualSection, setManualSection] = useState<
+    'references' | 'preset' | 'motion' | 'outputs'
+  >('references')
+  const [isErrorNoticeOpen, setIsErrorNoticeOpen] = useState(false)
+  const [errorNotice, setErrorNotice] = useState(() =>
+    getGenerationFailureNotice(null),
   )
-    ? previewVariantId
-    : null
+  const lastManualTerminalRunKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     return () => {
@@ -390,8 +446,64 @@ export function DashboardShell() {
     }
   }, [])
 
+  useEffect(() => {
+    const isTerminalStatus =
+      generationRun.experience === 'manual' &&
+      (generationRun.status === 'success' ||
+        generationRun.status === 'partial-success' ||
+        generationRun.status === 'error' ||
+        generationRun.status === 'cancelled')
+    const terminalRunKey =
+      generationRun.runId && isTerminalStatus
+        ? `${generationRun.runId}:${generationRun.status}`
+        : null
+
+    if (!terminalRunKey || lastManualTerminalRunKeyRef.current === terminalRunKey) {
+      return
+    }
+
+    lastManualTerminalRunKeyRef.current = terminalRunKey
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('outputs')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [generationRun.experience, generationRun.runId, generationRun.status])
+
+  useEffect(() => {
+    if (
+      generationErrorEventId === 0 ||
+      generationRun.status !== 'error' ||
+      !generationRun.error
+    ) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setErrorNotice(getGenerationFailureNotice(generationRun.error ?? ''))
+      setIsErrorNoticeOpen(true)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    generationErrorEventId,
+    generationRun.error,
+    generationRun.status,
+  ])
+
   return (
     <div className="min-h-screen overflow-x-hidden">
+      <ErrorNoticeDialog
+        description={errorNotice.message}
+        detail={errorNotice.detail}
+        onOpenChange={setIsErrorNoticeOpen}
+        open={isErrorNoticeOpen}
+        title={errorNotice.title}
+      />
       <a
         href="#dashboard-main"
         className="sr-only left-4 top-4 z-50 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed"
@@ -400,46 +512,55 @@ export function DashboardShell() {
       </a>
 
       <main
-        className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6"
+        className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5"
         id="dashboard-main"
       >
-        <TopBar
-          isKieStatusLoading={kieStatusState.isLoading}
-          kieStatus={kieStatusState.status}
-        />
-
-        <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Studio experience
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose between the existing manual studio and the new analyze-first guided planner.
-              </p>
-            </div>
-
+        <section className={cn(panelClassName, 'p-2.5 sm:p-3')}>
+          <div className="grid gap-3">
             <Tabs
               onValueChange={(value) => setExperience(value as GenerationExperience)}
               value={experience}
             >
-              <TabsList aria-label="Studio Experience" className="w-full grid-cols-2">
+              <TabsList aria-label="Studio Experience" className="w-full grid-cols-3 p-1.5">
                 {experienceTabs.map((tab) => (
                   <TabsTrigger
-                    className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
+                    className="min-h-[3.15rem] px-3 py-2"
                     key={tab.value}
                     value={tab.value}
                   >
-                    <span className="mx-auto flex w-full max-w-[14rem] flex-col text-left">
-                      <span className="text-base font-semibold">{tab.label}</span>
-                      <span className="mt-1 text-xs font-normal text-current/72">
-                        {tab.helper}
-                      </span>
+                    <span className="mx-auto text-sm font-semibold sm:text-base">
+                      {tab.label}
                     </span>
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
+
+            {experience !== 'ideation' ? (
+              <Tabs
+                onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
+                value={activeTab}
+              >
+                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
+                  {workspaceTabs.map((tab) => {
+                    const Icon = tab.icon
+
+                    return (
+                      <TabsTrigger
+                        className="min-h-[3.15rem] px-3 py-2"
+                        key={tab.value}
+                        value={tab.value}
+                      >
+                        <span className="mx-auto flex items-center justify-center gap-2">
+                          <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
+                          <span className="text-sm font-semibold sm:text-base">{tab.label}</span>
+                        </span>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            ) : null}
           </div>
         </section>
 
@@ -450,135 +571,66 @@ export function DashboardShell() {
             kiePricingError={kiePricingState.error}
             kieStatus={kieStatusState.status}
           />
+        ) : experience === 'ideation' ? (
+          <IdeationWorkspace />
         ) : (
-          <Tabs
-            className="flex flex-1 flex-col gap-4"
-            onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
-            value={activeTab}
-          >
-            <section className={cn(panelClassName, 'p-3 sm:p-4')}>
-              <div className="flex flex-col gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                    Output mode
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Choose whether the workspace builds a still render or a motion
-                    render before staging references.
-                  </p>
-                </div>
-
-                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2">
-                  {workspaceTabs.map((tab) => {
-                    const Icon = tab.icon
-
-                    return (
-                      <TabsTrigger
-                        className="min-h-[5rem] px-5 py-4 sm:min-h-[5.5rem]"
-                        key={tab.value}
-                        value={tab.value}
-                      >
-                        <span className="mx-auto flex w-full max-w-[12rem] items-center justify-center gap-3 text-left">
-                          <Icon className="size-5 shrink-0" suppressHydrationWarning />
-                          <span className="flex min-w-0 flex-col">
-                            <span className="text-base font-semibold">{tab.label}</span>
-                            <span className="text-xs font-normal text-current/72">
-                              {tab.helper}
-                            </span>
-                          </span>
-                        </span>
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
-              </div>
-            </section>
-
+          <div className="flex flex-1 flex-col gap-4">
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
-              <ReferenceWorkspaceSection className="xl:col-start-1 xl:row-start-1" />
-              <PreviewCanvas
+              <div className="xl:col-start-1">
+                <Tabs
+                  className="flex flex-col gap-3"
+                  onValueChange={(value) =>
+                    setManualSection(value as 'references' | 'preset' | 'motion' | 'outputs')
+                  }
+                  value={manualSection}
+                >
+                  <TabsList
+                    aria-label="Workspace Sections"
+                    className={cn(
+                      'w-full',
+                      activeTab === 'video' ? 'grid-cols-4' : 'grid-cols-3',
+                    )}
+                  >
+                    <TabsTrigger value="references">References</TabsTrigger>
+                    <TabsTrigger value="preset">Preset</TabsTrigger>
+                    {activeTab === 'video' ? (
+                      <TabsTrigger value="motion">Motion</TabsTrigger>
+                    ) : null}
+                    <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent className="mt-0" value="references">
+                    <ReferenceWorkspaceSection />
+                  </TabsContent>
+                  <TabsContent className="mt-0" value="preset">
+                    <RefineRenderSection />
+                  </TabsContent>
+                  {activeTab === 'video' ? (
+                    <TabsContent className="mt-0" value="motion">
+                      <MotionControlsSection />
+                    </TabsContent>
+                  ) : null}
+                  <TabsContent className="mt-0" value="outputs">
+                    <OutputPanel />
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <RunControlPanel
                 canGenerate={controller.canGenerate}
-                className="xl:col-start-2 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-6 xl:self-start"
-                disabledReason={controller.disabledReason}
+                className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
                 generationCostEstimate={controller.generationCostEstimate}
                 generationCostReason={controller.generationCostReason}
                 isBusy={controller.isBusy}
                 isPricingLoading={kiePricingState.isLoading}
+                kiePricing={kiePricingState.pricing}
                 onCancelRun={controller.handleCancel}
-                onGenerate={async () => {
-                  setPreviewVariantId(null)
-                  await controller.handleGenerate()
-                }}
-                previewVariantId={resolvedPreviewVariantId}
-                setPreviewVariantId={setPreviewVariantId}
+                onGenerate={controller.handleGenerate}
               />
-              <RefineRenderSection className="xl:col-start-1 xl:row-start-2" />
-              {activeTab === 'video' ? (
-                <MotionControlsSection className="xl:col-start-1 xl:row-start-3" />
-              ) : null}
             </div>
-          </Tabs>
+          </div>
         )}
       </main>
-    </div>
-  )
-}
-
-function TopBar({
-  isKieStatusLoading,
-  kieStatus,
-}: {
-  isKieStatusLoading: boolean
-  kieStatus: KieStatusResponse
-}) {
-  return (
-    <header className={cn(panelClassName, 'px-4 py-4 sm:px-5')}>
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background text-foreground">
-            <Clapperboard className="size-5" suppressHydrationWarning />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display text-lg font-semibold">Evermedia UGC</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Build the reference board first, then run generation from the
-              output panel.
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full xl:max-w-[16rem]">
-          <HeaderMetricCard
-            helper={getKieCreditsHelper(kieStatus, isKieStatusLoading)}
-            label="KIE Credits"
-            value={getKieCreditsValue(kieStatus, isKieStatusLoading)}
-          />
-        </div>
-      </div>
-    </header>
-  )
-}
-
-function HeaderMetricCard({
-  helper,
-  label,
-  value,
-}: {
-  helper: string
-  label: string
-  value: string
-}) {
-  return (
-    <div className={cn(insetPanelClassName, 'px-3 py-3')}>
-      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">
-        {value}
-      </p>
-      <p className="mt-1 truncate text-xs text-muted-foreground" title={helper}>
-        {helper}
-      </p>
     </div>
   )
 }
@@ -983,11 +1035,6 @@ function PresetGroupLabel({ children }: { children: ReactNode }) {
 }
 
 function MotionControlsSection({ className }: { className?: string }) {
-  const videoModel = useGenerationStore((state) => state.videoModel)
-  const videoDuration = useGenerationStore((state) => state.videoDuration)
-  const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
-  const outputQuality = useGenerationStore((state) => state.outputQuality)
-  const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const setCameraMovement = useGenerationStore(
     (state) => state.setCameraMovement,
@@ -1006,66 +1053,6 @@ function MotionControlsSection({ className }: { className?: string }) {
         />
 
         <div className="grid gap-5">
-          <ControlGroup
-            description="Maps into the selected provider&apos;s supported duration range."
-            title="Clip length"
-          >
-            <ToggleGroup
-              aria-label="Video Duration"
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-              onValueChange={(value) => {
-                if (value) {
-                  setVideoDuration(value as VideoDuration)
-                }
-              }}
-              type="single"
-              value={videoDuration}
-            >
-              {durations.map((duration) => (
-                <ToggleGroupItem
-                  className={tileClassName}
-                  key={duration}
-                  value={duration}
-                >
-                  {duration === 'base' ? 'Base (~5-8s)' : 'Extended (+7s)'}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </ControlGroup>
-
-          <ControlGroup
-            description="Resolution preferences are passed through when the model supports them directly."
-            title="Output resolution"
-          >
-            <ToggleGroup
-              aria-label="Output Quality"
-              className="grid grid-cols-3 gap-2"
-              onValueChange={(value) => {
-                if (value) {
-                  setOutputQuality(value as OutputQuality)
-                }
-              }}
-              type="single"
-              value={outputQuality}
-            >
-              {qualities.map((quality) => (
-                <ToggleGroupItem
-                  className={tileClassName}
-                  key={quality}
-                  value={quality}
-                >
-                  {quality}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            {videoModel === 'veo-3.1' && outputQuality === '4k' ? (
-              <p className="text-xs text-muted-foreground">
-                4K Veo upgrades are reserved for a later phase, so generation
-                stays disabled until you switch back to 720p or 1080p.
-              </p>
-            ) : null}
-          </ControlGroup>
-
           <ControlGroup
             description="Camera movement is treated as a structured prompt modifier."
             title="Movement language"
@@ -1092,11 +1079,11 @@ function MotionControlsSection({ className }: { className?: string }) {
           </ControlGroup>
 
           <ControlGroup
-            description="Only Veo uses end-frame guidance in Phase 2. Other models ignore this slot."
+            description="Only Veo uses end-frame guidance. Other models ignore this slot."
             title="End frame reference"
           >
             <ReferenceCard
-              className="w-full self-start sm:max-w-[15rem]"
+              className="w-full self-start sm:max-w-[20rem]"
               icon={ScanLine}
               inputId="asset-end-frame"
               onClear={() => clearNamedAsset('endFrame')}
@@ -1262,30 +1249,26 @@ function ReferenceCard({
   )
 }
 
-function PreviewCanvas({
+function RunControlPanel({
   canGenerate,
   className,
-  disabledReason,
   generationCostEstimate,
   generationCostReason,
   isBusy,
   isPricingLoading,
+  kiePricing,
   onCancelRun,
   onGenerate,
-  previewVariantId,
-  setPreviewVariantId,
 }: {
   canGenerate: boolean
   className?: string
-  disabledReason: string | null
   generationCostEstimate: GenerationCostEstimate
   generationCostReason: string
   isBusy: boolean
   isPricingLoading: boolean
+  kiePricing: KiePricingResponse | null
   onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
-  previewVariantId: string | null
-  setPreviewVariantId: (variantId: string | null) => void
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
@@ -1294,8 +1277,12 @@ function PreviewCanvas({
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
+  const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
+  const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const subjectMode = useGenerationStore((state) => state.subjectMode)
@@ -1318,6 +1305,7 @@ function PreviewCanvas({
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
+  const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
   const activeModelLabel =
     activeTab === 'image'
       ? getImageModelLabel(imageModel)
@@ -1334,12 +1322,18 @@ function PreviewCanvas({
     figureArtDirection,
     subjectMode,
   })
-  const runMatchesWorkspace = generationRun.workspace === activeTab
+  const runMatchesWorkspace = isRunVisibleForExperience(
+    generationRun,
+    'manual',
+    activeTab,
+  )
   const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
-  const generationFooterMessage =
-    !runMatchesWorkspace || generationRun.status === 'idle'
-      ? getGenerationHelperMessage(disabledReason, generationRun)
-      : null
+
+  useEffect(() => {
+    if (activeTab === 'video' && batchSize !== 1) {
+      setBatchSize(1)
+    }
+  }, [activeTab, batchSize, setBatchSize])
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -1347,14 +1341,13 @@ function PreviewCanvas({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Output panel
+              Review panel
             </p>
             <h2 className="mt-2 text-balance font-display text-xl font-semibold sm:text-2xl">
               Review and run generation
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Keep the output visible while you build the reference board, then
-              run generation from the footer below.
+              Confirm the setup, choose model/batch settings, then run generation.
             </p>
           </div>
           <Badge className="self-start whitespace-nowrap" variant="outline">
@@ -1363,114 +1356,95 @@ function PreviewCanvas({
         </div>
 
         <div className={cn(insetPanelClassName, 'overflow-hidden')}>
-          <div className="border-b border-border px-3 py-3.5 sm:px-5 sm:py-4">
-            <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-              <PreviewSnapshotItem
-                label="Primary input"
-                value={primaryInputLabel}
-              />
-              <PreviewSnapshotItem
-                label="Staged assets"
-                value={getLoadedAssetLabel(loadedAssets.length)}
-              />
-            </div>
-
-            <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-              <StatusPill label="Model" value={activeModelLabel} />
-              <StatusPill
-                label="Category"
-                value={getProductCategoryLabel(productCategory)}
-              />
-              <StatusPill
-                label="Style"
-                value={getCreativeStyleLabel(creativeStyle)}
-              />
-              <StatusPill
-                label="Subject"
-                value={getSubjectModeLabel(subjectMode)}
-              />
-              <StatusPill
-                label="Environment"
-                value={getShotEnvironmentLabel(shotEnvironment)}
-              />
-              {characterPresetLabel ? (
-                <StatusPill label="Casting" value={characterPresetLabel} />
-              ) : null}
-              {activeTab === 'video' && cameraMovement ? (
-                <StatusPill
-                  label="Camera"
-                  value={getCameraMovementLabel(cameraMovement)}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-5">
-            <div className="flex min-h-[240px] flex-col sm:min-h-[320px]">
-              <PreviewStage
-                activeTab={activeTab}
-                loadedAssets={loadedAssets.length}
-                previewVariantId={previewVariantId}
-                runMatchesWorkspace={runMatchesWorkspace}
-                runState={generationRun}
-                setPreviewVariantId={setPreviewVariantId}
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-border px-4 py-4 sm:px-6">
+          <div className="px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-5">
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Batch size
+                  Setup summary
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Parallel variants reuse the same staged references and split
-                  into separate KIE tasks.
-                </p>
-                <ToggleGroup
-                  aria-label="Batch Size"
-                  className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
-                  onValueChange={(value) => {
-                    if (value) {
-                      setBatchSize(Number(value) as BatchSize)
-                    }
-                  }}
-                  type="single"
-                  value={String(batchSize)}
-                >
-                  {batchSizes.map((size) => (
-                    <ToggleGroupItem
-                      className="min-h-14 w-full justify-center px-2.5"
-                      key={size}
-                      value={String(size)}
-                    >
-                      <span className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm font-semibold">{size}x</span>
-                        <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
-                          {size === 1 ? 'Single' : `${size} tasks`}
-                        </span>
-                      </span>
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <PreviewSnapshotItem
+                    label="Primary input"
+                    value={primaryInputLabel}
+                  />
+                  <PreviewSnapshotItem
+                    label="Staged assets"
+                    value={getLoadedAssetLabel(loadedAssets.length)}
+                  />
+                </div>
+                <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <StatusPill label="Model" value={activeModelLabel} />
+                  <StatusPill
+                    label="Category"
+                    value={getProductCategoryLabel(productCategory)}
+                  />
+                  <StatusPill
+                    label="Style"
+                    value={getCreativeStyleLabel(creativeStyle)}
+                  />
+                  <StatusPill
+                    label="Subject"
+                    value={getSubjectModeLabel(subjectMode)}
+                  />
+                  <StatusPill
+                    label="Environment"
+                    value={getShotEnvironmentLabel(shotEnvironment)}
+                  />
+                  {characterPresetLabel ? (
+                    <StatusPill label="Casting" value={characterPresetLabel} />
+                  ) : null}
+                  {activeTab === 'video' && cameraMovement ? (
+                    <StatusPill
+                      label="Camera"
+                      value={getCameraMovementLabel(cameraMovement)}
+                    />
+                  ) : null}
+                </div>
               </div>
 
               <div className="h-px bg-border/70" />
 
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Generation
-                </p>
-                {generationFooterMessage ? (
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {generationFooterMessage}
-                  </p>
-                ) : null}
+              {activeTab === 'image' ? (
+                <>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Batch size
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Image batches render 2x2 grids, then split each grid into four
+                      outputs.
+                    </p>
+                    <ToggleGroup
+                      aria-label="Batch Size"
+                      className="mt-3 grid w-full grid-cols-2 gap-2 min-[460px]:grid-cols-4"
+                      onValueChange={(value) => {
+                        if (value) {
+                          setBatchSize(Number(value) as BatchSize)
+                        }
+                      }}
+                      type="single"
+                      value={String(batchSize)}
+                    >
+                      {batchSizes.map((size) => (
+                        <ToggleGroupItem
+                          className="min-h-14 w-full justify-center px-2.5"
+                          key={size}
+                          value={String(size)}
+                        >
+                          <span className="flex flex-col items-center gap-0.5">
+                            <span className="text-sm font-semibold">{size}x</span>
+                            <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-current/70">
+                              {`${size * 4} images`}
+                            </span>
+                          </span>
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </div>
+                </>
+              ) : null}
 
-                <div
-                  className={cn(generationFooterMessage ? 'mt-4' : 'mt-2', 'grid gap-2.5')}
-                >
+              <div className={cn('mt-2 grid gap-2.5')}>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       {activeTab === 'image' ? 'Image model' : 'Video model'}
@@ -1483,9 +1457,17 @@ function PreviewCanvas({
                   {activeTab === 'image' ? (
                     <Select
                       aria-label="Image Model"
-                      onChange={(event) =>
-                        setImageModel(event.target.value as ImageModelOption)
-                      }
+                      onChange={(event) => {
+                        const nextModel = event.target.value as ImageModelOption
+                        setImageModel(nextModel)
+                        const supportedQualities = getImageQualityOptions(
+                          nextModel,
+                          kiePricing,
+                        )
+                        if (!supportedQualities.includes(outputQuality)) {
+                          setOutputQuality(supportedQualities[0] ?? '1080p')
+                        }
+                      }}
                       value={imageModel}
                     >
                       {imageModels.map((model) => (
@@ -1495,19 +1477,53 @@ function PreviewCanvas({
                       ))}
                     </Select>
                   ) : (
-                    <Select
-                      aria-label="Video Model"
-                      onChange={(event) =>
-                        setVideoModel(event.target.value as VideoModelOption)
-                      }
-                      value={videoModel}
-                    >
-                      {videoModels.map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </Select>
+                    <>
+                      <Select
+                        aria-label="Video Model"
+                        onChange={(event) =>
+                          setVideoModel(event.target.value as VideoModelOption)
+                        }
+                        value={videoModel}
+                      >
+                        {videoModels.map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Clip length
+                      </p>
+                      <Select
+                        aria-label="Video Duration"
+                        onChange={(event) =>
+                          setVideoDuration(event.target.value as VideoDuration)
+                        }
+                        value={videoDuration}
+                      >
+                        {durations.map((duration) => (
+                          <option key={duration} value={duration}>
+                            {getVideoDurationLabel(videoModel, duration)}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Video resolution
+                      </p>
+                      <Select
+                        aria-label="Video Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {videoQualities.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {quality}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
                   )}
 
                   <p className="text-xs text-muted-foreground">
@@ -1515,7 +1531,29 @@ function PreviewCanvas({
                       ? selectedImageModel?.helper
                       : selectedVideoModel?.helper}
                   </p>
-                </div>
+
+                  {activeTab === 'image' ? (
+                    <>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Image resolution
+                      </p>
+                      <Select
+                        aria-label="Image Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {imageQualityOptions.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {getImageQualityLabel(quality)}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
+                  ) : null}
+
+              </div>
 
                 <div className="mt-2.5 flex w-full flex-col gap-2">
                   <GenerationEstimateStrip
@@ -1557,7 +1595,57 @@ function PreviewCanvas({
                     {getGenerateButtonLabel(generationRun, batchSize)}
                   </Button>
                 </div>
-              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function OutputPanel({
+  className,
+}: {
+  className?: string
+}) {
+  const activeTab = useGenerationStore((state) => state.activeTab)
+  const assets = useGenerationStore((state) => state.assets)
+  const products = useGenerationStore((state) => state.products)
+  const generationRun = useGenerationStore((state) => state.generationRun)
+
+  const loadedAssets = useMemo(
+    () =>
+      [...Object.values(assets), ...products].filter((slot) => isSlotLoaded(slot)),
+    [assets, products],
+  )
+  const runMatchesWorkspace = generationRun.workspace === activeTab
+
+  return (
+    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              Output
+            </p>
+            <h2 className="mt-2 text-balance font-display text-xl font-semibold sm:text-2xl">
+              Render output
+            </h2>
+          </div>
+          <Button asChild size="sm" variant="secondary">
+            <Link href="/library">Open Library</Link>
+          </Button>
+        </div>
+
+        <div className={cn(insetPanelClassName, 'overflow-hidden')}>
+          <div className="p-4 sm:p-5">
+            <div className="flex min-h-[240px] flex-col sm:min-h-[320px]">
+              <PreviewStage
+                activeTab={activeTab}
+                loadedAssets={loadedAssets.length}
+                runMatchesWorkspace={runMatchesWorkspace}
+                runState={generationRun}
+              />
             </div>
           </div>
         </div>
@@ -1569,29 +1657,23 @@ function PreviewCanvas({
 function PreviewStage({
   activeTab,
   loadedAssets,
-  previewVariantId,
   runMatchesWorkspace,
   runState,
-  setPreviewVariantId,
 }: {
   activeTab: WorkspaceTab
   loadedAssets: number
-  previewVariantId: string | null
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
-  setPreviewVariantId: (variantId: string | null) => void
 }) {
-  const selectGenerationVariant = useGenerationStore(
-    (state) => state.selectGenerationVariant,
-  )
-  const selectedVariant = runMatchesWorkspace
-    ? getSelectedRunVariant(runState, previewVariantId)
+  const displayVariant = runMatchesWorkspace
+    ? getSelectedRunVariant(runState)
     : null
+  const galleryItems = runMatchesWorkspace ? getOutputGalleryItems(runState) : []
   const totalVariants = runState.variants.length
-  const completedVariants = getCompletedVariantCount(runState)
+  const completedCount = getCompletedVariantCount(runState)
   const failedVariants = getFailedVariantCount(runState)
   const activeTaskCount = getActiveTaskCount(runState)
-  const runSummaryItems = [`${completedVariants}/${totalVariants} complete`]
+  const runSummaryItems = [`${completedCount}/${totalVariants} complete`]
 
   if (failedVariants > 0) {
     runSummaryItems.push(`${failedVariants} failed`)
@@ -1604,54 +1686,18 @@ function PreviewStage({
   if (runMatchesWorkspace && totalVariants > 0) {
     return (
       <div className="flex flex-1 flex-col gap-4">
-        <div className="rounded-xl border border-border bg-secondary/40 px-4 py-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-foreground">
-                {getRunHeadline(runState)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {runSummaryItems.join(' · ')}
-              </p>
-            </div>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/library">Open Library</Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(240px,0.82fr)]">
-          <div className="flex min-h-0 flex-col gap-3">
-            {selectedVariant?.result ? (
-              <div className="overflow-hidden rounded-xl border border-border bg-background">
-                {selectedVariant.result.type === 'image' ? (
-                  <ImagePreviewTrigger
-                    alt={`Generated result for variation ${selectedVariant.index}`}
-                    className="block w-full"
-                    label={`Variation ${selectedVariant.index}`}
-                    src={selectedVariant.result.url}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt={`Generated result for variation ${selectedVariant.index}`}
-                      className="aspect-[4/3] w-full object-cover"
-                      src={selectedVariant.result.url}
-                    />
-                  </ImagePreviewTrigger>
-                ) : (
-                  <video
-                    className="aspect-[4/3] w-full bg-black object-cover"
-                    controls
-                    playsInline
-                    preload="metadata"
-                    src={selectedVariant.result.url}
-                  />
-                )}
+        <div className="flex flex-1 justify-center">
+          <div className="flex min-h-0 w-full max-w-5xl flex-col gap-3">
+            {galleryItems.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {galleryItems.map((item) => (
+                  <OutputGalleryCard item={item} key={item.variantId} />
+                ))}
               </div>
-            ) : selectedVariant ? (
+            ) : displayVariant ? (
               <PreviewStateCallout
                 body={
-                  selectedVariant.error ??
+                  displayVariant.error ??
                   'This variation is still waiting on the provider. The panel refreshes automatically while generation is active.'
                 }
                 icon={
@@ -1667,97 +1713,10 @@ function PreviewStage({
                     />
                   )
                 }
-                title={`Variation ${selectedVariant.index}`}
+                title={`Variation ${displayVariant.index}`}
                 tone={runState.status === 'error' ? 'destructive' : 'default'}
               />
             ) : null}
-
-            {selectedVariant ? (
-              <div className={cn(insetPanelClassName, 'p-3.5')}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Variation {selectedVariant.index}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {selectedVariant.result?.taskId ??
-                        selectedVariant.taskId ??
-                        'Awaiting provider task'}
-                    </p>
-                  </div>
-                  <Badge variant={getVariantBadgeVariant(selectedVariant.status)}>
-                    {humanize(selectedVariant.status)}
-                  </Badge>
-                </div>
-
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {selectedVariant.profile}
-                </p>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <StatusPill
-                    label="Model"
-                    value={
-                      selectedVariant.result?.model ??
-                      runState.model ??
-                      (activeTab === 'image' ? 'Image run' : 'Video run')
-                    }
-                  />
-                  <StatusPill
-                    label="Status"
-                    value={humanize(selectedVariant.status)}
-                  />
-                </div>
-
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  {selectedVariant.prompt}
-                </p>
-
-                {selectedVariant.error ? (
-                  <p className="mt-3 text-sm text-destructive">
-                    {selectedVariant.error}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="grid gap-2">
-            {runState.variants.map((variant) => (
-              <button
-                className={cn(
-                  rowClassName,
-                  'p-3 text-left transition-colors',
-                  selectedVariant?.variantId === variant.variantId
-                    ? 'border-foreground/30 bg-secondary'
-                    : 'hover:border-foreground/20',
-                )}
-                key={variant.variantId}
-                onClick={() => {
-                  setPreviewVariantId(variant.variantId)
-                  selectGenerationVariant(variant.variantId)
-                }}
-                type="button"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-foreground">
-                    Variation {variant.index}
-                  </span>
-                  <Badge variant={getVariantBadgeVariant(variant.status)}>
-                    {humanize(variant.status)}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {variant.profile}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {variant.result?.taskId ??
-                    variant.taskId ??
-                    variant.error ??
-                    'Awaiting provider task'}
-                </p>
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -1796,6 +1755,53 @@ function PreviewStage({
             ? 'Your local references are ready. Review this panel, then run generation from the footer below.'
             : 'Build the reference board first, or use the written brief if you need a prompt-only run.'}
         </p>
+      </div>
+    </div>
+  )
+}
+
+function OutputGalleryCard({
+  item,
+}: {
+  item: ReturnType<typeof getOutputGalleryItems>[number]
+}) {
+  const media = item.type === 'image' ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt={item.alt}
+      className="h-full w-full rounded-md bg-secondary/20 object-contain"
+      src={item.url}
+    />
+  ) : (
+    <video
+      className="h-full w-full rounded-md bg-black object-contain"
+      controls
+      playsInline
+      preload="metadata"
+      src={item.url}
+    />
+  )
+
+  return (
+    <div className={cn(rowClassName, 'overflow-hidden p-2')}>
+      <div className="mb-2 px-1">
+        <p className="text-sm font-medium text-muted-foreground">
+          #{item.variantIndex}
+        </p>
+      </div>
+      <div className="aspect-square overflow-hidden rounded-md bg-secondary/20">
+        {item.inspectable ? (
+          <ImagePreviewTrigger
+            alt={item.alt}
+            className="h-full"
+            label={item.label}
+            src={item.url}
+          >
+            {media}
+          </ImagePreviewTrigger>
+        ) : (
+          media
+        )}
       </div>
     </div>
   )
@@ -1877,13 +1883,14 @@ function GenerationEstimateStrip({
   isLoading: boolean
   reason: string
 }) {
+  const { rate: usdToIdrRate } = useUsdToIdrRate()
   const primaryText = estimate.available
     ? `Estimated: ${formatEstimatedCreditsValue(estimate)} credits`
     : isLoading
       ? 'Checking estimate'
       : 'Estimate unavailable'
   const secondaryText = estimate.available
-    ? `≈ $${formatEstimatedUsdValue(estimate)} USD`
+    ? `≈ ${formatEstimatedUsdValue(estimate, usdToIdrRate)}`
     : !isLoading
       ? reason
       : null
@@ -2000,6 +2007,7 @@ function useGenerationController(input: {
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const products = useGenerationStore((state) => state.products)
+  const resetGenerationRun = useGenerationStore((state) => state.resetGenerationRun)
   const setGenerationError = useGenerationStore(
     (state) => state.setGenerationError,
   )
@@ -2008,6 +2016,7 @@ function useGenerationController(input: {
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoModel = useGenerationStore((state) => state.videoModel)
+  const [isSubmittingGeneration, setIsSubmittingGeneration] = useState(false)
 
   const generationSnapshot = useMemo(
     () =>
@@ -2078,7 +2087,7 @@ function useGenerationController(input: {
     ],
   )
 
-  const isBusy = hasActiveGeneration(generationRun)
+  const isBusy = isSubmittingGeneration || hasActiveGeneration(generationRun)
   const disabledReason = isBusy
     ? 'A batched render is already in progress. Wait for the current run to finish before starting another batch.'
     : enabled
@@ -2204,6 +2213,9 @@ function useGenerationController(input: {
     try {
       const { formData } = buildGenerationFormData(currentSnapshot)
 
+      resetGenerationRun()
+      setIsSubmittingGeneration(true)
+
       const response = await fetch('/api/generation/run', {
         body: formData,
         method: 'POST',
@@ -2221,6 +2233,8 @@ function useGenerationController(input: {
       setGenerationError(
         error instanceof Error ? error.message : 'Unable to start generation.',
       )
+    } finally {
+      setIsSubmittingGeneration(false)
     }
   }
 
@@ -2257,7 +2271,9 @@ function useGenerationController(input: {
 
   return {
     canGenerate:
-      enabled ? validation.canGenerate && creditValidation.canGenerate : false,
+      enabled && !isSubmittingGeneration
+        ? validation.canGenerate && creditValidation.canGenerate
+        : false,
     disabledReason,
     generationCostEstimate,
     generationCostReason:
@@ -2339,32 +2355,6 @@ function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
 }
 
-function getKieCreditsValue(kieStatus: KieStatusResponse, isLoading: boolean) {
-  if (isLoading && kieStatus.fetchedAt === null) {
-    return 'Loading'
-  }
-
-  if (kieStatus.connected && kieStatus.credits !== null) {
-    return new Intl.NumberFormat('en-US', {
-      maximumFractionDigits: 0,
-    }).format(kieStatus.credits)
-  }
-
-  return 'Unavailable'
-}
-
-function getKieCreditsHelper(kieStatus: KieStatusResponse, isLoading: boolean) {
-  if (isLoading && kieStatus.fetchedAt === null) {
-    return 'Checking KIE account'
-  }
-
-  if (kieStatus.connected) {
-    return 'Live from KIE'
-  }
-
-  return kieStatus.error ?? 'KIE account unavailable'
-}
-
 function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
   if (estimate.credits === null) {
     return '0'
@@ -2376,43 +2366,34 @@ function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
   }).format(estimate.credits)
 }
 
-function formatEstimatedUsdValue(estimate: GenerationCostEstimate) {
+function formatEstimatedUsdValue(
+  estimate: GenerationCostEstimate,
+  usdToIdrRate: number,
+) {
   if (estimate.usd === null) {
-    return '0.00'
+    return 'Rp0'
   }
 
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: estimate.usd < 1 ? 2 : 2,
-  }).format(estimate.usd)
+  const idr = estimate.usd * usdToIdrRate
+
+  return new Intl.NumberFormat('id-ID', {
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(idr)
 }
 
 function hasActiveGeneration(run: GenerationRun) {
   return run.status === 'rendering'
 }
 
-function getSelectedRunVariant(
-  run: GenerationRun,
-  previewVariantId: string | null,
-) {
+function getSelectedRunVariant(run: GenerationRun) {
   return (
-    run.variants.find((variant) => variant.variantId === previewVariantId) ??
     run.variants.find((variant) => variant.variantId === run.selectedVariantId) ??
     run.variants.find((variant) => variant.status === 'success' && Boolean(variant.result)) ??
     run.variants[0] ??
     null
   )
-}
-
-function getVariantBadgeVariant(status: GenerationVariant['status']) {
-  switch (status) {
-    case 'success':
-      return 'default' as const
-    case 'rendering':
-      return 'outline' as const
-    default:
-      return 'secondary' as const
-  }
 }
 
 function getImageModelLabel(model: ImageModelOption) {

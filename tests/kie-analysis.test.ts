@@ -11,6 +11,9 @@ import {
 
 vi.mock('../lib/generation/kie', () => ({
   KIE_API_BASE_URL: 'https://api.kie.ai',
+  fetchKieWithTimeout: vi.fn((input: string, init: RequestInit) =>
+    fetch(input, init),
+  ),
   getKieApiKey: vi.fn(() => 'test-key'),
   readKieError: vi.fn(async () => 'upstream error'),
 }))
@@ -43,6 +46,7 @@ describe('KIE analysis adapters', () => {
       model: 'gemini-2.5-flash',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(body.model).toBe('gemini-2.5-flash')
@@ -69,6 +73,7 @@ describe('KIE analysis adapters', () => {
       model: 'claude-haiku-4-5',
       productPage: null,
       shotCount: 2,
+      workspace: 'image',
     })
 
     expect(body.model).toBe('claude-haiku-4-5')
@@ -80,6 +85,10 @@ describe('KIE analysis adapters', () => {
         }),
       ]),
     )
+    expect(body.tool_choice).toEqual({
+      name: 'submit_guided_analysis_plan',
+      type: 'tool',
+    })
     expect(body.messages[0]?.content).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -87,6 +96,47 @@ describe('KIE analysis adapters', () => {
         }),
       ]),
     )
+  })
+
+  it('builds video-aware analysis instructions for guided video plans', () => {
+    const body = buildGeminiAnalysisBody({
+      cameraMovement: 'dolly',
+      contentConcept: 'driven-ads',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoModel: 'kling',
+      videoDuration: 'extended',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Create exactly 1 video-generation shot.')
+    expect(userText).toContain('Target clip length: 10 seconds for Kling.')
+    expect(userText).toContain('dolly')
+  })
+
+  it('uses Seedance 1.5 Pro clip length in guided video analysis prompts', () => {
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoDuration: 'base',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Target clip length: 8 seconds for Seedance 1.5 Pro.')
   })
 
   it('parses direct schema-shaped Gemini responses into a guided plan', () => {
@@ -148,6 +198,7 @@ describe('KIE analysis adapters', () => {
       heroImageUrl: 'https://files.example.com/hero.png',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -181,6 +232,7 @@ describe('KIE analysis adapters', () => {
       heroImageUrl: 'https://files.example.com/hero.png',
       productPage: null,
       shotCount: 1,
+      workspace: 'image',
     })
 
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -210,6 +262,7 @@ describe('KIE analysis adapters', () => {
         heroImageUrl: 'https://files.example.com/hero.png',
         productPage: null,
         shotCount: 1,
+        workspace: 'image',
       }),
     ).rejects.toThrow('response_format.json_schema is required')
   })
@@ -230,5 +283,22 @@ describe('KIE analysis adapters', () => {
 
     expect(plan.productCategory).toBe('cosmetics')
     expect(plan.shots[0]?.slug).toBe('shot-1')
+  })
+
+  it('throws a descriptive error when Claude returns refusal prose instead of structured output', () => {
+    expect(() =>
+      parseGuidedAnalysisPayload(
+        'claude-sonnet-4-6',
+        {
+          content: [
+            {
+              text: `I don't have a hero product image attached to this request — no image or product page context has been provided, and without it I cannot preserve product identity, color, material, silhouette, or branding as required.`,
+              type: 'text',
+            },
+          ],
+        },
+        1,
+      ),
+    ).toThrow(/unstructured text instead of the guided plan JSON/i)
   })
 })

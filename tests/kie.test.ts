@@ -3,10 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import {
+  KIE_REQUEST_TIMEOUT_MS,
+  fetchKieWithTimeout,
   getKieStatus,
   parseGenerationFormData,
   resolveSubmission,
+  submitProviderTask,
   submitGenerationRequest,
+  uploadFileToKie,
 } from '../lib/generation/kie'
 import type { UploadedAssetDescriptor } from '../lib/generation/types'
 
@@ -97,7 +101,7 @@ describe('KIE batch submission', () => {
     )
   })
 
-  it('uploads assets once and submits one provider task per variation', async () => {
+  it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })
 
@@ -145,11 +149,23 @@ describe('KIE batch submission', () => {
     const response = await submitGenerationRequest(parsedRequest)
 
     expect(response.status).toBe('rendering')
-    expect(response.variants).toHaveLength(3)
+    expect(response.variants).toHaveLength(12)
     expect(response.variants.map((variant) => variant.taskId)).toEqual([
       'task-1',
+      'task-1',
+      'task-1',
+      'task-1',
+      'task-2',
+      'task-2',
+      'task-2',
       'task-2',
       'task-3',
+      'task-3',
+      'task-3',
+      'task-3',
+    ])
+    expect(response.variants.map((variant) => variant.index)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ])
     expect(response.variants.every((variant) => variant.status === 'rendering')).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(4)
@@ -172,11 +188,184 @@ describe('KIE batch submission', () => {
             google_search: false,
             image_input: ['https://files.example.com/face-1.png'],
             output_format: 'png',
-            resolution: '1K',
+            prompt: expect.stringContaining('exactly one clean 2x2 grid'),
+            resolution: '2K',
           }),
         }),
       ]),
     )
+  })
+
+  it('applies a timeout signal to KIE file uploads', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/product.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await uploadFileToKie(
+      'test-key',
+      new File(['product'], 'product.png', { type: 'image/png' }),
+      'image',
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://kieai.redpandaai.co/api/file-stream-upload',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
+  it.each([
+    [
+      'data string',
+      {
+        success: true,
+        code: 200,
+        msg: 'File uploaded successfully',
+        data: 'https://files.example.com/product.png',
+      },
+    ],
+    [
+      'snake case download URL',
+      {
+        success: true,
+        code: 200,
+        data: {
+          download_url: 'https://files.example.com/product.png',
+        },
+      },
+    ],
+    [
+      'nested file URL object',
+      {
+        success: true,
+        code: 200,
+        data: {
+          file: {
+            remote_url: 'https://files.example.com/product.png',
+          },
+        },
+      },
+    ],
+    [
+      'URL inside array payload',
+      {
+        success: true,
+        code: 200,
+        result: [
+          {
+            meta: 'uploaded',
+          },
+          {
+            asset: {
+              href: 'https://files.example.com/product.png',
+            },
+          },
+        ],
+      },
+    ],
+  ])('accepts KIE upload responses with a %s', async (_label, payload) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      uploadFileToKie(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+        'image',
+      ),
+    ).resolves.toBe('https://files.example.com/product.png')
+  })
+
+  it('returns a clear timeout error when a KIE request is aborted', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new DOMException('Timed out', 'TimeoutError')),
+    )
+
+    await expect(
+      fetchKieWithTimeout(
+        'https://api.kie.ai/test',
+        { method: 'POST' },
+        'KIE guided analysis',
+      ),
+    ).rejects.toThrow(
+      `KIE guided analysis timed out after ${Math.round(
+        KIE_REQUEST_TIMEOUT_MS / 1000,
+      )} seconds.`,
+    )
+  })
+
+  it('surfaces KIE application errors returned without a task ID', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 422,
+          msg: 'input.input_urls is required',
+          data: null,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      submitProviderTask('test-key', {
+        endpoint: 'https://api.kie.ai/api/v1/jobs/createTask',
+        modelName: 'gpt-image-2-image-to-image',
+        provider: 'market',
+        requestBody: {
+          model: 'gpt-image-2-image-to-image',
+          input: {
+            prompt: 'Generate a product image',
+            input_urls: ['https://files.example.com/product.png'],
+          },
+        },
+      }),
+    ).rejects.toThrow('input.input_urls is required')
+  })
+
+  it('accepts KIE task identifiers returned as task_id for GPT Image 2 calls', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            task_id: 'gpt2-task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const taskId = await submitProviderTask('test-key', {
+      endpoint: 'https://api.kie.ai/api/v1/jobs/createTask',
+      modelName: 'gpt-image-2-text-to-image',
+      provider: 'market',
+      requestBody: {
+        model: 'gpt-image-2-text-to-image',
+        input: {
+          prompt: 'Generate a product image',
+        },
+      },
+    })
+
+    expect(taskId).toBe('gpt2-task-1')
   })
 
   it('parses guided shot metadata and submits the edited guided prompts directly', async () => {
@@ -287,6 +476,188 @@ describe('KIE batch submission', () => {
         }),
       ]),
     )
+    expect(taskRequests[0].input.prompt).not.toContain('exactly one clean 2x2 grid')
+  })
+
+  it('accepts guided video metadata and submits edited prompts through the video provider', async () => {
+    const formData = buildBaseFormData('2')
+    const heroFile = new File(['product'], 'product.png', { type: 'image/png' })
+    const endFrameFile = new File(['end'], 'end.png', { type: 'image/png' })
+
+    formData.append('experience', 'guided')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'veo-3.1')
+    formData.set('videoDuration', 'extended')
+    formData.set('cameraMovement', 'dolly')
+    formData.set('creativeStyle', 'tv-commercial')
+    formData.set('subjectMode', 'product-only')
+    formData.set('shotEnvironment', 'indoor')
+    formData.append('guidedSummary', 'Guided video summary')
+    formData.append('guidedContentConcept', 'driven-ads')
+    formData.append('analysisModel', 'gemini-2.5-flash')
+    formData.append('productUrl', 'https://example.com/product')
+    formData.append(
+      'guidedShots',
+      JSON.stringify([
+        {
+          prompt: 'Video prompt 1',
+          shotEnvironment: 'indoor',
+          slug: 'shot-1',
+          subjectMode: 'product-only',
+          tags: ['hero'],
+          title: 'Shot 1',
+        },
+        {
+          prompt: 'Video prompt 2',
+          shotEnvironment: 'outdoor',
+          slug: 'shot-2',
+          subjectMode: 'lifestyle',
+          tags: ['motion'],
+          title: 'Shot 2',
+        },
+      ]),
+    )
+    formData.set(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_endFrame',
+          kind: 'named',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 4,
+        },
+        {
+          fieldName: 'product_guided_hero',
+          kind: 'product',
+          label: 'Hero Product',
+          order: 100,
+          productId: 'guided-hero',
+        },
+      ]),
+    )
+    formData.append('asset_endFrame', endFrameFile)
+    formData.append('product_guided_hero', heroFile)
+
+    const fetchMock = vi.fn()
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/end.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/product.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'video-task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'video-task-2',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    const response = await submitGenerationRequest(parsedRequest)
+
+    expect(parsedRequest.experience).toBe('guided')
+    expect(parsedRequest.workspace).toBe('video')
+    expect(parsedRequest.batchSize).toBe(1)
+    expect(parsedRequest.guided?.summary).toBe('Guided video summary')
+    expect(response.workspace).toBe('video')
+    expect(response.model).toBe('veo3_fast')
+    expect(response.provider).toBe('veo')
+    expect(response.variants.map((variant) => variant.taskId)).toEqual(['video-task-1'])
+
+    const taskRequests = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes('/api/v1/veo/generate'))
+      .map(([, init]) => JSON.parse(String(init?.body)))
+
+    expect(taskRequests).toEqual([
+      expect.objectContaining({
+        generationType: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
+        imageUrls: [
+          'https://files.example.com/product.png',
+          'https://files.example.com/end.png',
+        ],
+        prompt: 'Video prompt 1',
+      }),
+    ])
+  })
+
+  it('builds Seedance 1.5 Pro video payloads with model-specific duration and references', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 4,
+          remoteUrl: 'https://files.example.com/end.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(submission.endpoint).toContain('/api/v1/jobs/createTask')
+    expect(submission.modelName).toBe('bytedance/seedance-1.5-pro')
+    expect(submission.provider).toBe('market')
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-1.5-pro',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '12',
+        fixed_lens: false,
+        generate_audio: false,
+        input_urls: [
+          'https://files.example.com/product.png',
+          'https://files.example.com/end.png',
+        ],
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '1080p',
+      },
+    })
   })
 
   it('uses Nano Banana 2 image inputs for uploaded supporting references', () => {
@@ -333,7 +704,7 @@ describe('KIE batch submission', () => {
           'https://files.example.com/location.png',
         ],
         output_format: 'png',
-        resolution: '1K',
+        resolution: '2K',
       },
     })
   })
@@ -452,10 +823,12 @@ describe('KIE batch submission', () => {
     expect(submission.requestBody).toMatchObject({
       model: 'nano-banana-2',
       input: {
-        prompt: 'Create a polished hero campaign image.',
+        prompt: expect.stringContaining(
+          'Create exactly one clean 2x2 grid image',
+        ),
         image_input: [],
         aspect_ratio: '1:1',
-        resolution: '2K',
+        resolution: '4K',
         output_format: 'png',
         google_search: false,
       },
@@ -489,8 +862,65 @@ describe('KIE batch submission', () => {
     expect(submission.requestBody).toMatchObject({
       model: 'grok-imagine/image-to-image',
       input: {
-        prompt: '@image1 Create a polished hero campaign image.',
+        prompt: expect.stringContaining(
+          '@image1 Create exactly one clean 2x2 grid image',
+        ),
         image_urls: ['https://files.example.com/clothing.png'],
+      },
+    })
+  })
+
+  it('uses GPT Image 2 model identifiers for both reference and prompt-only image generation', () => {
+    const withReference = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_face1',
+          key: 'face1',
+          label: 'Face 1',
+          order: 0,
+          remoteUrl: 'https://files.example.com/face.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'gpt-image-2',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+    const promptOnly = resolveSubmission({
+      assets: [],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'gpt-image-2',
+      outputQuality: '4k',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(withReference.modelName).toBe('gpt-image-2-image-to-image')
+    expect(withReference.requestBody).toMatchObject({
+      model: 'gpt-image-2-image-to-image',
+      input: {
+        aspect_ratio: '3:4',
+        input_urls: ['https://files.example.com/face.png'],
+        resolution: '2K',
+      },
+    })
+    expect(promptOnly.modelName).toBe('gpt-image-2-text-to-image')
+    expect(promptOnly.requestBody).toMatchObject({
+      model: 'gpt-image-2-text-to-image',
+      input: {
+        aspect_ratio: '3:4',
+        resolution: '4K',
       },
     })
   })

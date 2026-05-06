@@ -1,5 +1,5 @@
 export type WorkspaceTab = 'image' | 'video'
-export type GenerationExperience = 'manual' | 'guided'
+export type GenerationExperience = 'manual' | 'guided' | 'ideation'
 export type ContentConcept = 'driven-ads' | 'affiliate'
 export type CreativeGoal = 'awareness' | 'consideration' | 'conversion'
 export type AudiencePreset =
@@ -44,6 +44,8 @@ export type CharacterAgeGroup =
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
 export type OutputQuality = '720p' | '1080p' | '4k'
+export type ImageResolution = '1K' | '2K' | '4K'
+export type VideoResolution = '720p' | '1080p'
 export type BatchSize = 1 | 2 | 3 | 4
 export type CameraMovement =
   | 'orbit'
@@ -52,8 +54,12 @@ export type CameraMovement =
   | 'crash-zoom'
   | 'macro'
 
-export type ImageModelOption = 'nano-banana' | 'grok-imagine'
-export type VideoModelOption = 'veo-3.1' | 'kling' | 'grok-imagine'
+export type ImageModelOption = 'nano-banana' | 'grok-imagine' | 'gpt-image-2'
+export type VideoModelOption =
+  | 'veo-3.1'
+  | 'kling'
+  | 'grok-imagine'
+  | 'seedance-1.5-pro'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'
   | 'claude-haiku-4-5'
@@ -77,7 +83,23 @@ export type GenerationVariantStatus =
   | 'cancelled'
   | 'error'
 
-export type GenerationVariantIndex = 1 | 2 | 3 | 4
+export type GenerationVariantIndex =
+  | 1
+  | 2
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 14
+  | 15
+  | 16
 
 export type NamedAssetKey =
   | 'face1'
@@ -154,6 +176,21 @@ export type CreativePlan = {
 
 export type GuidedAnalysisStatus = 'idle' | 'analyzing' | 'ready' | 'error'
 
+export type IdeationConceptCard = {
+  angle: string
+  audience: string
+  cta: string
+  hook: string
+  keyMessage: string
+  title: string
+  visualDirection: string
+}
+
+export type IdeationResult = {
+  concepts: [IdeationConceptCard, IdeationConceptCard, IdeationConceptCard]
+  summary: string
+}
+
 export type GuidedGenerationConfig = {
   analysisModel: KieAnalysisModel
   creativeBrief?: CreativeBrief | null
@@ -189,6 +226,7 @@ export type GenerationRun = {
   completedAt: string | null
   createdAt: string | null
   error: string | null
+  experience: GenerationExperience
   model: string | null
   provider: GenerationProvider | null
   runId: string | null
@@ -270,16 +308,20 @@ export type GenerationCostRate = {
 
 export type KiePricingMatrix = {
   image: {
-    'nano-banana': Record<OutputQuality, GenerationCostRate>
+    'nano-banana': Record<ImageResolution, GenerationCostRate>
     'grok-imagine': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
     }
+    'gpt-image-2': {
+      promptOnly: Record<ImageResolution, GenerationCostRate>
+      withReference: Record<ImageResolution, GenerationCostRate>
+    }
   }
   video: {
     'grok-imagine': {
-      promptOnly: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<OutputQuality, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
     kling: {
       promptOnly: Record<VideoDuration, GenerationCostRate>
@@ -288,6 +330,10 @@ export type KiePricingMatrix = {
     'veo-3.1': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
+    }
+    'seedance-1.5-pro': {
+      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
   }
 }
@@ -298,6 +344,7 @@ export type KiePricingResponse = {
   expiresAt: string
   fetchedAt: string
   matrix: KiePricingMatrix | null
+  supportedImageQualities?: Record<ImageModelOption, OutputQuality[]>
 }
 
 export type GenerationCostEstimate = {

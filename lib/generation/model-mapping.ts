@@ -1,9 +1,11 @@
 import type {
   AssetSlot,
+  ImageResolution,
   NamedAssetSlots,
   OutputQuality,
   SubjectMode,
   VideoDuration,
+  VideoResolution,
 } from '@/lib/generation/types'
 
 type PrimaryReferenceInput = {
@@ -48,8 +50,24 @@ export function getGrokResolution(outputQuality: OutputQuality) {
   return '480p'
 }
 
+export function getImageResolution(outputQuality: OutputQuality): ImageResolution {
+  if (outputQuality === '4k') {
+    return '4K'
+  }
+
+  if (outputQuality === '1080p') {
+    return '2K'
+  }
+
+  return '1K'
+}
+
 export function getNanoBananaResolution(outputQuality: OutputQuality) {
-  return outputQuality === '4k' ? '2K' : '1K'
+  return getImageResolution(outputQuality)
+}
+
+export function getVideoResolution(outputQuality: OutputQuality): VideoResolution {
+  return outputQuality === '1080p' ? '1080p' : '720p'
 }
 
 export function getKlingDuration(videoDuration: VideoDuration) {
@@ -58,4 +76,8 @@ export function getKlingDuration(videoDuration: VideoDuration) {
 
 export function getGrokDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '6'
+}
+
+export function getSeedanceDuration(videoDuration: VideoDuration) {
+  return videoDuration === 'extended' ? '12' : '8'
 }

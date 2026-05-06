@@ -11,11 +11,15 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
+  getImageResolution,
   getGrokDuration,
   getGrokResolution,
   getKlingDuration,
   getNanoBananaResolution,
+  getSeedanceDuration,
+  getVideoResolution,
 } from '@/lib/generation/model-mapping'
+import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
   CreativeBrief,
   CreativePlan,
@@ -52,6 +56,7 @@ import type {
 
 export const KIE_API_BASE_URL = 'https://api.kie.ai'
 const KIE_FILE_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-stream-upload'
+export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
 const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'endFrame'] as const
@@ -285,36 +290,86 @@ function extractCredits(payload: unknown): number | null {
   return null
 }
 
+function isRemoteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value)
+}
+
+function summarizePayload(payload: unknown): string {
+  try {
+    const text = JSON.stringify(payload)
+    return text.length > 500 ? `${text.slice(0, 500)}...` : text
+  } catch {
+    return String(payload)
+  }
+}
+
 function extractRemoteUrl(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') {
+  const visited = new WeakSet<object>()
+
+  function visit(node: unknown): string | null {
+    if (typeof node === 'string') {
+      const candidate = node.trim()
+      return isRemoteHttpUrl(candidate) ? candidate : null
+    }
+
+    if (!node || typeof node !== 'object') {
+      return null
+    }
+
+    if (visited.has(node)) {
+      return null
+    }
+
+    visited.add(node)
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const nestedUrl = visit(item)
+
+        if (nestedUrl) {
+          return nestedUrl
+        }
+      }
+
+      return null
+    }
+
+    const record = node as Record<string, unknown>
+    const directCandidates = [
+      record.url,
+      record.fileUrl,
+      record.fileURL,
+      record.file_url,
+      record.downloadUrl,
+      record.downloadURL,
+      record.download_url,
+      record.remoteUrl,
+      record.remote_url,
+      record.link,
+      record.href,
+      record.src,
+    ]
+
+    for (const candidate of directCandidates) {
+      const directUrl = visit(candidate)
+
+      if (directUrl) {
+        return directUrl
+      }
+    }
+
+    for (const value of Object.values(record)) {
+      const nestedUrl = visit(value)
+
+      if (nestedUrl) {
+        return nestedUrl
+      }
+    }
+
     return null
   }
 
-  const record = payload as Record<string, unknown>
-  const directCandidates = [
-    record.url,
-    record.fileUrl,
-    record.file_url,
-    record.downloadUrl,
-  ]
-
-  for (const candidate of directCandidates) {
-    if (typeof candidate === 'string' && candidate.length > 0) {
-      return candidate
-    }
-  }
-
-  const nestedCandidates = [record.data, record.result, record.response]
-
-  for (const candidate of nestedCandidates) {
-    const nested = extractRemoteUrl(candidate)
-
-    if (nested) {
-      return nested
-    }
-  }
-
-  return null
+  return visit(payload)
 }
 
 function extractResultUrls(payload: unknown): string[] {
@@ -372,6 +427,34 @@ export async function readKieError(response: Response) {
   return `${response.status} ${response.statusText}: ${message || 'Unknown KIE error'}`
 }
 
+function isAbortError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
+  )
+}
+
+export async function fetchKieWithTimeout(
+  input: string,
+  init: RequestInit,
+  action: string,
+) {
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(KIE_REQUEST_TIMEOUT_MS),
+    })
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error(
+        `${action} timed out after ${Math.round(KIE_REQUEST_TIMEOUT_MS / 1000)} seconds.`,
+      )
+    }
+
+    throw error
+  }
+}
+
 async function fetchKieCredits(
   apiKey: string,
   sourceConfig: (typeof kieCreditSources)[number],
@@ -405,6 +488,14 @@ async function fetchKieCredits(
 
 function getImageAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '1:1' : '2:3'
+}
+
+function getGptImage2AspectRatio(subjectMode: SubjectMode) {
+  return subjectMode === 'product-only' ? '1:1' : '3:4'
+}
+
+function getGptImage2Resolution(outputQuality: OutputQuality) {
+  return getImageResolution(outputQuality)
 }
 
 function getVideoAspectRatio(subjectMode: SubjectMode) {
@@ -654,6 +745,7 @@ function ensureGrokImagePromptReference(prompt: string) {
 
 function buildMarketImagePayload(input: {
   assets: UploadedAssetDescriptor[]
+  imageGrid?: boolean
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   prompt: string
@@ -665,6 +757,9 @@ function buildMarketImagePayload(input: {
       : collectImageReferenceAssets(input.subjectMode, input.assets)
   const primaryReference = referenceAssets[0] ?? null
   const aspectRatio = getImageAspectRatio(input.subjectMode)
+  const prompt = input.imageGrid
+    ? wrapPromptForImageGrid(input.prompt)
+    : input.prompt
 
   if (input.imageModel === 'nano-banana') {
     return {
@@ -675,7 +770,7 @@ function buildMarketImagePayload(input: {
         model: 'nano-banana-2',
         input: {
           prompt: buildNanoBananaPrompt({
-            prompt: input.prompt,
+            prompt,
             referenceAssets,
             subjectMode: input.subjectMode,
           }),
@@ -689,6 +784,32 @@ function buildMarketImagePayload(input: {
     }
   }
 
+  if (input.imageModel === 'gpt-image-2') {
+    const modelName = primaryReference
+      ? 'gpt-image-2-image-to-image'
+      : 'gpt-image-2-text-to-image'
+    const gptImage2AspectRatio = getGptImage2AspectRatio(input.subjectMode)
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName,
+      provider: 'market' as const,
+      requestBody: {
+        model: modelName,
+        input: {
+          prompt: primaryReference
+            ? ensureGrokImagePromptReference(prompt)
+            : prompt,
+          ...(primaryReference
+            ? { input_urls: [primaryReference.remoteUrl] }
+            : null),
+          aspect_ratio: gptImage2AspectRatio,
+          resolution: getGptImage2Resolution(input.outputQuality),
+        },
+      },
+    }
+  }
+
   if (primaryReference) {
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
@@ -697,7 +818,7 @@ function buildMarketImagePayload(input: {
       requestBody: {
         model: 'grok-imagine/image-to-image',
         input: {
-          prompt: ensureGrokImagePromptReference(input.prompt),
+          prompt: ensureGrokImagePromptReference(prompt),
           image_urls: [primaryReference.remoteUrl],
         },
       },
@@ -711,7 +832,7 @@ function buildMarketImagePayload(input: {
       requestBody: {
         model: 'grok-imagine/text-to-image',
         input: {
-          prompt: input.prompt,
+          prompt,
           aspect_ratio: aspectRatio,
         },
       },
@@ -729,12 +850,9 @@ function buildVideoPayload(input: {
   const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
+  const videoResolution = getVideoResolution(input.outputQuality)
 
   if (input.videoModel === 'veo-3.1') {
-    if (input.outputQuality === '4k') {
-      throw new Error('4K Veo upgrades are not enabled in Phase 3.')
-    }
-
     const imageUrls = [
       primaryReference?.remoteUrl,
       endFrameReference?.remoteUrl,
@@ -782,7 +900,33 @@ function buildVideoPayload(input: {
           aspect_ratio: aspectRatio,
           mode: 'normal',
           duration: getGrokDuration(input.videoDuration),
-          resolution: getGrokResolution(input.outputQuality),
+          resolution: getGrokResolution(videoResolution),
+        },
+      },
+    }
+  }
+
+  if (input.videoModel === 'seedance-1.5-pro') {
+    const inputUrls = [
+      primaryReference?.remoteUrl,
+      endFrameReference?.remoteUrl,
+    ].filter((value): value is string => Boolean(value))
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'bytedance/seedance-1.5-pro',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'bytedance/seedance-1.5-pro',
+        input: {
+          prompt: input.prompt,
+          ...(inputUrls.length > 0 ? { input_urls: inputUrls } : null),
+          aspect_ratio: aspectRatio,
+          resolution: videoResolution,
+          duration: getSeedanceDuration(input.videoDuration),
+          fixed_lens: false,
+          generate_audio: false,
+          nsfw_checker: false,
         },
       },
     }
@@ -820,13 +964,13 @@ export async function uploadFileToKie(
   formData.append('file', file, file.name)
   formData.append('uploadPath', `evermedia-ugc/${workspace}`)
 
-  const response = await fetch(KIE_FILE_UPLOAD_URL, {
+  const response = await fetchKieWithTimeout(KIE_FILE_UPLOAD_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
     body: formData,
-  })
+  }, 'KIE file upload')
 
   if (!response.ok) {
     throw new Error(await readKieError(response))
@@ -836,7 +980,9 @@ export async function uploadFileToKie(
   const remoteUrl = extractRemoteUrl(payload)
 
   if (!remoteUrl) {
-    throw new Error('KIE file upload did not return a usable remote URL.')
+    throw new Error(
+      `KIE file upload did not return a usable remote URL. payload=${summarizePayload(payload)}`,
+    )
   }
 
   return remoteUrl
@@ -847,22 +993,33 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
     'manual'
   const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
-  const batchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
+  const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
-  if (![1, 2, 3, 4].includes(batchSize)) {
+  if (![1, 2, 3, 4].includes(requestedBatchSize)) {
     throw new Error('Batch size must be between 1 and 4.')
   }
+
+  const batchSize = workspace === 'video' ? 1 : requestedBatchSize
 
   const imageModel = readEnum(
     formData,
     'imageModel',
-    ['nano-banana', 'grok-imagine'] as const,
+    ['nano-banana', 'grok-imagine', 'gpt-image-2'] as const,
   )
   const videoModel = readEnum(
     formData,
     'videoModel',
-    ['veo-3.1', 'kling', 'grok-imagine'] as const,
+    ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
   )
+  const outputQuality = readEnum(
+    formData,
+    'outputQuality',
+    ['720p', '1080p', '4k'] as const,
+  )
+
+  if (workspace === 'video' && outputQuality === '4k') {
+    throw new Error('Video output quality supports only 720p or 1080p.')
+  }
   const manifestValue = readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
 
@@ -873,10 +1030,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const guided = (() => {
     if (experience !== 'guided') {
       return null
-    }
-
-    if (workspace !== 'image') {
-      throw new Error('Guided mode is available for images only.')
     }
 
     const guidedShotsValue = readString(formData, 'guidedShots')
@@ -900,6 +1053,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     const creativePlan = normalizeCreativePlan(
       safeJsonParse(readOptionalString(formData, 'creativePlan') ?? 'null'),
     )
+    const parsedGuidedShots = safeJsonParse(guidedShotsValue)
     const normalizedPlan = normalizeGuidedAnalysisPlan(
       {
         creativeStyle: readEnum(
@@ -924,7 +1078,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
             'miscellaneous',
           ] as const,
         ),
-        shots: safeJsonParse(guidedShotsValue),
+        shots:
+          workspace === 'video' && Array.isArray(parsedGuidedShots)
+            ? parsedGuidedShots.slice(0, 1)
+            : parsedGuidedShots,
         summary: guidedSummary,
       },
       { shotCount: batchSize },
@@ -1021,11 +1178,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ),
     guided,
     imageModel,
-    outputQuality: readEnum(
-      formData,
-      'outputQuality',
-      ['720p', '1080p', '4k'] as const,
-    ),
+    outputQuality,
     productCategory: readEnum(
       formData,
       'productCategory',
@@ -1082,12 +1235,31 @@ export async function submitProviderTask(
     throw new Error(await readKieError(response))
   }
 
-  const payload = (await response.json()) as {
-    data?: {
-      taskId?: string
-    }
+  const payload = (await response.json()) as Record<string, unknown>
+  const payloadData =
+    payload.data && typeof payload.data === 'object'
+      ? (payload.data as Record<string, unknown>)
+      : null
+  if (payload.code !== undefined && payload.code !== 200) {
+    throw new Error(
+      typeof payload.msg === 'string' && payload.msg.length > 0
+        ? payload.msg
+        : `KIE returned error code ${String(payload.code)}.`,
+    )
   }
-  const taskId = payload.data?.taskId
+  const taskIdCandidates = [
+    payloadData?.taskId,
+    payloadData?.task_id,
+    payloadData?.id,
+    payload.taskId,
+    payload.task_id,
+    payload.id,
+  ]
+  const taskId =
+    taskIdCandidates.find(
+      (candidate): candidate is string =>
+        typeof candidate === 'string' && candidate.length > 0,
+    ) ?? null
 
   if (!taskId) {
     throw new Error('KIE generation request did not return a task ID.')
@@ -1106,6 +1278,7 @@ export function resolveSubmission(input: {
   assets: UploadedAssetDescriptor[]
   cameraMovement: CameraMovement | null
   creativeStyle: CreativeStyle
+  imageGrid?: boolean
   imageModel: ImageModelOption
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -1118,6 +1291,7 @@ export function resolveSubmission(input: {
   return input.workspace === 'image'
     ? buildMarketImagePayload({
         assets: input.assets,
+        imageGrid: input.imageGrid ?? true,
         imageModel: input.imageModel,
         outputQuality: input.outputQuality,
         prompt: input.prompt,
@@ -1174,17 +1348,20 @@ export async function submitGenerationRequest(
         }))
       : buildVariantPromptSet({
           basePrompt,
-          batchSize: input.batchSize as GenerationVariantIndex,
+          batchSize: input.batchSize,
           cameraMovement: input.cameraMovement,
           workspace: input.workspace,
         }).map((descriptor) => ({
           ...descriptor,
           subjectMode: input.subjectMode,
         }))
+  const usesManualImageGrid =
+    input.experience === 'manual' && input.workspace === 'image'
   const sampleSubmission = resolveSubmission({
     assets: uploadedAssets,
     cameraMovement: input.cameraMovement,
     creativeStyle: input.creativeStyle,
+    imageGrid: usesManualImageGrid,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
@@ -1201,6 +1378,7 @@ export async function submitGenerationRequest(
         assets: uploadedAssets,
         cameraMovement: input.cameraMovement,
         creativeStyle: input.creativeStyle,
+        imageGrid: usesManualImageGrid,
         imageModel: input.imageModel,
         outputQuality: input.outputQuality,
         productCategory: input.productCategory,
@@ -1227,28 +1405,51 @@ export async function submitGenerationRequest(
     }),
   )
 
-  const variants = settledVariants.map((variant, index) => {
+  const variants: GenerationVariant[] = settledVariants.flatMap<GenerationVariant>((variant, index) => {
+    const descriptor = resolvedPromptSet[index]
+    const expandedDescriptors = usesManualImageGrid
+      ? ([1, 2, 3, 4] as const).map((gridPosition) => {
+          const variantIndex = (index * 4 + gridPosition) as GenerationVariantIndex
+
+          return {
+            index: variantIndex,
+            profile: `Grid ${descriptor.index} Image ${gridPosition}`,
+            prompt: descriptor.prompt,
+          }
+        })
+      : [
+          {
+            index: descriptor.index,
+            profile: descriptor.profile,
+            prompt: descriptor.prompt,
+          },
+        ]
+
     if (variant.status === 'fulfilled') {
-      return variant.value
+      return expandedDescriptors.map((expandedDescriptor) => ({
+        ...variant.value,
+        index: expandedDescriptor.index,
+        profile: expandedDescriptor.profile,
+        prompt: expandedDescriptor.prompt,
+        variantId: `${runId}-variant-${expandedDescriptor.index}`,
+      }))
     }
 
-    const descriptor = resolvedPromptSet[index]
-
-    return {
+    return expandedDescriptors.map((expandedDescriptor) => ({
       completedAt: null,
       createdAt: null,
       error:
         variant.reason instanceof Error
           ? variant.reason.message
           : 'Unable to create provider task.',
-      index: descriptor.index,
-      profile: descriptor.profile,
-      prompt: descriptor.prompt,
+      index: expandedDescriptor.index,
+      profile: expandedDescriptor.profile,
+      prompt: expandedDescriptor.prompt,
       result: null,
       status: 'error' as const,
       taskId: null,
-      variantId: `${runId}-variant-${descriptor.index}`,
-    }
+      variantId: `${runId}-variant-${expandedDescriptor.index}`,
+    }))
   }) satisfies GenerationVariant[]
 
   return {

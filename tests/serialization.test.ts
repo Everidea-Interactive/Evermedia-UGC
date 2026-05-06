@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeProjectConfigSnapshot } from '../lib/persistence/serialization'
+import {
+  createGenerationRunState,
+  normalizeProjectConfigSnapshot,
+} from '../lib/persistence/serialization'
+import type { GenerationRunRecord } from '../lib/persistence/types'
 
 describe('normalizeProjectConfigSnapshot', () => {
   it('backfills missing preset fields for older snapshots', () => {
@@ -142,5 +146,54 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.guided?.creativePlan?.storyboard[0]?.renderPrompt).toBe(
       'Hook render prompt',
     )
+  })
+
+  it('preserves ideation experience values in normalized snapshots', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      experience: 'ideation',
+    })
+
+    expect(snapshot.experience).toBe('ideation')
+  })
+})
+
+describe('createGenerationRunState', () => {
+  it('preserves the persisted run experience for client-side output isolation', () => {
+    const run: GenerationRunRecord = {
+      completedAt: null,
+      configSnapshot: normalizeProjectConfigSnapshot({
+        activeTab: 'image',
+        batchSize: 1,
+        cameraMovement: 'orbit',
+        creativeStyle: 'tv-commercial',
+        experience: 'guided',
+        guided: {
+          analysisModel: 'gemini-2.5-flash',
+          contentConcept: 'affiliate',
+          productUrl: '',
+          shots: [],
+          summary: 'Guided summary',
+        },
+        imageModel: 'nano-banana',
+        outputQuality: '1080p',
+        productCategory: 'cosmetics',
+        shotEnvironment: 'indoor',
+        subjectMode: 'product-only',
+        textPrompt: '',
+        videoDuration: 'base',
+        videoModel: 'veo-3.1',
+      }),
+      createdAt: '2026-04-30T00:00:00.000Z',
+      id: 'run-guided',
+      model: 'google/nano-banana',
+      promptSnapshot: 'Prompt',
+      provider: 'market',
+      status: 'success',
+      userId: 'user-1',
+      variants: [],
+      workspace: 'image',
+    }
+
+    expect(createGenerationRunState(run, []).experience).toBe('guided')
   })
 })

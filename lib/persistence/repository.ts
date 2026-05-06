@@ -4,8 +4,13 @@ import { getDatabase } from '@/lib/db/client'
 import {
   generationRuns,
   generationVariants,
+  savedIdeations,
   savedOutputs,
 } from '@/lib/db/schema'
+import {
+  normalizeIdeationInputSnapshot,
+  normalizeIdeationResult,
+} from '@/lib/generation/ideation'
 import {
   deleteRunDirectory,
   deleteStoredFile,
@@ -21,6 +26,8 @@ import type {
   GenerationRunBundle,
   GenerationRunRecord,
   GenerationVariantRecord,
+  SavedIdeationHistoryEntry,
+  SavedIdeationRecord,
   SavedOutputHistoryEntry,
   SavedOutputRecord,
 } from '@/lib/persistence/types'
@@ -61,6 +68,24 @@ function mapSavedOutput(row: typeof savedOutputs.$inferSelect): SavedOutputRecor
     originalName: row.originalName,
     runId: row.runId,
     storagePath: row.storagePath,
+    userId: row.userId,
+  }
+}
+
+function mapSavedIdeation(
+  row: typeof savedIdeations.$inferSelect,
+): SavedIdeationRecord {
+  const inputSnapshot = normalizeIdeationInputSnapshot(row.inputSnapshot)
+
+  if (!inputSnapshot) {
+    throw new Error(`Saved ideation ${row.id} has an invalid input snapshot.`)
+  }
+
+  return {
+    createdAt: row.createdAt.toISOString(),
+    id: row.id,
+    inputSnapshot,
+    result: normalizeIdeationResult(row.result),
     userId: row.userId,
   }
 }
@@ -275,6 +300,38 @@ export async function listSavedOutputHistoryForUser(
   }))
 }
 
+export async function createSavedIdeationForUser(input: {
+  inputSnapshot: SavedIdeationRecord['inputSnapshot']
+  result: SavedIdeationRecord['result']
+  userId: string
+}) {
+  const db = getDatabase()
+  const [row] = await db
+    .insert(savedIdeations)
+    .values({
+      id: createRecordId('ideation'),
+      inputSnapshot: input.inputSnapshot,
+      result: input.result,
+      userId: input.userId,
+    })
+    .returning()
+
+  return mapSavedIdeation(row)
+}
+
+export async function listSavedIdeationHistoryForUser(
+  userId: string,
+): Promise<SavedIdeationHistoryEntry[]> {
+  const db = getDatabase()
+  const rows = await db
+    .select()
+    .from(savedIdeations)
+    .where(eq(savedIdeations.userId, userId))
+    .orderBy(desc(savedIdeations.createdAt))
+
+  return rows.map((row) => mapSavedIdeation(row))
+}
+
 export async function saveGeneratedOutputForVariant(input: {
   fileName: string
   fileType: string
@@ -284,7 +341,6 @@ export async function saveGeneratedOutputForVariant(input: {
   userId: string
   variantId: string
 }) {
-  const db = getDatabase()
   const response = await fetch(input.sourceUrl, { cache: 'no-store' })
 
   if (!response.ok) {
@@ -292,8 +348,52 @@ export async function saveGeneratedOutputForVariant(input: {
   }
 
   const blob = await response.blob()
+  return saveGeneratedOutputBlobForVariant({
+    blob,
+    fileName: input.fileName,
+    fileType: input.fileType,
+    label: input.label,
+    runId: input.runId,
+    userId: input.userId,
+    variantId: input.variantId,
+  })
+}
+
+export async function saveGeneratedOutputBufferForVariant(input: {
+  buffer: Buffer
+  fileName: string
+  fileType: string
+  label: string
+  runId: string
+  userId: string
+  variantId: string
+}) {
+  const arrayBuffer = new ArrayBuffer(input.buffer.byteLength)
+  new Uint8Array(arrayBuffer).set(input.buffer)
+
+  return saveGeneratedOutputBlobForVariant({
+    blob: new Blob([arrayBuffer], { type: input.fileType }),
+    fileName: input.fileName,
+    fileType: input.fileType,
+    label: input.label,
+    runId: input.runId,
+    userId: input.userId,
+    variantId: input.variantId,
+  })
+}
+
+async function saveGeneratedOutputBlobForVariant(input: {
+  blob: Blob
+  fileName: string
+  fileType: string
+  label: string
+  runId: string
+  userId: string
+  variantId: string
+}) {
+  const db = getDatabase()
   const savedFile = await saveOutputFileToDisk({
-    file: blob,
+    file: input.blob,
     fileName: input.fileName,
     runId: input.runId,
     userId: input.userId,
@@ -302,7 +402,7 @@ export async function saveGeneratedOutputForVariant(input: {
   const [outputRow] = await db
     .insert(savedOutputs)
     .values({
-      fileSize: blob.size,
+      fileSize: input.blob.size,
       id: createRecordId('output'),
       label: input.label,
       mimeType: input.fileType || 'application/octet-stream',
@@ -516,6 +616,35 @@ export async function deleteSavedOutputForUser(input: {
   }
 
   return mapSavedOutput(outputRow)
+}
+
+export async function deleteGenerationRunForUser(input: {
+  runId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  const [runRow] = await db
+    .select()
+    .from(generationRuns)
+    .where(and(eq(generationRuns.userId, input.userId), eq(generationRuns.id, input.runId)))
+    .limit(1)
+
+  if (!runRow) {
+    return null
+  }
+
+  await db
+    .delete(generationRuns)
+    .where(
+      and(
+        eq(generationRuns.id, input.runId),
+        eq(generationRuns.userId, input.userId),
+      ),
+    )
+
+  await deleteRunDirectory(input.userId, input.runId)
+
+  return mapRun(runRow, [])
 }
 
 export async function loadSavedOutputFile(input: {

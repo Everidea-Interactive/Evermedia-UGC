@@ -74,3 +74,17 @@ export const generationVariants = pgTable(
     taskLookup: index('generation_variants_task_id_idx').on(table.taskId),
   }),
 )
+
+export const savedIdeations = pgTable(
+  'saved_ideations',
+  {
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    id: text('id').primaryKey(),
+    inputSnapshot: jsonb('input_snapshot').$type<Record<string, unknown>>().notNull(),
+    result: jsonb('result').$type<Record<string, unknown>>().notNull(),
+    userId: text('user_id').notNull(),
+  },
+  (table) => ({
+    userLookup: index('saved_ideations_user_id_idx').on(table.userId, table.createdAt),
+  }),
+)
