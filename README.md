@@ -1,4 +1,4 @@
-# Evermedia UGC Studio
+# Evermedia Studio
 
 Deployment guide for running this app in production.
 
@@ -19,6 +19,12 @@ Use a host that can run a long-lived Node.js server and mount persistent storage
 - A VPS or VM
 - Docker on a server with a mounted volume
 - A platform that supports persistent disks or volumes
+
+This repo now includes:
+
+- A PM2 process definition at `ecosystem.config.cjs`
+- A sample Nginx site config at `deploy/nginx/evermedia-studio.conf`
+- A deployment health endpoint at `/api/health`
 
 Do not deploy this as a purely serverless app unless you first replace local file storage with object storage. The app writes media files to `MEDIA_STORAGE_DIR`, so platforms with ephemeral filesystems can lose uploaded assets.
 
@@ -46,7 +52,7 @@ Notes:
 - `SUPER_ADMIN_EMAILS`: comma-separated email allowlist used to bootstrap the first in-app super admin accounts
 - `SUPABASE_AUTH_REDIRECT_URL`: recommended in production, usually your public site URL such as `https://your-domain.com`
 - `DATABASE_URL`: PostgreSQL connection string
-- `MEDIA_STORAGE_DIR`: absolute path to a writable persistent folder, for example `/var/lib/evermedia-ugc/media`
+- `MEDIA_STORAGE_DIR`: absolute path to a writable persistent folder, for example `/var/lib/evermedia-studio/media`
 
 ## Production setup
 
@@ -69,7 +75,7 @@ Then edit `.env` with your production values.
 Make sure the directory from `MEDIA_STORAGE_DIR` exists and is writable by the app process:
 
 ```bash
-mkdir -p /var/lib/evermedia-ugc/media
+mkdir -p /var/lib/evermedia-studio/media
 ```
 
 ### 4. Run database migrations
@@ -84,13 +90,22 @@ npm run db:migrate
 npm run build
 ```
 
-### 6. Start the app
+### 6. Start the app with PM2
 
 ```bash
-NODE_ENV=production npm run start
+npm install --global pm2
+pm2 start ecosystem.config.cjs
 ```
 
 By default, Next.js serves the app on port `3000`.
+
+If this is the first PM2-managed app on the server, persist the process list and
+register PM2 to start on boot:
+
+```bash
+pm2 save
+pm2 startup
+```
 
 ## Supabase callback setup
 
@@ -117,10 +132,14 @@ npm ci
 cp .env.example .env
 npm run db:migrate
 npm run build
-NODE_ENV=production npm run start
+npm install --global pm2
+pm2 start ecosystem.config.cjs
+pm2 save
 ```
 
-For a real production setup, run the app behind Nginx or Caddy and use a process manager such as `pm2` or `systemd`.
+For a real production setup, place the app behind Nginx or Caddy. This repo ships
+with a PM2 config in `ecosystem.config.cjs` and a sample Nginx site config in
+`deploy/nginx/evermedia-studio.conf`.
 
 ## Quick validation before going live
 
@@ -130,6 +149,13 @@ Run these checks before deployment:
 npm run lint
 npm test
 npm run build
+```
+
+Then verify the live process on the server:
+
+```bash
+pm2 status
+curl http://127.0.0.1:3000/api/health
 ```
 
 ## Troubleshooting
