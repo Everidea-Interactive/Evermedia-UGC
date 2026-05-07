@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 
 import { resolveAuthenticatedUser } from '@/lib/auth/access-control'
-import { buildSignInUrl, resolveNextPath } from '@/lib/auth/navigation'
+import {
+  buildSignInUrl,
+  getConfiguredAppBaseUrl,
+  resolveNextPath,
+} from '@/lib/auth/navigation'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
@@ -102,7 +106,7 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.redirect(new URL(next, requestUrl), {
+  return NextResponse.redirect(new URL(next, getConfiguredAppBaseUrl(requestUrl)), {
     status: 303,
   })
 }

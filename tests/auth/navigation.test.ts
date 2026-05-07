@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildSignInPath,
@@ -7,6 +7,10 @@ import {
 } from '@/lib/auth/navigation'
 
 describe('auth navigation helpers', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('defaults sign-in paths to signin mode and a safe next path', () => {
     const path = buildSignInPath({
       next: 'https://malicious.example.com',
@@ -35,6 +39,19 @@ describe('auth navigation helpers', () => {
     expect(url.searchParams.get('mode')).toBe('reset')
     expect(url.searchParams.get('next')).toBe('/library')
     expect(url.searchParams.get('reset')).toBe('1')
+  })
+
+  it('prefers the configured public base url when building sign-in urls', () => {
+    vi.stubEnv('SUPABASE_AUTH_REDIRECT_URL', 'https://studio.evermedia.id')
+
+    const url = buildSignInUrl(
+      new URL('http://127.0.0.1:3000/api/auth/sign-in'),
+      {
+        next: '/library',
+      },
+    )
+
+    expect(url.toString()).toBe('https://studio.evermedia.id/sign-in?mode=signin&next=%2Flibrary')
   })
 
   it('falls back to signin mode for invalid values', () => {

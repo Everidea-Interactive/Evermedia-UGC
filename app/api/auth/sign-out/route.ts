@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { getConfiguredAppBaseUrl } from '@/lib/auth/navigation'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     await supabase.auth.signOut()
   }
 
-  return NextResponse.redirect(new URL('/sign-in', requestUrl), {
+  return NextResponse.redirect(new URL('/sign-in', getConfiguredAppBaseUrl(requestUrl)), {
     status: 303,
   })
 }

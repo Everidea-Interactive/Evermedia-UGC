@@ -108,6 +108,26 @@ describe('POST /api/auth/sign-in', () => {
     expect(response.headers.get('location')).toBe('https://example.com/library')
   })
 
+  it('redirects successful sign-ins to the configured public base url behind a proxy', async () => {
+    vi.stubEnv('SUPABASE_AUTH_REDIRECT_URL', 'https://studio.evermedia.id')
+    signInWithPassword.mockResolvedValue({ error: null })
+
+    const formData = new FormData()
+    formData.set('email', 'creator@example.com')
+    formData.set('password', 'valid-password')
+    formData.set('next', '/library')
+
+    const response = await POST(
+      new Request('http://127.0.0.1:3000/api/auth/sign-in', {
+        body: formData,
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('https://studio.evermedia.id/library')
+  })
+
   it('redirects back with missing_fields when email or password is blank', async () => {
     const response = await POST(
       createSignInRequest({

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 
-import { buildSignInUrl, resolveNextPath } from '@/lib/auth/navigation'
+import {
+  buildSignInUrl,
+  getConfiguredAppBaseUrl,
+  resolveNextPath,
+} from '@/lib/auth/navigation'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
@@ -54,9 +58,9 @@ export async function GET(request: Request) {
 
   if (flow === 'recovery') {
     return NextResponse.redirect(
-      new URL('/auth/update-password?recovery=1', requestUrl),
+      new URL('/auth/update-password?recovery=1', getConfiguredAppBaseUrl(requestUrl)),
     )
   }
 
-  return NextResponse.redirect(new URL(next, requestUrl))
+  return NextResponse.redirect(new URL(next, getConfiguredAppBaseUrl(requestUrl)))
 }
