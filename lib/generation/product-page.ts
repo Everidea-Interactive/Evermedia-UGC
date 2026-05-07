@@ -18,6 +18,7 @@ export type ScrapedProductPage = {
 type HtmlNode = DefaultTreeAdapterTypes.Node
 type HtmlParentNode = DefaultTreeAdapterTypes.ParentNode
 type HtmlElement = DefaultTreeAdapterTypes.Element
+type HtmlTextNode = DefaultTreeAdapterTypes.TextNode
 
 type MetaSelector = {
   attribute: 'name' | 'property'
@@ -32,6 +33,10 @@ function hasChildNodes(node: HtmlNode): node is HtmlParentNode {
   return 'childNodes' in node
 }
 
+function isTextNode(node: HtmlNode): node is HtmlTextNode {
+  return 'value' in node
+}
+
 function getAttribute(
   element: HtmlElement,
   attributeName: string,
@@ -42,7 +47,7 @@ function getAttribute(
 }
 
 function getTextContent(node: HtmlNode): string {
-  if (node.nodeName === '#text') {
+  if (isTextNode(node)) {
     return node.value
   }
 
