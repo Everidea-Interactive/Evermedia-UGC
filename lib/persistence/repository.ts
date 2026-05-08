@@ -58,6 +58,42 @@ function normalizeConfigSnapshot(value: unknown): GenerationConfigSnapshot {
   })
 }
 
+function isMissingTableError(error: unknown, tableName: string) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const code = 'code' in error ? error.code : undefined
+  const message = 'message' in error ? error.message : undefined
+  const cause =
+    'cause' in error && error.cause && typeof error.cause === 'object'
+      ? error.cause
+      : null
+  const causeCode =
+    cause && 'code' in cause
+      ? cause.code
+      : undefined
+  const causeMessage =
+    cause && 'message' in cause
+      ? cause.message
+      : undefined
+  const serializedError = String(message ?? '') + String(causeMessage ?? '') + String(error)
+
+  return (
+    code === '42P01' ||
+    causeCode === '42P01' ||
+    (typeof message === 'string' &&
+      message.includes(tableName) &&
+      message.includes('does not exist')) ||
+    (typeof causeMessage === 'string' &&
+      causeMessage.includes(tableName) &&
+      causeMessage.includes('does not exist')) ||
+    (serializedError.includes(tableName) &&
+      (serializedError.includes('does not exist') ||
+        serializedError.includes('relation')))
+  )
+}
+
 function mapSavedOutput(row: typeof savedOutputs.$inferSelect): SavedOutputRecord {
   return {
     createdAt: row.createdAt.toISOString(),
@@ -323,11 +359,25 @@ export async function listSavedIdeationHistoryForUser(
   userId: string,
 ): Promise<SavedIdeationHistoryEntry[]> {
   const db = getDatabase()
-  const rows = await db
-    .select()
-    .from(savedIdeations)
-    .where(eq(savedIdeations.userId, userId))
-    .orderBy(desc(savedIdeations.createdAt))
+  let rows: Array<typeof savedIdeations.$inferSelect>
+
+  try {
+    rows = await db
+      .select()
+      .from(savedIdeations)
+      .where(eq(savedIdeations.userId, userId))
+      .orderBy(desc(savedIdeations.createdAt))
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_ideations')) {
+      console.warn(
+        'Saved ideations table is missing. Returning an empty ideation history. Run the latest database migration to enable library ideation history.',
+      )
+
+      return []
+    }
+
+    throw error
+  }
 
   return rows.map((row) => mapSavedIdeation(row))
 }
