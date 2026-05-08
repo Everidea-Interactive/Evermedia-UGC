@@ -78,17 +78,17 @@ describe('POST /api/generation/run', () => {
             },
           },
           'nano-banana': {
-            '1080p': {
+            '1K': {
               credits: 8,
               usd: 0.04,
             },
-            '4k': {
+            '2K': {
               credits: 12,
               usd: 0.06,
             },
-            '720p': {
-              credits: 8,
-              usd: 0.04,
+            '4K': {
+              credits: 12,
+              usd: 0.06,
             },
           },
         },
@@ -415,7 +415,7 @@ describe('POST /api/generation/run', () => {
     expect(response.status).toBe(402)
     expect(submitGenerationRequest).not.toHaveBeenCalled()
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Not enough KIE credits. 8 required, 4 available.',
+      error: 'Not enough KIE credits. 12 required, 4 available.',
     })
   })
 

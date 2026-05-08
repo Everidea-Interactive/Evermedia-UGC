@@ -1,4 +1,6 @@
 export type SignInErrorCode =
+  | 'account_disabled'
+  | 'account_not_provisioned'
   | 'invalid_credentials'
   | 'missing_fields'
   | 'recovery_expired'
@@ -69,7 +71,13 @@ export function buildSignInUrl(
   requestUrl: URL,
   options: BuildSignInPathOptions = {},
 ) {
-  return new URL(buildSignInPath(options), requestUrl)
+  return new URL(buildSignInPath(options), getConfiguredAppBaseUrl(requestUrl))
+}
+
+export function getConfiguredAppBaseUrl(requestUrl: URL) {
+  const configuredBase = process.env.SUPABASE_AUTH_REDIRECT_URL
+
+  return configuredBase ? new URL(configuredBase) : requestUrl
 }
 
 export function buildAuthCallbackUrl(
@@ -82,10 +90,7 @@ export function buildAuthCallbackUrl(
     next?: string | null
   } = {},
 ) {
-  const configuredBase = process.env.SUPABASE_AUTH_REDIRECT_URL
-  const callbackUrl = configuredBase
-    ? new URL('/auth/callback', configuredBase)
-    : new URL('/auth/callback', requestUrl.origin)
+  const callbackUrl = new URL('/auth/callback', getConfiguredAppBaseUrl(requestUrl))
 
   callbackUrl.searchParams.set('next', resolveNextPath(next))
 

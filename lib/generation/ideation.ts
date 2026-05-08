@@ -1,11 +1,13 @@
 import { normalizeKieAnalysisModel } from '@/lib/generation/guided'
 import type {
+  ContentFormat,
   IdeationConceptCard,
   IdeationResult,
 } from '@/lib/generation/types'
 import type {
   IdeationInputSnapshot,
 } from '@/lib/persistence/types'
+import { normalizeLocale } from '@/lib/i18n'
 
 function normalizeConceptCard(
   value: unknown,
@@ -97,6 +99,8 @@ export function normalizeIdeationInputSnapshot(
     record.contentConcept === 'driven-ads' || record.contentConcept === 'affiliate'
       ? record.contentConcept
       : null
+  const contentFormat: ContentFormat =
+    record.contentFormat === 'photos' ? 'photos' : 'video'
   const heroImageName =
     typeof record.heroImageName === 'string' ? record.heroImageName.trim() : ''
   const heroImageUrl =
@@ -122,8 +126,10 @@ export function normalizeIdeationInputSnapshot(
     analysisModel,
     briefText,
     contentConcept,
+    contentFormat,
     heroImageName: normalizedHeroImageName,
     heroImageUrl: normalizedHeroImageUrl,
+    outputLanguage: normalizeLocale(record.outputLanguage),
     productUrl: normalizedProductUrl,
   }
 }

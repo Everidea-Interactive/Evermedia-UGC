@@ -2,6 +2,7 @@ import 'server-only'
 
 import type {
   ContentConcept,
+  ContentFormat,
   IdeationResult,
   KieAnalysisModel,
 } from '@/lib/generation/types'
@@ -13,6 +14,7 @@ import {
   getKieApiKey,
   readKieError,
 } from '@/lib/generation/kie'
+import { getDictionary, type Locale } from '@/lib/i18n'
 
 const ideationResultJsonSchema = {
   additionalProperties: false,
@@ -74,6 +76,12 @@ function getConceptInstruction(concept: ContentConcept) {
     : 'Bias toward believable creator-led storytelling, trust-building hooks, and affiliate-style relatability.'
 }
 
+function getContentFormatInstruction(contentFormat: ContentFormat) {
+  return contentFormat === 'photos'
+    ? 'Content format: photos. Build each concept for still-image deliverables, framing, composition, product styling, and static execution.'
+    : 'Content format: video. Build each concept for motion-based deliverables, sequencing, spoken hooks, pacing, and shot-driven execution.'
+}
+
 function formatProductPageContext(productPage: ScrapedProductPage | null) {
   if (!productPage) {
     return 'Product page context: unavailable.'
@@ -120,10 +128,15 @@ function createStructuredOutputContract() {
   ].join('\n')
 }
 
-function createSystemPrompt() {
+function createSystemPrompt(outputLanguage: Locale = 'en') {
   return [
     'You are a content strategist for an e-commerce creative studio.',
     'Return only valid structured output that matches the provided schema.',
+    getDictionary(outputLanguage).ideation.outputLanguageInstruction,
+    outputLanguage === 'id'
+      ? 'All string values in the response must be written in Bahasa Indonesia unless a product, brand, or proper noun must remain in its original form.'
+      : 'All string values in the response must be written in English unless a product, brand, or proper noun must remain in its original form.',
+    'Keep the JSON keys exactly as provided in the schema. Translate values only, never the keys.',
     'Use whatever evidence is available across the hero image, written brief, and product page context to create strategic content ideation, not generation prompts.',
     'Preserve product identity, brand positioning, product category, and likely buyer intent.',
     'Each concept must feel materially distinct and execution-ready for a creative team.',
@@ -135,9 +148,10 @@ function createSystemPrompt() {
   ].join(' ')
 }
 
-function createClaudeSystemPrompt() {
+function createClaudeSystemPrompt(outputLanguage: Locale = 'en') {
   return [
-    createSystemPrompt(),
+    createSystemPrompt(outputLanguage),
+    getDictionary(outputLanguage).ideation.outputToolLanguageInstruction,
     'Call the provided tool exactly once with the full ideation brief.',
     'Do not answer with plain text outside the tool call.',
     'Never answer in plain text, XML-like tags, markdown, lists, or commentary.',
@@ -149,15 +163,25 @@ function createClaudeSystemPrompt() {
 function createUserPrompt(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
+  outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }) {
   const trimmedBrief = input.briefText.trim()
+  const languageRule =
+    input.outputLanguage === 'id'
+      ? 'All string values in the response must be written in Bahasa Indonesia. Keep product names, brand names, and other proper nouns in their original form when needed.'
+      : 'All string values in the response must be written in English. Keep product names, brand names, and other proper nouns in their original form when needed.'
 
   return [
     'Create exactly 3 content concepts for this product.',
     getConceptInstruction(input.contentConcept),
+    getContentFormatInstruction(input.contentFormat),
     'Each concept must include a distinct audience, strategic angle, hook, key message, visual direction, and CTA.',
     'Keep the output strategy-oriented and channel-ready, not prompt-engineering-oriented.',
+    'Language rule:',
+    languageRule,
+    'Keep the JSON keys exactly as shown in the output contract. Only the string values should change language.',
     trimmedBrief
       ? `Written brief: ${trimmedBrief}`
       : 'Written brief: none provided. Infer the strongest strategic directions from the hero image, product page details, category cues, likely buyer anxieties, likely buyer aspirations, and conversion intent.',
@@ -171,8 +195,10 @@ function createUserPrompt(input: {
 export function buildGeminiIdeationBody(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
   model: Extract<KieAnalysisModel, 'gemini-2.5-flash'>
+  outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }) {
   const content: KieMessageContentPart[] = [
@@ -194,7 +220,7 @@ export function buildGeminiIdeationBody(input: {
   return {
     messages: [
       {
-        content: createSystemPrompt(),
+        content: createSystemPrompt(input.outputLanguage),
         role: 'system',
       },
       {
@@ -219,8 +245,10 @@ export function buildGeminiIdeationBody(input: {
 export function buildClaudeIdeationBody(input: {
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
   model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
+  outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }) {
   const content: KieMessageContentPart[] = [
@@ -249,7 +277,7 @@ export function buildClaudeIdeationBody(input: {
     ],
     model: input.model,
     stream: false,
-    system: createClaudeSystemPrompt(),
+    system: createClaudeSystemPrompt(input.outputLanguage),
     temperature: 0.5,
     tool_choice: {
       name: ideationToolName,
@@ -478,7 +506,9 @@ export async function analyzeContentIdeation(input: {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageUrl: string | null
+  outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }): Promise<IdeationResult> {
   const apiKey = getKieApiKey()

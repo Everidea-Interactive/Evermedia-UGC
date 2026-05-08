@@ -17,6 +17,7 @@ export type PlatformPreset =
   | 'shopee'
   | 'tokopedia'
 export type CreativePlanningStatus = 'idle' | 'planning' | 'ready' | 'error'
+export type ContentFormat = 'video' | 'photos'
 
 export type ProductCategory =
   | 'food-drink'

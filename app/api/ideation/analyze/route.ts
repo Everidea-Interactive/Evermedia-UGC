@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   contentConcepts,
+  contentFormats,
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import { analyzeContentIdeation } from '@/lib/generation/kie-ideation'
 import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
+import { normalizeLocale } from '@/lib/i18n'
 import { createSavedIdeationForUser } from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
@@ -86,6 +88,8 @@ export async function POST(request: Request) {
     )
     const briefText = readOptionalString(formData, 'briefText')
     const contentConcept = readString(formData, 'contentConcept')
+    const contentFormat = readString(formData, 'contentFormat')
+    const outputLanguage = normalizeLocale(readOptionalString(formData, 'outputLanguage'))
     const productUrl = readOptionalString(formData, 'productUrl')
     const hasHeroImage = heroImage instanceof File && heroImage.size > 0
 
@@ -103,6 +107,10 @@ export async function POST(request: Request) {
 
     if (!contentConcepts.includes(contentConcept as (typeof contentConcepts)[number])) {
       throw new Error('Unsupported content concept.')
+    }
+
+    if (!contentFormats.includes(contentFormat as (typeof contentFormats)[number])) {
+      throw new Error('Unsupported content format.')
     }
 
     let warning: string | null = null
@@ -127,7 +135,9 @@ export async function POST(request: Request) {
       analysisModel,
       briefText,
       contentConcept: contentConcept as (typeof contentConcepts)[number],
+      contentFormat: contentFormat as (typeof contentFormats)[number],
       heroImageUrl,
+      outputLanguage,
       productPage,
     })
     const savedIdeation = await createSavedIdeationForUser({
@@ -135,8 +145,10 @@ export async function POST(request: Request) {
         analysisModel,
         briefText,
         contentConcept: contentConcept as (typeof contentConcepts)[number],
+        contentFormat: contentFormat as (typeof contentFormats)[number],
         heroImageName: hasHeroImage ? heroImage.name : null,
         heroImageUrl,
+        outputLanguage,
         productUrl: productUrl || null,
       },
       result,

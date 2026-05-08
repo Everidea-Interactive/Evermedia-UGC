@@ -1,4 +1,5 @@
 import type { SignInErrorCode, SignInMode } from '@/lib/auth/navigation'
+import { getDictionary, type Locale } from '@/lib/i18n'
 
 type SignInMessage = {
   text: string
@@ -16,39 +17,48 @@ export type SignInViewState = {
 type GetSignInViewStateOptions = {
   email: string
   error: SignInErrorCode | null
+  locale?: Locale
   mode: SignInMode
   passwordUpdated: boolean
   reset: boolean
 }
 
-function buildResetSuccessMessage(email: string) {
-  return `If an account exists for ${email || 'that email'}, a password reset email has been sent.`
-}
-
 export function getSignInViewState({
   email,
   error,
+  locale = 'en',
   mode,
   passwordUpdated,
   reset,
 }: GetSignInViewStateOptions): SignInViewState {
+  const messages = getDictionary(locale).auth.messages
   let signInMessage: SignInMessage | null = null
   let resetMessage: SignInMessage | null = null
 
   if (mode === 'signin') {
-    if (error === 'invalid_credentials') {
+    if (error === 'account_disabled') {
       signInMessage = {
-        text: 'Email or password is incorrect. Try again or reset your password.',
+        text: messages.accountDisabled,
+        tone: 'error',
+      }
+    } else if (error === 'account_not_provisioned') {
+      signInMessage = {
+        text: messages.accountNotProvisioned,
+        tone: 'error',
+      }
+    } else if (error === 'invalid_credentials') {
+      signInMessage = {
+        text: messages.invalidCredentials,
         tone: 'error',
       }
     } else if (error === 'missing_fields') {
       signInMessage = {
-        text: 'Enter both your email and password and try again.',
+        text: messages.missingCredentials,
         tone: 'error',
       }
     } else if (passwordUpdated) {
       signInMessage = {
-        text: 'Password updated. Sign in with your new password.',
+        text: messages.passwordUpdated,
         tone: 'info',
       }
     }
@@ -57,17 +67,17 @@ export function getSignInViewState({
   if (mode === 'reset') {
     if (error === 'missing_fields') {
       resetMessage = {
-        text: 'Enter the email address for your account and try again.',
+        text: messages.missingAccountEmail,
         tone: 'error',
       }
     } else if (error === 'recovery_expired') {
       resetMessage = {
-        text: 'Your password reset link is invalid or expired. Request a new reset email.',
+        text: messages.recoveryExpired,
         tone: 'error',
       }
     } else if (reset) {
       resetMessage = {
-        text: buildResetSuccessMessage(email),
+        text: messages.resetSent(email),
         tone: 'info',
       }
     }

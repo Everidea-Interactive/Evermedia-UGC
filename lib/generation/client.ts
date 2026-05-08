@@ -5,6 +5,7 @@ import type {
   BatchSize,
   CameraMovement,
   ContentConcept,
+  ContentFormat,
   GenerationSnapshot,
   GuidedAnalysisPlan,
   KieAnalysisModel,
@@ -14,6 +15,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 
 const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face1',
@@ -286,7 +288,9 @@ export function buildIdeationAnalysisFormData(input: {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroAsset: AssetSlot
+  outputLanguage: Locale
   productUrl: string
 }) {
   const briefText = input.briefText.trim()
@@ -302,6 +306,8 @@ export function buildIdeationAnalysisFormData(input: {
   formData.append('analysisModel', input.analysisModel)
   formData.append('briefText', briefText)
   formData.append('contentConcept', input.contentConcept)
+  formData.append('contentFormat', input.contentFormat)
+  formData.append('outputLanguage', input.outputLanguage)
   if (heroFile) {
     formData.append('heroImage', heroFile)
   }

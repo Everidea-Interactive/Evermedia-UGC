@@ -307,6 +307,8 @@ describe('useGenerationStore', () => {
     const store = useGenerationStore.getState()
 
     store.setTextPrompt('Manual draft prompt')
+    store.setIdeationContentFormat('photos')
+    store.setIdeationOutputLanguage('id')
     store.setIdeationProductUrl('https://example.com/product')
     store.setIdeationBriefText('Creator-first acne serum campaign.')
     store.setIdeationResult({
@@ -346,6 +348,8 @@ describe('useGenerationStore', () => {
     let state = useGenerationStore.getState()
 
     expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.ideationInput.contentFormat).toBe('photos')
+    expect(state.ideationInput.outputLanguage).toBe('id')
     expect(state.ideationInput.productUrl).toBe('https://example.com/product')
     expect(state.ideationResult?.summary).toBe('Three ideation concepts.')
     expect(state.experience).toBe('ideation')
@@ -354,9 +358,26 @@ describe('useGenerationStore', () => {
     state = useGenerationStore.getState()
 
     expect(state.textPrompt).toBe('Manual draft prompt')
+    expect(state.ideationInput.contentFormat).toBe('video')
     expect(state.ideationInput.productUrl).toBe('')
     expect(state.ideationInput.briefText).toBe('')
+    expect(state.ideationInput.outputLanguage).toBe('en')
     expect(state.ideationResult).toBeNull()
     expect(state.ideationStatus).toBe('idle')
+  })
+
+  it('routes ideation failures through the shared error modal state', () => {
+    const store = useGenerationStore.getState()
+
+    store.resetGenerationRun()
+    store.setIdeationFailure('Unable to generate the ideation brief.')
+
+    const state = useGenerationStore.getState()
+
+    expect(state.ideationStatus).toBe('error')
+    expect(state.ideationError).toBe('Unable to generate the ideation brief.')
+    expect(state.generationErrorEventId).toBe(1)
+    expect(state.generationRun.status).toBe('error')
+    expect(state.generationRun.error).toBe('Unable to generate the ideation brief.')
   })
 })

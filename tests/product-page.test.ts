@@ -68,4 +68,67 @@ describe('scrapeProductPage', () => {
       ]),
     )
   })
+
+  it('reads product details from @graph JSON-LD and falls back to twitter image metadata', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          `
+            <html>
+              <head>
+                <title>Summer &amp; Co</title>
+                <meta name="description" content="Layered linen set" />
+                <meta name="twitter:image" content="/images/twitter.png" />
+                <script type="application/ld+json">
+                  {
+                    "@context": "https://schema.org",
+                    "@graph": [
+                      {
+                        "@type": "BreadcrumbList",
+                        "name": "Ignored"
+                      },
+                      {
+                        "@type": "Product",
+                        "name": "Summer Linen Set",
+                        "brand": "Evermedia Studio",
+                        "image": { "url": "/images/hero.png" },
+                        "offers": [
+                          {
+                            "@type": "Offer",
+                            "price": "119.00",
+                            "priceCurrency": "IDR"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                </script>
+              </head>
+              <body></body>
+            </html>
+          `,
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/html',
+            },
+          },
+        ),
+      ),
+    )
+
+    const result = await scrapeProductPage('https://example.com/products/summer-linen-set')
+
+    expect(result.title).toBe('Summer & Co')
+    expect(result.description).toBe('Layered linen set')
+    expect(result.jsonLdName).toBe('Summer Linen Set')
+    expect(result.brand).toBe('Evermedia Studio')
+    expect(result.price).toBe('119.00')
+    expect(result.currency).toBe('IDR')
+    expect(result.images).toEqual([
+      'https://example.com/images/hero.png',
+      'https://example.com/images/twitter.png',
+    ])
+  })
 })

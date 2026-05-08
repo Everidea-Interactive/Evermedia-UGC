@@ -7,6 +7,7 @@ describe('sign-in view state', () => {
     const state = getSignInViewState({
       email: 'creator@example.com',
       error: 'invalid_credentials',
+      locale: 'en',
       mode: 'signin',
       passwordUpdated: false,
       reset: false,
@@ -24,6 +25,7 @@ describe('sign-in view state', () => {
     const state = getSignInViewState({
       email: 'creator@example.com',
       error: null,
+      locale: 'en',
       mode: 'reset',
       passwordUpdated: false,
       reset: true,
@@ -41,6 +43,7 @@ describe('sign-in view state', () => {
     const state = getSignInViewState({
       email: '',
       error: null,
+      locale: 'en',
       mode: 'signin',
       passwordUpdated: true,
       reset: false,
@@ -55,6 +58,7 @@ describe('sign-in view state', () => {
     const state = getSignInViewState({
       email: '',
       error: 'recovery_expired',
+      locale: 'en',
       mode: 'reset',
       passwordUpdated: false,
       reset: false,
@@ -63,5 +67,19 @@ describe('sign-in view state', () => {
     expect(state.resetMessage?.tone).toBe('error')
     expect(state.resetMessage?.text).toContain('invalid or expired')
     expect(state.signInMessage).toBeNull()
+  })
+
+  it('returns Indonesian auth messages when locale is id', () => {
+    const state = getSignInViewState({
+      email: 'creator@example.com',
+      error: 'invalid_credentials',
+      locale: 'id',
+      mode: 'signin',
+      passwordUpdated: false,
+      reset: false,
+    })
+
+    expect(state.signInMessage?.tone).toBe('error')
+    expect(state.signInMessage?.text).toContain('Email atau kata sandi')
   })
 })

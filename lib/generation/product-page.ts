@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { load } from 'cheerio'
+import { parse, type DefaultTreeAdapterTypes } from 'parse5'
 
 export type ScrapedProductPage = {
   brand: string | null
@@ -15,12 +15,81 @@ export type ScrapedProductPage = {
   url: string
 }
 
+type HtmlNode = DefaultTreeAdapterTypes.Node
+type HtmlParentNode = DefaultTreeAdapterTypes.ParentNode
+type HtmlElement = DefaultTreeAdapterTypes.Element
+type HtmlTextNode = DefaultTreeAdapterTypes.TextNode
+
+type MetaSelector = {
+  attribute: 'name' | 'property'
+  value: string
+}
+
+function isElement(node: HtmlNode): node is HtmlElement {
+  return 'tagName' in node
+}
+
+function hasChildNodes(node: HtmlNode): node is HtmlParentNode {
+  return 'childNodes' in node
+}
+
+function isTextNode(node: HtmlNode): node is HtmlTextNode {
+  return 'value' in node
+}
+
+function getAttribute(
+  element: HtmlElement,
+  attributeName: string,
+) {
+  const attribute = element.attrs.find((entry) => entry.name === attributeName)
+
+  return attribute?.value?.trim() || null
+}
+
+function getTextContent(node: HtmlNode): string {
+  if (isTextNode(node)) {
+    return node.value
+  }
+
+  if (!hasChildNodes(node)) {
+    return ''
+  }
+
+  return node.childNodes.map((child) => getTextContent(child)).join('')
+}
+
+function collectElements(
+  root: HtmlNode,
+  tagName: string,
+) {
+  const elements: HtmlElement[] = []
+
+  function visit(node: HtmlNode) {
+    if (isElement(node) && node.tagName === tagName) {
+      elements.push(node)
+    }
+
+    if (!hasChildNodes(node)) {
+      return
+    }
+
+    for (const child of node.childNodes) {
+      visit(child)
+    }
+  }
+
+  visit(root)
+
+  return elements
+}
+
 function getMetaContent(
-  $: ReturnType<typeof load>,
-  selectors: string[],
+  metaElements: HtmlElement[],
+  selectors: MetaSelector[],
 ) {
   for (const selector of selectors) {
-    const content = $(selector).attr('content')?.trim()
+    const metaElement = metaElements.find((element) => getAttribute(element, selector.attribute) === selector.value)
+    const content = metaElement ? getAttribute(metaElement, 'content') : null
 
     if (content) {
       return content
@@ -77,6 +146,16 @@ function readOfferField(
   value: unknown,
   field: 'price' | 'priceCurrency',
 ): string | null {
+  if (Array.isArray(value)) {
+    for (const offer of value) {
+      const result = readOfferField(offer, field)
+
+      if (result) {
+        return result
+      }
+    }
+  }
+
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -127,12 +206,13 @@ function resolveImageUrls(
 }
 
 function extractJsonLdProduct(
-  $: ReturnType<typeof load>,
+  scriptElements: HtmlElement[],
   pageUrl: URL,
 ) {
-  const productNodes = $('script[type="application/ld+json"]')
-    .toArray()
-    .flatMap((node) => safeJsonParse($(node).text()))
+  const productNodes = scriptElements
+    .filter((element) => getAttribute(element, 'type') === 'application/ld+json')
+    .map((element) => getTextContent(element))
+    .flatMap((content) => safeJsonParse(content))
     .flatMap((payload) => collectJsonLdNodes(payload))
     .filter((record) => hasProductType(record))
 
@@ -191,28 +271,31 @@ export async function scrapeProductPage(url: string): Promise<ScrapedProductPage
   }
 
   const html = await response.text()
-  const $ = load(html)
-  const jsonLd = extractJsonLdProduct($, pageUrl)
+  const document = parse(html)
+  const metaElements = collectElements(document, 'meta')
+  const scriptElements = collectElements(document, 'script')
+  const titleElement = collectElements(document, 'title')[0] ?? null
+  const jsonLd = extractJsonLdProduct(scriptElements, pageUrl)
 
   return {
     brand: jsonLd.brand,
     currency: jsonLd.currency,
-    description: readStringField($('meta[name="description"]').attr('content')),
+    description: getMetaContent(metaElements, [{ attribute: 'name', value: 'description' }]),
     images: [
       ...jsonLd.images,
       ...resolveImageUrls(
         pageUrl,
-        getMetaContent($, [
-          'meta[property="og:image"]',
-          'meta[name="twitter:image"]',
+        getMetaContent(metaElements, [
+          { attribute: 'property', value: 'og:image' },
+          { attribute: 'name', value: 'twitter:image' },
         ]),
       ),
     ].filter((value, index, items) => items.indexOf(value) === index),
     jsonLdName: jsonLd.jsonLdName,
-    ogDescription: getMetaContent($, ['meta[property="og:description"]']),
-    ogTitle: getMetaContent($, ['meta[property="og:title"]']),
+    ogDescription: getMetaContent(metaElements, [{ attribute: 'property', value: 'og:description' }]),
+    ogTitle: getMetaContent(metaElements, [{ attribute: 'property', value: 'og:title' }]),
     price: jsonLd.price,
-    title: readStringField($('title').text()),
+    title: titleElement ? readStringField(getTextContent(titleElement)) : null,
     url: pageUrl.toString(),
   }
 }

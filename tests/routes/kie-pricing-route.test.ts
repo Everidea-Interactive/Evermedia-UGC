@@ -204,7 +204,7 @@ describe('GET /api/kie/pricing', () => {
       matrix: {
         image: {
           'nano-banana': {
-            '1080p': {
+            '2K': {
               credits: number
               usd: number
             }
@@ -215,7 +215,12 @@ describe('GET /api/kie/pricing', () => {
 
     expect(response.status).toBe(200)
     expect(payload.creditUsdRate).toBe(0.005)
-    expect(payload.matrix.image['nano-banana']['1080p']).toEqual({
+    expect(Object.keys(payload.matrix.image['nano-banana']).toSorted()).toEqual([
+      '1K',
+      '2K',
+      '4K',
+    ])
+    expect(payload.matrix.image['nano-banana']['2K']).toEqual({
       credits: 12,
       usd: 0.06,
     })

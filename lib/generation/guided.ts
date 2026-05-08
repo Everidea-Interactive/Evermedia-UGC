@@ -1,6 +1,7 @@
 import type {
   BatchSize,
   ContentConcept,
+  ContentFormat,
   CreativeStyle,
   GuidedAnalysisPlan,
   GuidedAnalysisShot,
@@ -19,6 +20,11 @@ export const kieAnalysisModels: KieAnalysisModel[] = [
 export const contentConcepts: ContentConcept[] = [
   'driven-ads',
   'affiliate',
+]
+
+export const contentFormats: ContentFormat[] = [
+  'video',
+  'photos',
 ]
 
 export function normalizeKieAnalysisModel(

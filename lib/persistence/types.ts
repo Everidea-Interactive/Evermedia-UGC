@@ -7,6 +7,7 @@ import type {
   CreativeBrief,
   CreativeGoal,
   CreativePlan,
+  ContentFormat,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -25,10 +26,14 @@ import type {
   VideoDuration,
   VideoModelOption,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 
 export type AuthenticatedUserSummary = {
+  canManageAccounts: boolean
   email: string | null
   id: string
+  roles: string[]
+  status: 'active' | 'disabled'
 }
 
 export type GenerationConfigSnapshot = {
@@ -73,8 +78,10 @@ export type IdeationInputSnapshot = {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroImageName: string | null
   heroImageUrl: string | null
+  outputLanguage?: Locale
   productUrl: string | null
 }
 

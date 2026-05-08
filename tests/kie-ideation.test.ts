@@ -47,8 +47,10 @@ describe('parseIdeationPayload', () => {
     const body = buildGeminiIdeationBody({
       briefText: '',
       contentConcept: 'affiliate',
+      contentFormat: 'video',
       heroImageUrl: 'https://files.example.com/hero.png',
       model: 'gemini-2.5-flash',
+      outputLanguage: 'id',
       productPage: null,
     })
     const systemPrompt = body.messages[0]?.content
@@ -58,25 +60,35 @@ describe('parseIdeationPayload', () => {
       : ''
 
     expect(systemPrompt).toContain('Do not output markdown, headings, bullets, explanations, or wrapper text.')
+    expect(systemPrompt).toContain('Write every human-readable JSON value in Bahasa Indonesia.')
+    expect(systemPrompt).toContain('Keep the JSON keys exactly as provided in the schema.')
     expect(systemPrompt).toContain('If you cannot comply, still return the closest valid JSON object and nothing else.')
     expect(userText).toContain('Output contract:')
     expect(userText).toContain('"summary": string')
     expect(userText).toContain('"concepts": [')
     expect(userText).toContain('Do not return labels like "Concept 1"')
+    expect(userText).toContain('Language rule:')
+    expect(userText).toContain('All string values in the response must be written in Bahasa Indonesia.')
+    expect(userText).toContain('Content format: video')
   })
 
   it('builds the Claude ideation payload with a strict tool-only contract', () => {
     const body = buildClaudeIdeationBody({
       briefText: '',
       contentConcept: 'affiliate',
+      contentFormat: 'photos',
       heroImageUrl: 'https://files.example.com/hero.png',
       model: 'claude-sonnet-4-6',
+      outputLanguage: 'id',
       productPage: null,
     })
 
     expect(body.system).toContain('Call the provided tool exactly once with the full ideation brief.')
+    expect(body.system).toContain('Write every human-readable tool input value in Bahasa Indonesia.')
+    expect(body.system).toContain('Keep the JSON keys exactly as provided in the schema.')
     expect(body.system).toContain('Never answer in plain text, XML-like tags, markdown, lists, or commentary.')
     expect(body.system).toContain('Do not emit <tool_calls>')
+    expect(body.messages[0]?.content[0]?.type === 'text' ? body.messages[0].content[0].text : '').toContain('Content format: photos')
   })
 
   it('parses claude tool calls serialized into text content', () => {

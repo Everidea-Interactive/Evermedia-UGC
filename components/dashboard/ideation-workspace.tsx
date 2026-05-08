@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import {
-  AlertTriangle,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react'
+import {
   BadgeCheck,
   Copy,
   ExternalLink,
@@ -13,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { useLocale } from '@/components/i18n/locale-provider'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,10 +37,12 @@ import { kieAnalysisModels } from '@/lib/generation/guided'
 import type {
   AssetSlot,
   ContentConcept,
+  ContentFormat,
   GuidedAnalysisStatus,
   IdeationResult,
   KieAnalysisModel,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -70,6 +78,22 @@ const sortedAnalysisModelOptions = kieAnalysisModels
     model,
   }))
   .sort((a, b) => a.label.localeCompare(b.label))
+
+const ideationOutputLanguageOptions: Array<{
+  label: string
+  value: Locale
+}> = [
+  { label: 'English', value: 'en' },
+  { label: 'Bahasa Indonesia', value: 'id' },
+]
+
+const ideationContentFormatOptions: Array<{
+  label: string
+  value: ContentFormat
+}> = [
+  { label: 'Video', value: 'video' },
+  { label: 'Photos', value: 'photos' },
+]
 
 function handleFileInput(
   event: ChangeEvent<HTMLInputElement>,
@@ -318,7 +342,6 @@ function IdeationResultCard({
 function IdeationAnalyzePanel({
   analysisWarning,
   clearIdeationHeroAsset,
-  ideationError,
   ideationInput,
   onReset,
   setIdeationBriefText,
@@ -328,10 +351,10 @@ function IdeationAnalyzePanel({
 }: {
   analysisWarning: string | null
   clearIdeationHeroAsset: () => void
-  ideationError: string | null
   ideationInput: {
     briefText: string
     contentConcept: ContentConcept
+    contentFormat: ContentFormat
     heroAsset: AssetSlot
     productUrl: string
   }
@@ -456,15 +479,6 @@ function IdeationAnalyzePanel({
           </div>
         </div>
 
-        {ideationError ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" suppressHydrationWarning />
-              <p>{ideationError}</p>
-            </div>
-          </div>
-        ) : null}
-
         {analysisWarning ? (
           <div className="rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
             {analysisWarning}
@@ -560,6 +574,8 @@ function IdeationControlPanel({
   ideationStatus,
   onAnalyze,
   setIdeationAnalysisModel,
+  setIdeationContentFormat,
+  setIdeationOutputLanguage,
 }: {
   canAnalyze: boolean
   hasError: boolean
@@ -567,11 +583,15 @@ function IdeationControlPanel({
   hasResult: boolean
   ideationInput: {
     analysisModel: KieAnalysisModel
+    contentFormat: ContentFormat
+    outputLanguage: Locale
     productUrl: string
   }
   ideationStatus: GuidedAnalysisStatus
   onAnalyze: () => void
   setIdeationAnalysisModel: (model: KieAnalysisModel) => void
+  setIdeationContentFormat: (contentFormat: ContentFormat) => void
+  setIdeationOutputLanguage: (outputLanguage: Locale) => void
 }) {
   const statusCopy = getIdeationStatusCopy({
     hasError,
@@ -598,6 +618,52 @@ function IdeationControlPanel({
           </div>
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
+            <div className="grid gap-1">
+              <label className={fieldLabelClassName} htmlFor="ideation-content-format">
+                Content Format
+              </label>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Choose whether ideation should target motion-first video deliverables or still-photo deliverables.
+              </p>
+            </div>
+            <Select
+              aria-label="Content Format"
+              id="ideation-content-format"
+              onChange={(event) =>
+                setIdeationContentFormat(event.target.value as ContentFormat)
+              }
+              value={ideationInput.contentFormat}
+            >
+              {ideationContentFormatOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+
+            <div className="grid gap-1">
+              <label className={fieldLabelClassName} htmlFor="ideation-output-language">
+                Output Language
+              </label>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Controls the language used in the generated ideation brief.
+              </p>
+            </div>
+            <Select
+              aria-label="Output Language"
+              id="ideation-output-language"
+              onChange={(event) =>
+                setIdeationOutputLanguage(event.target.value as Locale)
+              }
+              value={ideationInput.outputLanguage}
+            >
+              {ideationOutputLanguageOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+
             <div className="grid gap-1">
               <label className={fieldLabelClassName} htmlFor="ideation-analysis-model">
                 KIE Analysis Model
@@ -661,6 +727,8 @@ function IdeationControlPanel({
 }
 
 export function IdeationWorkspace() {
+  const { locale } = useLocale()
+  const hasInitializedOutputLanguage = useRef(false)
   const ideationInput = useGenerationStore((state) => state.ideationInput)
   const ideationStatus = useGenerationStore((state) => state.ideationStatus)
   const ideationError = useGenerationStore((state) => state.ideationError)
@@ -674,7 +742,13 @@ export function IdeationWorkspace() {
   const setIdeationContentConcept = useGenerationStore(
     (state) => state.setIdeationContentConcept,
   )
+  const setIdeationContentFormat = useGenerationStore(
+    (state) => state.setIdeationContentFormat,
+  )
   const setIdeationHeroFile = useGenerationStore((state) => state.setIdeationHeroFile)
+  const setIdeationOutputLanguage = useGenerationStore(
+    (state) => state.setIdeationOutputLanguage,
+  )
   const clearIdeationHeroAsset = useGenerationStore(
     (state) => state.clearIdeationHeroAsset,
   )
@@ -682,6 +756,7 @@ export function IdeationWorkspace() {
     (state) => state.setIdeationProductUrl,
   )
   const setIdeationError = useGenerationStore((state) => state.setIdeationError)
+  const setIdeationFailure = useGenerationStore((state) => state.setIdeationFailure)
   const setIdeationResult = useGenerationStore((state) => state.setIdeationResult)
   const setIdeationStatus = useGenerationStore((state) => state.setIdeationStatus)
   const resetIdeationState = useGenerationStore((state) => state.resetIdeationState)
@@ -691,6 +766,18 @@ export function IdeationWorkspace() {
   const [ideationSection, setIdeationSection] = useState<'analyze' | 'results'>(
     'analyze',
   )
+
+  useEffect(() => {
+    if (hasInitializedOutputLanguage.current) {
+      return
+    }
+
+    hasInitializedOutputLanguage.current = true
+
+    if (ideationInput.outputLanguage === 'en' && locale !== 'en') {
+      setIdeationOutputLanguage(locale)
+    }
+  }, [ideationInput.outputLanguage, locale, setIdeationOutputLanguage])
 
   const hasHero = isSlotLoaded(ideationInput.heroAsset)
   const hasResult = Boolean(ideationResult)
@@ -726,7 +813,9 @@ export function IdeationWorkspace() {
         analysisModel: ideationInput.analysisModel,
         briefText: ideationInput.briefText,
         contentConcept: ideationInput.contentConcept,
+        contentFormat: ideationInput.contentFormat,
         heroAsset: ideationInput.heroAsset,
+        outputLanguage: ideationInput.outputLanguage,
         productUrl: ideationInput.productUrl,
       })
       const response = await fetch('/api/ideation/analyze', {
@@ -749,10 +838,9 @@ export function IdeationWorkspace() {
       setIdeationSection('results')
     } catch (error) {
       setIdeationResult(null)
-      setIdeationError(
+      setIdeationFailure(
         error instanceof Error ? error.message : 'Unable to generate the ideation brief.',
       )
-      setIdeationStatus('error')
     }
   }
 
@@ -777,7 +865,6 @@ export function IdeationWorkspace() {
             <IdeationAnalyzePanel
               analysisWarning={analysisWarning}
               clearIdeationHeroAsset={clearIdeationHeroAsset}
-              ideationError={ideationError}
               ideationInput={ideationInput}
               onReset={resetIdeationState}
               setIdeationBriefText={setIdeationBriefText}
@@ -814,6 +901,8 @@ export function IdeationWorkspace() {
           void handleAnalyze()
         }}
         setIdeationAnalysisModel={setIdeationAnalysisModel}
+        setIdeationContentFormat={setIdeationContentFormat}
+        setIdeationOutputLanguage={setIdeationOutputLanguage}
       />
     </div>
   )

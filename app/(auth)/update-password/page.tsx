@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { UpdatePasswordForm } from '@/components/auth/update-password-form'
 import { buildSignInPath } from '@/lib/auth/navigation'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
+import { getDictionary } from '@/lib/i18n'
+import { getLocale } from '@/lib/i18n/server'
 
 export const metadata: Metadata = {
   title: 'Update Password | Evermedia Studio',
@@ -20,6 +22,8 @@ export default async function UpdatePasswordPage({
       ? resolvedSearchParams.recovery === '1'
       : false
   const user = await getOptionalAuthenticatedUser()
+  const locale = await getLocale()
+  const copy = getDictionary(locale).auth
 
   if (!recovery || !user) {
     redirect(
@@ -35,18 +39,17 @@ export default async function UpdatePasswordPage({
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/10">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Password Recovery
+            {copy.passwordRecovery}
           </p>
           <h1 className="mt-3 font-display text-2xl font-semibold">
-            Create a new password
+            {copy.createNewPassword}
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Set a new password for {user.email ?? 'your account'} before returning
-            to the studio.
+            {copy.updatePasswordIntro(user.email)}
           </p>
         </div>
 
-        <UpdatePasswordForm />
+        <UpdatePasswordForm copy={copy} />
       </div>
     </main>
   )

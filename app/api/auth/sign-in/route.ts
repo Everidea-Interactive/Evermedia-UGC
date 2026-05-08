@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 
-import { buildSignInUrl, resolveNextPath } from '@/lib/auth/navigation'
+import { resolveAuthenticatedUser } from '@/lib/auth/access-control'
+import {
+  buildSignInUrl,
+  getConfiguredAppBaseUrl,
+  resolveNextPath,
+} from '@/lib/auth/navigation'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
@@ -65,7 +70,43 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.redirect(new URL(next, requestUrl), {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.redirect(
+      buildSignInUrl(requestUrl, {
+        email: normalizedEmail,
+        error: 'invalid_credentials',
+        mode: 'signin',
+        next,
+      }),
+      {
+        status: 303,
+      },
+    )
+  }
+
+  const resolvedUser = await resolveAuthenticatedUser(user)
+
+  if (resolvedUser.status === 'blocked') {
+    await supabase.auth.signOut()
+
+    return NextResponse.redirect(
+      buildSignInUrl(requestUrl, {
+        email: normalizedEmail,
+        error: resolvedUser.reason,
+        mode: 'signin',
+        next,
+      }),
+      {
+        status: 303,
+      },
+    )
+  }
+
+  return NextResponse.redirect(new URL(next, getConfiguredAppBaseUrl(requestUrl)), {
     status: 303,
   })
 }

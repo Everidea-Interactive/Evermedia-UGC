@@ -12,6 +12,7 @@ import type {
   CreativeBrief,
   CreativePlan,
   CreativePlanningStatus,
+  ContentFormat,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
@@ -35,6 +36,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
@@ -52,7 +54,9 @@ type IdeationInputState = {
   analysisModel: KieAnalysisModel
   briefText: string
   contentConcept: ContentConcept
+  contentFormat: ContentFormat
   heroAsset: AssetSlot
+  outputLanguage: Locale
   productUrl: string
 }
 
@@ -135,8 +139,11 @@ type GenerationStore = GenerationStateShape & {
   setIdeationAnalysisModel: (model: KieAnalysisModel) => void
   setIdeationBriefText: (briefText: string) => void
   setIdeationContentConcept: (concept: ContentConcept) => void
+  setIdeationContentFormat: (contentFormat: ContentFormat) => void
   setIdeationError: (error: string | null) => void
+  setIdeationFailure: (error: string) => void
   setIdeationHeroFile: (file: File | null) => void
+  setIdeationOutputLanguage: (outputLanguage: Locale) => void
   setIdeationProductUrl: (productUrl: string) => void
   setIdeationResult: (result: IdeationResult | null) => void
   setIdeationStatus: (status: GuidedAnalysisStatus) => void
@@ -227,7 +234,9 @@ function createIdeationInputState(): IdeationInputState {
     analysisModel: 'gemini-2.5-flash',
     briefText: '',
     contentConcept: 'affiliate',
+    contentFormat: 'video',
     heroAsset: createSlot('ideation-hero', 'Hero Product'),
+    outputLanguage: 'en',
     productUrl: '',
   }
 }
@@ -823,12 +832,37 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         contentConcept,
       },
     })),
+  setIdeationContentFormat: (contentFormat) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        contentFormat,
+      },
+    })),
   setIdeationError: (ideationError) => set({ ideationError }),
+  setIdeationFailure: (error) =>
+    set((state) => ({
+      generationErrorEventId: state.generationErrorEventId + 1,
+      generationRun: {
+        ...state.generationRun,
+        error,
+        status: 'error',
+      },
+      ideationError: error,
+      ideationStatus: 'error',
+    })),
   setIdeationHeroFile: (file) =>
     set((state) => ({
       ideationInput: {
         ...state.ideationInput,
         heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+      },
+    })),
+  setIdeationOutputLanguage: (outputLanguage) =>
+    set((state) => ({
+      ideationInput: {
+        ...state.ideationInput,
+        outputLanguage,
       },
     })),
   setIdeationProductUrl: (productUrl) =>
@@ -1048,6 +1082,7 @@ export type {
   CreativeGoal,
   CreativePlan,
   CreativePlanningStatus,
+  ContentFormat,
   CreativeStyle,
   FigureArtDirection,
   GenerationExperience,
