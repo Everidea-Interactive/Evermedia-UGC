@@ -257,6 +257,93 @@ export const uiTranslations: Record<string, string> = {
   'Batch size': 'Ukuran batch',
   'Brief': 'Brief',
   'Briefs': 'Brief',
+  'Broad Shoppers': 'Pembeli Umum',
+  'Build the creative plan': 'Susun rencana kreatif',
+  'Building Plan...': 'Menyusun Rencana...',
+  'Turn the guided shot seed into messaging, sound direction, CTA, and a storyboard-ready prompt pack before rendering.':
+    'Ubah seed shot terpandu menjadi messaging, arahan suara, CTA, dan paket prompt siap storyboard sebelum rendering.',
+  'Generate Creative Plan': 'Buat Rencana Kreatif',
+  'Audience': 'Audiens',
+  'Goal': 'Tujuan',
+  'Platform': 'Platform',
+  'Product Highlights': 'Sorotan Produk',
+  'Tone': 'Tone',
+  'List the strongest proof points, benefits, ingredients, materials, or differentiators to emphasize.':
+    'Tulis poin bukti terkuat, manfaat, bahan, material, atau pembeda utama yang ingin ditonjolkan.',
+  'Confident, playful, premium, cozy, clean, urgent...':
+    'Percaya diri, playful, premium, cozy, clean, mendesak...',
+  'This influences environment styling, pacing, and how assertive the message should feel.':
+    'Ini memengaruhi styling lingkungan, pacing, dan seberapa tegas pesan akan terasa.',
+  'Visual Direction': 'Arah Visual',
+  'Environment Direction': 'Arah Lingkungan',
+  'Sound Direction': 'Arah Suara',
+  'VO / Script': 'VO / Skrip',
+  'Message Angle': 'Sudut Pesan',
+  'CTA Options': 'Opsi CTA',
+  'Pick the CTA that should appear on the final storyboard shot and final render prompt.':
+    'Pilih CTA yang harus muncul pada shot storyboard terakhir dan prompt render final.',
+  'No creative plan yet': 'Belum ada rencana kreatif',
+  'Analyze the hero product first, then build the creative planning layer to unlock storyboard-ready prompts.':
+    'Analisis produk hero terlebih dahulu, lalu susun lapisan perencanaan kreatif untuk membuka prompt siap storyboard.',
+  'Caption': 'Caption',
+  'Closing Shot': 'Shot Penutup',
+  'Voiceover': 'Voiceover',
+  'Conversion': 'Konversi',
+  'Consideration': 'Pertimbangan',
+  'Awareness': 'Awareness',
+  'Young Professionals': 'Profesional Muda',
+  'Beauty Shoppers': 'Pembeli Kecantikan',
+  'Parents': 'Orang Tua',
+  'Fitness Shoppers': 'Pembeli Fitness',
+  'Instagram Reels': 'Instagram Reels',
+  'YouTube Shorts': 'YouTube Shorts',
+  'Meta Ads': 'Iklan Meta',
+  'Storyboards': 'Storyboard',
+  'Storyboard and shot planner': 'Storyboard dan perencana shot',
+  'Refine each scene before rendering. These fields are designed to be stable enough for real generation once KIE credits are available again.':
+    'Rapikan setiap scene sebelum rendering. Field ini dirancang cukup stabil untuk generasi sungguhan setelah kredit KIE tersedia lagi.',
+  'No storyboard yet': 'Belum ada storyboard',
+  'Generate the creative plan first. The storyboard will appear here as a fully editable per-shot planning layer.':
+    'Buat rencana kreatif terlebih dahulu. Storyboard akan muncul di sini sebagai lapisan perencanaan per-shot yang sepenuhnya dapat diedit.',
+  'Narrative purpose for this scene.': 'Tujuan naratif untuk scene ini.',
+  'Shot Objective': 'Tujuan Shot',
+  'Voiceover or spoken guidance tied to this scene.':
+    'Voiceover atau arahan lisan yang terkait dengan scene ini.',
+  'VO Line': 'Baris VO',
+  'Visual composition, movement, product framing, and talent direction.':
+    'Komposisi visual, pergerakan, framing produk, dan arahan talent.',
+  'Visual Prompt': 'Prompt Visual',
+  'Set dressing, location tone, and environmental constraints.':
+    'Set dressing, tone lokasi, dan batasan lingkungan.',
+  'Environment Prompt': 'Prompt Lingkungan',
+  'Music vibe, pacing, ambience, or SFX cues for the scene.':
+    'Nuansa musik, pacing, ambience, atau cue SFX untuk scene ini.',
+  'Sound Prompt': 'Prompt Suara',
+  'Optional CTA copy if this shot needs a direct next step.':
+    'Salinan CTA opsional jika shot ini memerlukan langkah lanjutan yang jelas.',
+  'CTA Text': 'Teks CTA',
+  'This merged prompt is what will be sent to generation.':
+    'Prompt gabungan ini yang akan dikirim ke proses generasi.',
+  'Render Prompt': 'Prompt Render',
+  'Lifestyle': 'Lifestyle',
+  'Product Only': 'Hanya Produk',
+  'Indoor': 'Indoor',
+  'Outdoor': 'Outdoor',
+  'Plan Summary': 'Ringkasan Rencana',
+  'Keep the latest guided plan, storyboard state, and render controls visible in one place while refining the batch.':
+    'Jaga rencana terpandu terbaru, status storyboard, dan kontrol render tetap terlihat di satu tempat saat merapikan batch.',
+  'Storyboard Ready': 'Storyboard Siap',
+  'Planning In Progress': 'Perencanaan Sedang Berjalan',
+  'Prompt Set': 'Set Prompt',
+  'Creative Plan': 'Rencana Kreatif',
+  'Not built yet': 'Belum dibuat',
+  'Waiting for analysis': 'Menunggu analisis',
+  'Analyze the hero product first. The shot summary will appear here once the prompt set is ready.':
+    'Analisis produk hero terlebih dahulu. Ringkasan shot akan muncul di sini setelah set prompt siap.',
+  'Build the creative plan first so the storyboard and final prompts are ready for generation.':
+    'Susun rencana kreatif terlebih dahulu agar storyboard dan prompt final siap untuk generasi.',
+  'Build the creative plan first so the storyboard prompts are ready.':
+    'Susun rencana kreatif terlebih dahulu agar prompt storyboard siap.',
   'Build the reference board first, or use the written brief if you need a prompt-only run.':
     'Siapkan papan referensi terlebih dahulu, atau gunakan brief tertulis jika Anda hanya ingin generate dari prompt.',
   'Building a new ideation brief': 'Membangun brief ideasi baru',
@@ -668,6 +755,12 @@ export function translateText(locale: Locale, value: string): string {
 
   if (editablePromptMatch) {
     return `${editablePromptMatch[1]} prompt yang dapat diedit`
+  }
+
+  const storyboardShotCountMatch = value.match(/^(\d+)\s+storyboard shot(s)?$/)
+
+  if (storyboardShotCountMatch) {
+    return `${storyboardShotCountMatch[1]} shot storyboard`
   }
 
   const variationCountMatch = value.match(/^(\d+)\s+variation(s)?$/)

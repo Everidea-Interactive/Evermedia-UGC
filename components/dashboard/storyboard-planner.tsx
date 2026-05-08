@@ -10,6 +10,16 @@ const insetPanelClassName = 'rounded-xl border border-border bg-background'
 const fieldLabelClassName =
   'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 
+const subjectModeLabels: Record<StoryboardShot['subjectMode'], string> = {
+  lifestyle: 'Lifestyle',
+  'product-only': 'Product Only',
+}
+
+const shotEnvironmentLabels: Record<StoryboardShot['shotEnvironment'], string> = {
+  indoor: 'Indoor',
+  outdoor: 'Outdoor',
+}
+
 type StoryboardPlannerProps = {
   creativePlan: CreativePlan | null
   updateStoryboardShot: (slug: string, patch: Partial<StoryboardShot>) => void
@@ -58,8 +68,10 @@ function StoryboardShotCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{shot.subjectMode}</Badge>
-          <Badge variant="secondary">{shot.shotEnvironment}</Badge>
+          <Badge variant="secondary">{subjectModeLabels[shot.subjectMode]}</Badge>
+          <Badge variant="secondary">
+            {shotEnvironmentLabels[shot.shotEnvironment]}
+          </Badge>
           <Badge variant="outline">{shot.durationSeconds}s</Badge>
         </div>
       </div>

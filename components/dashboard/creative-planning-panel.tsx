@@ -54,6 +54,12 @@ const platformOptions: Array<{
   { label: 'Tokopedia', value: 'tokopedia' },
 ]
 
+const ctaPlacementLabels: Record<CtaOption['placement'], string> = {
+  caption: 'Caption',
+  'closing-shot': 'Closing Shot',
+  voiceover: 'Voiceover',
+}
+
 type CreativePlanningPanelProps = {
   canGeneratePlan: boolean
   creativeBrief: CreativeBrief
@@ -104,7 +110,9 @@ function CtaCard({
     >
       <div className="flex items-center justify-between gap-3">
         <p className="font-medium text-foreground">{cta.label}</p>
-        <Badge variant={isSelected ? 'default' : 'outline'}>{cta.placement}</Badge>
+        <Badge variant={isSelected ? 'default' : 'outline'}>
+          {ctaPlacementLabels[cta.placement]}
+        </Badge>
       </div>
       <p className="text-sm leading-6 text-muted-foreground">{cta.rationale}</p>
     </button>
