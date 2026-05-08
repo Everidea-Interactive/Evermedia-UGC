@@ -180,7 +180,9 @@ export function ReferenceCardGroup({
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
         {title}
       </p>
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">{children}</div>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
+        {children}
+      </div>
     </div>
   )
 }
@@ -208,7 +210,7 @@ export function ReferenceCard({
   return (
     <div
       className={cn(
-        'reference-card group relative aspect-square overflow-hidden rounded-[1rem] border bg-background transition-colors',
+        'reference-card group relative min-h-[14rem] overflow-hidden rounded-[1rem] border bg-background transition-colors sm:aspect-square sm:min-h-0',
         slot.error
           ? 'border-destructive/45 bg-destructive/5'
           : 'border-border hover:border-foreground/30',
@@ -266,7 +268,7 @@ export function ReferenceCard({
             </p>
             <p className="text-xs text-muted-foreground">Upload image or video</p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+          <div className="reference-upload-chip inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Upload className="size-3.5" suppressHydrationWarning />
             Choose file
           </div>

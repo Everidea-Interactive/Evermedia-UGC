@@ -221,6 +221,39 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Location')).toHaveLength(1)
   })
 
+  it('keeps reference cards readable on mobile without wrapping the file CTA', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+
+    const { container } = render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    const groupGrid = screen.getByText('People').nextElementSibling
+    const firstCard = container.querySelector('.reference-card')
+    const fileCta = screen
+      .getAllByText('Choose file')[0]
+      ?.closest('.reference-upload-chip')
+
+    expect(groupGrid?.className).toContain('grid-cols-1')
+    expect(groupGrid?.className).toContain('sm:grid-cols-2')
+    expect(firstCard?.className).toContain('min-h-[14rem]')
+    expect(firstCard?.className).toContain('sm:aspect-square')
+    expect(fileCta?.className).toContain('whitespace-nowrap')
+  })
+
   it('translates manual workspace subtext when the active locale is Indonesian', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
 
