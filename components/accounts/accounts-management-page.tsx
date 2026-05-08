@@ -1,8 +1,9 @@
 'use client'
 
 import * as Dialog from '@radix-ui/react-dialog'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
+import { PasswordVisibilityInput } from '@/components/auth/password-visibility-input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,10 @@ type BannerState = {
 } | null
 
 type ModalButtonVariant = 'default' | 'secondary' | 'outline' | 'destructive' | 'ghost'
+
+export function preventAccountDialogOutsideDismiss(event: { preventDefault: () => void }) {
+  event.preventDefault()
+}
 
 function AccountFormDialog({
   children,
@@ -36,17 +41,45 @@ function AccountFormDialog({
   triggerVariant?: ModalButtonVariant
 }) {
   const [open, setOpen] = useState(false)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   return (
     <Dialog.Root onOpenChange={setOpen} open={open}>
       <Dialog.Trigger asChild>
-        <Button className={triggerClassName} type="button" variant={triggerVariant}>
+        <Button
+          className={triggerClassName}
+          ref={triggerRef}
+          type="button"
+          variant={triggerVariant}
+        >
           {triggerLabel}
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-background/72 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(calc(100vw-2rem),34rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.25rem] border border-border bg-card p-6 shadow-2xl outline-none">
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-50 w-[min(calc(100vw-2rem),34rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.25rem] border border-border bg-card p-6 shadow-2xl outline-none"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            triggerRef.current?.blur()
+          }}
+          onInteractOutside={(event) => {
+            preventAccountDialogOutsideDismiss(event)
+          }}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            const initialField = contentRef.current?.querySelector<
+              HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement
+            >('input:not([type="hidden"]), select, textarea, button')
+
+            initialField?.focus({ preventScroll: true })
+          }}
+          onPointerDownOutside={(event) => {
+            preventAccountDialogOutsideDismiss(event)
+          }}
+          ref={contentRef}
+        >
           <Dialog.Title className="text-lg font-semibold tracking-[-0.01em] text-foreground">
             {title}
           </Dialog.Title>
@@ -107,11 +140,18 @@ export function AccountsManagementPage({
               <input name="intent" type="hidden" value="create" />
               <label className="grid gap-2 text-sm font-medium text-foreground">
                 Email
-                <Input name="email" placeholder="user@example.com" required type="email" />
+                <Input autoComplete="email" name="email" required type="email" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-foreground">
-                Temporary password
-                <Input name="password" required type="password" />
+                Password
+                <PasswordVisibilityInput
+                  autoComplete="new-password"
+                  buttonClassName="absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+                  className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  containerClassName="relative"
+                  name="password"
+                  required
+                />
               </label>
               <label className="grid gap-2 text-sm font-medium text-foreground">
                 Role

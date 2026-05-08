@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ManagedAccountListItem } from '@/lib/auth/access-repository'
 
@@ -40,7 +40,9 @@ describe('AccountsManagementPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Create Account' })).toBeTruthy()
     expect(screen.getByLabelText('Email')).toBeTruthy()
-    expect(screen.getByLabelText('Temporary password')).toBeTruthy()
+    expect(screen.getByLabelText('Password')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Show password' })).toBeTruthy()
+    expect(screen.queryByPlaceholderText('user@example.com')).toBeNull()
     expect(screen.getAllByRole('button', { name: 'Cancel' })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Create Account' })).toBeTruthy()
 
@@ -90,5 +92,41 @@ describe('AccountsManagementPage', () => {
     expect(screen.getAllByRole('heading', { name: 'Manage Accounts' })).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Managed Accounts' })).toBeNull()
     expect(screen.getAllByRole('button', { name: 'Create Account' })).toHaveLength(1)
+  })
+
+  it('closes the create-account dialog without restoring focus to the trigger', async () => {
+    const { AccountsManagementPage } = await import(
+      '@/components/accounts/accounts-management-page'
+    )
+
+    render(<AccountsManagementPage accounts={accounts} banner={null} />)
+
+    const trigger = screen.getByRole('button', { name: 'Create Account' })
+
+    fireEvent.click(trigger)
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).not.toBe(trigger)
+
+    fireEvent.click(trigger)
+
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(document.activeElement).toBe(screen.getByLabelText('Email'))
+  })
+
+  it('prevents account dialogs from dismissing on outside interaction', async () => {
+    const { preventAccountDialogOutsideDismiss } = await import(
+      '@/components/accounts/accounts-management-page'
+    )
+
+    const preventDefault = vi.fn()
+
+    preventAccountDialogOutsideDismiss({ preventDefault })
+
+    expect(preventDefault).toHaveBeenCalledTimes(1)
   })
 })
