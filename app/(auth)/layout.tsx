@@ -139,6 +139,38 @@ const authCriticalCss = `
   box-shadow: 0 0 0 2px rgba(216, 221, 232, 0.16);
 }
 
+.auth-input-with-action {
+  position: relative;
+}
+
+.auth-input-with-action .auth-input {
+  padding-right: 3rem;
+}
+
+.auth-input-action {
+  position: absolute;
+  top: 50%;
+  right: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #8f97a8;
+  cursor: pointer;
+  padding: 0;
+  transform: translateY(-50%);
+}
+
+.auth-input-action:hover,
+.auth-input-action:focus-visible {
+  color: #eef1f5;
+}
+
+.auth-input-action:focus-visible {
+  outline: none;
+}
+
 .auth-button {
   appearance: none;
   border: 0;
