@@ -14,5 +14,11 @@ export default async function LibraryRoutePage() {
     listSavedIdeationHistoryForUser(user.id),
   ])
 
-  return <LibraryPage ideations={ideations} outputs={outputs} />
+  return (
+    <LibraryPage
+      accountTag={user.email?.trim() || user.id}
+      ideations={ideations}
+      outputs={outputs}
+    />
+  )
 }

@@ -171,9 +171,11 @@ function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
 }
 
 export function LibraryPage({
+  accountTag,
   ideations,
   outputs,
 }: {
+  accountTag?: string | null
   ideations: SavedIdeationHistoryEntry[]
   outputs: SavedOutputHistoryEntry[]
 }) {
@@ -368,6 +370,13 @@ export function LibraryPage({
                       <p className="font-medium text-foreground">
                         {run.run.workspace === 'video' ? 'Video session' : 'Image session'}
                       </p>
+                      {accountTag ? (
+                        <p className="mt-1">
+                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            {accountTag}
+                          </span>
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {run.outputs.length} saved variation
                         {run.outputs.length === 1 ? '' : 's'} ·{' '}
@@ -568,6 +577,13 @@ export function LibraryPage({
                   type="button"
                 >
                   <p className="font-medium text-foreground">Ideation brief</p>
+                  {accountTag ? (
+                    <p className="mt-1">
+                      <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {accountTag}
+                      </span>
+                    </p>
+                  ) : null}
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                     {ideation.result.summary}
                   </p>
@@ -588,6 +604,13 @@ export function LibraryPage({
                 <h2 className="mt-2 text-lg font-semibold">
                   {activeIdeation ? 'Saved ideation brief' : 'No brief selected'}
                 </h2>
+                {activeIdeation && accountTag ? (
+                  <p className="mt-2">
+                    <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {accountTag}
+                    </span>
+                  </p>
+                ) : null}
               </div>
               {activeIdeation ? (
                 <Button

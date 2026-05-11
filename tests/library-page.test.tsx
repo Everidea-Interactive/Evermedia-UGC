@@ -29,4 +29,94 @@ describe('LibraryPage', () => {
     ).toBeTruthy()
     expect(screen.getByText('Belum ada output tersimpan untuk sesi ini.')).toBeTruthy()
   })
+
+  it('shows the account tag on saved sessions', async () => {
+    render(
+      <LibraryPage
+        accountTag="owner@example.com"
+        ideations={[]}
+        outputs={[
+          {
+            output: {
+              createdAt: '2026-05-12T00:00:00.000Z',
+              fileSize: 1024,
+              id: 'output-1',
+              label: 'Output 1',
+              mimeType: 'image/png',
+              originalName: 'output-1.png',
+              runId: 'run-1',
+              storagePath: '/tmp/output-1.png',
+              userId: 'user-1',
+            },
+            run: {
+              completedAt: null,
+              createdAt: '2026-05-12T00:00:00.000Z',
+              id: 'run-1',
+              model: 'model-a',
+              promptSnapshot: 'sample prompt',
+              provider: 'kie',
+              status: 'completed',
+              workspace: 'product',
+            },
+            variant: {
+              completedAt: '2026-05-12T00:00:05.000Z',
+              createdAt: '2026-05-12T00:00:00.000Z',
+              error: null,
+              id: 'variant-1',
+              profile: 'profile',
+              prompt: 'prompt',
+              status: 'completed',
+              taskId: 'task-1',
+              variantIndex: 1,
+            },
+          },
+        ]}
+      />,
+    )
+
+    expect(await screen.findByText('owner@example.com')).toBeTruthy()
+  })
+
+  it('shows the account tag in briefs view', async () => {
+    render(
+      <LibraryPage
+        accountTag="owner@example.com"
+        ideations={[
+          {
+            createdAt: '2026-05-12T00:00:00.000Z',
+            id: 'ideation-1',
+            inputSnapshot: {
+              analysisModel: 'KIE-ai',
+              briefText: 'Short brief',
+              contentConcept: 'affiliate',
+              contentFormat: 'photos',
+              heroImageName: null,
+              heroImageUrl: null,
+              outputLanguage: 'en',
+              productUrl: null,
+            },
+            result: {
+              concepts: [
+                {
+                  angle: 'Angle',
+                  audience: 'Audience',
+                  cta: 'CTA',
+                  hook: 'Hook',
+                  keyMessage: 'Message',
+                  title: 'Concept 1',
+                  visualDirection: 'Visual',
+                },
+              ],
+              summary: 'Test summary',
+            },
+            userId: 'user-1',
+          },
+        ]}
+        outputs={[]}
+      />,
+    )
+
+    screen.getByRole('button', { name: 'Saved briefs' }).click()
+    expect(await screen.findAllByText('owner@example.com')).toBeTruthy()
+  })
 })
