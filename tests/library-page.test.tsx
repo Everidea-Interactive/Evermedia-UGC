@@ -21,13 +21,13 @@ describe('LibraryPage', () => {
     )
 
     expect(await screen.findByText('Library')).toBeTruthy()
-    expect(screen.getAllByText('Hasil tersimpan').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Media tersimpan').length).toBeGreaterThan(0)
     expect(
       screen.getByText(
-        'Belum ada sesi tersimpan. Hasil generasi yang selesai akan muncul di sini.',
+        'Belum ada set media tersimpan. Hasil generasi yang selesai akan muncul di sini.',
       ),
     ).toBeTruthy()
-    expect(screen.getByText('Belum ada output tersimpan untuk sesi ini.')).toBeTruthy()
+    expect(screen.getByText('Belum ada media tersimpan untuk set media ini.')).toBeTruthy()
   })
 
   it('shows the account tag on saved sessions', async () => {
@@ -116,7 +116,7 @@ describe('LibraryPage', () => {
       />,
     )
 
-    screen.getByRole('button', { name: 'Saved briefs' }).click()
+    screen.getByRole('button', { name: 'Saved ideation' }).click()
     expect(await screen.findAllByText('owner@example.com')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Delete brief' })).toBeTruthy()
   })
