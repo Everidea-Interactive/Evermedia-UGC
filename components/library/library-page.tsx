@@ -27,14 +27,19 @@ type RunGroup = {
 type DeleteTarget =
   | {
       id: string
+      kind: 'output'
       label: string
-      type: 'output'
     }
   | {
       id: string
+      kind: 'session'
       label: string
       outputCount: number
-      type: 'session'
+    }
+  | {
+      id: string
+      kind: 'ideation'
+      label: string
     }
 
 type ArchiveView = 'outputs' | 'ideations'
@@ -224,6 +229,16 @@ export function LibraryPage({
     }
   }
 
+  const deleteIdeation = async (ideationId: string) => {
+    const response = await fetch(`/api/ideations/${encodeURIComponent(ideationId)}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      throw new Error('Unable to delete ideation brief.')
+    }
+  }
+
   const confirmDelete = async () => {
     if (!deleteTarget) {
       return
@@ -231,9 +246,12 @@ export function LibraryPage({
 
     setIsDeleting(true)
 
-    if (deleteTarget.type === 'session') {
+    if (deleteTarget.kind === 'session') {
       await deleteSession(deleteTarget.id)
       setSelectedRunId(null)
+    } else if (deleteTarget.kind === 'ideation') {
+      await deleteIdeation(deleteTarget.id)
+      setSelectedIdeationId(null)
     } else {
       await deleteOutput(deleteTarget.id)
     }
@@ -256,7 +274,7 @@ export function LibraryPage({
   }
 
   const deleteDialogDescription =
-    deleteTarget?.type === 'session'
+    deleteTarget?.kind === 'session'
       ? `Delete this session and its ${deleteTarget.outputCount} saved output${deleteTarget.outputCount === 1 ? '' : 's'}. This cannot be undone.`
       : deleteTarget
         ? `Delete ${deleteTarget.label}. This cannot be undone.`
@@ -392,12 +410,12 @@ export function LibraryPage({
                       onClick={() => {
                         setDeleteTarget({
                           id: run.id,
+                          kind: 'session',
                           label:
                             run.run.workspace === 'video'
                               ? 'Video session'
                               : 'Image session',
                           outputCount: run.outputs.length,
-                          type: 'session',
                         })
                       }}
                       size="icon"
@@ -527,8 +545,8 @@ export function LibraryPage({
                             onClick={() => {
                               setDeleteTarget({
                                 id: entry.output.id,
+                                kind: 'output',
                                 label: entry.output.label,
-                                type: 'output',
                               })
                             }}
                             size="sm"
@@ -566,31 +584,54 @@ export function LibraryPage({
                 </p>
               ) : null}
               {ideations.map((ideation) => (
-                <button
+                <div
                   className={`rounded-xl border px-4 py-3 text-left transition-colors ${
                     ideation.id === activeIdeation?.id
                       ? 'border-foreground/35 bg-secondary'
                       : 'border-border bg-background hover:border-foreground/20'
                   }`}
                   key={ideation.id}
-                  onClick={() => setSelectedIdeationId(ideation.id)}
-                  type="button"
                 >
-                  <p className="font-medium text-foreground">Ideation brief</p>
-                  {accountTag ? (
-                    <p className="mt-1">
-                      <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {accountTag}
-                      </span>
-                    </p>
-                  ) : null}
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {ideation.result.summary}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {formatLibraryTimestamp(ideation.createdAt)}
-                  </p>
-                </button>
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => setSelectedIdeationId(ideation.id)}
+                      type="button"
+                    >
+                      <p className="font-medium text-foreground">Ideation brief</p>
+                      {accountTag ? (
+                        <p className="mt-1">
+                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            {accountTag}
+                          </span>
+                        </p>
+                      ) : null}
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {ideation.result.summary}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {formatLibraryTimestamp(ideation.createdAt)}
+                      </p>
+                    </button>
+                    <Button
+                      aria-label="Delete brief"
+                      className="-mr-2 text-destructive hover:text-destructive"
+                      disabled={isDeleting || isPending}
+                      onClick={() => {
+                        setDeleteTarget({
+                          id: ideation.id,
+                          kind: 'ideation',
+                          label: 'this ideation brief',
+                        })
+                      }}
+                      size="icon"
+                      title="Delete brief"
+                      variant="ghost"
+                    >
+                      <Trash2 suppressHydrationWarning />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </section>
@@ -738,9 +779,11 @@ export function LibraryPage({
         onOpenChange={closeDeleteDialog}
         open={Boolean(deleteTarget)}
         title={
-          deleteTarget?.type === 'session'
+          deleteTarget?.kind === 'session'
             ? 'Delete session?'
-            : 'Delete output?'
+            : deleteTarget?.kind === 'ideation'
+              ? 'Delete brief?'
+              : 'Delete output?'
         }
       />
     </main>

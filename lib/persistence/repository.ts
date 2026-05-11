@@ -332,6 +332,31 @@ export async function listSavedIdeationHistoryForUser(
   return rows.map((row) => mapSavedIdeation(row))
 }
 
+export async function deleteSavedIdeationForUser(input: {
+  ideationId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  const [ideationRow] = await db
+    .select()
+    .from(savedIdeations)
+    .where(
+      and(
+        eq(savedIdeations.userId, input.userId),
+        eq(savedIdeations.id, input.ideationId),
+      ),
+    )
+    .limit(1)
+
+  if (!ideationRow) {
+    return null
+  }
+
+  await db.delete(savedIdeations).where(eq(savedIdeations.id, ideationRow.id))
+
+  return mapSavedIdeation(ideationRow)
+}
+
 export async function saveGeneratedOutputForVariant(input: {
   fileName: string
   fileType: string

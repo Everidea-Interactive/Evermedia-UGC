@@ -118,5 +118,6 @@ describe('LibraryPage', () => {
 
     screen.getByRole('button', { name: 'Saved briefs' }).click()
     expect(await screen.findAllByText('owner@example.com')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Delete brief' })).toBeTruthy()
   })
 })
