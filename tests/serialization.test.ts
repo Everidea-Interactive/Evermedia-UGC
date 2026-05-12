@@ -19,6 +19,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'lifestyle',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -46,6 +47,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'product-only',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -85,6 +87,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'product-only',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -130,6 +133,7 @@ describe('createGenerationRunState', () => {
         subjectMode: 'product-only',
         textPrompt: '',
         videoDuration: 'base',
+      videoAudio: 'no-audio',
         videoModel: 'veo-3.1',
       }),
       createdAt: '2026-04-30T00:00:00.000Z',
@@ -146,3 +150,4 @@ describe('createGenerationRunState', () => {
     expect(createGenerationRunState(run, []).experience).toBe('guided')
   })
 })
+

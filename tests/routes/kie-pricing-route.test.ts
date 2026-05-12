@@ -23,7 +23,44 @@ function createPricingResponse(records: unknown[]) {
 }
 
 function createPricingFetchMock() {
-  return vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+  return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+
+    if (requestUrl === 'https://kie.ai/seedance-1-5-pro') {
+      const nextData = {
+        props: {
+          pageProps: {
+            pageInfo: {
+              groupData: [
+                {
+                  path: 'seedance-1-5-pro',
+                  pricingDesc:
+                    '480P: 4s: 7 credits ($0.035) no audio / 14 credits ($0.07) with audio; 8s: 14 ($0.07) / 28 ($0.14); 12s: 19 ($0.095) / 38 ($0.19)\n' +
+                    '720P: 4s: 14 ($0.07) / 28 ($0.14); 8s: 28 ($0.14) / 56 ($0.28); 12s: 42 ($0.21) / 84 ($0.42)\n' +
+                    '1080P: 4s: 30 ($0.15) / 60 ($0.30); 8s: 60 ($0.30) / 120 ($0.60); 12s: 90 ($0.45) / 180 ($0.90)',
+                },
+              ],
+            },
+          },
+        },
+      }
+      const html = `<html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(nextData)}</script></body></html>`
+
+      return Promise.resolve(
+        new Response(html, {
+          headers: {
+            'Content-Type': 'text/html',
+          },
+          status: 200,
+        }),
+      )
+    }
+
     const requestBody = JSON.parse(String(init?.body)) as {
       modelDescription: string
     }

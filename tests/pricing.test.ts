@@ -188,6 +188,7 @@ function createSnapshot(
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
     ...overrides,
@@ -222,7 +223,7 @@ describe('generation pricing', () => {
       credits: 30,
       usd: 0.15,
     })
-    expect(pricingMatrix.video.kling.promptOnly.base).toEqual({
+    expect(pricingMatrix.video.kling.promptOnly['no-audio'].base).toEqual({
       credits: 55,
       usd: 0.275,
     })
@@ -230,7 +231,9 @@ describe('generation pricing', () => {
       credits: 60,
       usd: 0.3,
     })
-    expect(pricingMatrix.video['seedance-1.5-pro'].withReference['1080p'].extended).toEqual({
+    expect(
+      pricingMatrix.video['seedance-1.5-pro'].withReference['1080p']['no-audio'].extended,
+    ).toEqual({
       credits: 744,
       usd: 3.72,
     })

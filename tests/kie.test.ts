@@ -30,6 +30,7 @@ function buildBaseFormData(batchSize: string) {
   formData.append('batchSize', batchSize)
   formData.append('textPrompt', 'Create a polished hero campaign image.')
   formData.append('videoDuration', 'base')
+  formData.append('videoAudio', 'no-audio')
   formData.append('outputQuality', '1080p')
   formData.append('cameraMovement', '')
 
@@ -785,6 +786,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished product motion clip.',
       subjectMode: 'product-only',
       videoDuration: 'extended',
+      videoAudio: 'no-audio',
       videoModel: 'seedance-1.5-pro',
       workspace: 'video',
     })
@@ -836,6 +838,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -901,6 +904,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -939,6 +943,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -965,6 +970,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'product-only',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -1004,6 +1010,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -1039,6 +1046,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -1052,6 +1060,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -1145,3 +1154,4 @@ describe('KIE status', () => {
     expect(status.error).toContain('KIE_API_KEY')
   })
 })
+

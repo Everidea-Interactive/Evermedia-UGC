@@ -8,14 +8,18 @@ import {
   cameraMovements,
   creativeStyles,
   durations,
+  getForcedVideoAudio,
+  getVideoAudioLabel,
   figureArtDirections,
   getImageQualityLabel,
   getImageQualityOptions,
   getVideoDurationLabel,
+  supportsVideoAudioSelection,
   imageModels,
   productCategories,
   shotEnvironments,
   videoModels,
+  videoAudioOptions,
   videoQualities,
 } from '@/components/dashboard/manual-workspace-config'
 import {
@@ -51,6 +55,7 @@ import type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
@@ -124,6 +129,8 @@ function RunControlPanel({
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoAudio = useGenerationStore((state) => state.videoAudio)
+  const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
@@ -176,6 +183,18 @@ function RunControlPanel({
       setBatchSize(1)
     }
   }, [activeTab, batchSize, setBatchSize])
+
+  useEffect(() => {
+    if (activeTab !== 'video') {
+      return
+    }
+
+    const forcedAudio = getForcedVideoAudio(videoModel)
+
+    if (forcedAudio && videoAudio !== forcedAudio) {
+      setVideoAudio(forcedAudio)
+    }
+  }, [activeTab, videoAudio, videoModel, setVideoAudio])
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -347,6 +366,39 @@ function RunControlPanel({
                         </option>
                       ))}
                     </Select>
+                    {supportsVideoAudioSelection(videoModel) ? (
+                      <>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Audio
+                        </p>
+                        <Select
+                          aria-label="Video Audio"
+                          onChange={(event) =>
+                            setVideoAudio(event.target.value as VideoAudio)
+                          }
+                          value={videoAudio}
+                        >
+                          {videoAudioOptions.map((videoAudioOption) => (
+                            <option key={videoAudioOption} value={videoAudioOption}>
+                              {getVideoAudioLabel(videoAudioOption)}
+                            </option>
+                          ))}
+                        </Select>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Audio
+                        </p>
+                        <Select
+                          aria-label="Video Audio"
+                          disabled
+                          value="with-audio"
+                        >
+                          <option value="with-audio">Included by model</option>
+                        </Select>
+                      </>
+                    )}
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       Video resolution
                     </p>

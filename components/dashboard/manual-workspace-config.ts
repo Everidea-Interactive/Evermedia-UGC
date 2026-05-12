@@ -28,6 +28,7 @@ import type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
 
@@ -198,6 +199,23 @@ export const videoModels: Array<{
 export const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 export const videoQualities: OutputQuality[] = ['720p', '1080p']
 export const durations: VideoDuration[] = ['base', 'extended']
+export const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
+
+export function getVideoAudioLabel(videoAudio: VideoAudio) {
+  return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
+}
+
+export function supportsVideoAudioSelection(model: VideoModelOption) {
+  return model === 'kling' || model === 'seedance-1.5-pro'
+}
+
+export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
+  if (supportsVideoAudioSelection(model)) {
+    return null
+  }
+
+  return 'with-audio'
+}
 
 export function getVideoDurationLabel(
   model: VideoModelOption,

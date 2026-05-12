@@ -48,6 +48,7 @@ import type {
   TaskPollResponse,
   UploadedAssetDescriptor,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
@@ -97,6 +98,7 @@ export type ParsedGenerationRequest = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
   workspace: WorkspaceTab
@@ -433,6 +435,17 @@ function getGptImage2Resolution(outputQuality: OutputQuality) {
 
 function getVideoAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '16:9' : '9:16'
+}
+
+function normalizeVideoAudioForModel(
+  videoModel: VideoModelOption,
+  videoAudio: VideoAudio,
+): VideoAudio {
+  if (videoModel === 'kling' || videoModel === 'seedance-1.5-pro') {
+    return videoAudio
+  }
+
+  return 'with-audio'
 }
 
 export function createRunId() {
@@ -777,6 +790,7 @@ function buildVideoPayload(input: {
   outputQuality: OutputQuality
   prompt: string
   subjectMode: SubjectMode
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }) {
@@ -858,7 +872,7 @@ function buildVideoPayload(input: {
           resolution: videoResolution,
           duration: getSeedanceDuration(input.videoDuration),
           fixed_lens: false,
-          generate_audio: false,
+          generate_audio: input.videoAudio === 'with-audio',
           nsfw_checker: false,
         },
       },
@@ -880,6 +894,7 @@ function buildVideoPayload(input: {
         ...(primaryReference
           ? { image_urls: [primaryReference.remoteUrl] }
           : null),
+        sound: input.videoAudio === 'with-audio',
         duration: getKlingDuration(input.videoDuration),
         aspect_ratio: aspectRatio,
       },
@@ -1194,6 +1209,13 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
         : null),
     }
   })
+  const requestedVideoAudio =
+    readOptionalEnum(formData, 'videoAudio', ['no-audio', 'with-audio'] as const) ??
+    'no-audio'
+  const normalizedVideoAudio = normalizeVideoAudioForModel(
+    videoModel,
+    requestedVideoAudio,
+  )
 
   return {
     activeModel: workspace === 'image' ? imageModel : videoModel,
@@ -1261,6 +1283,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       'videoDuration',
       ['base', 'extended'] as const,
     ),
+    videoAudio: normalizedVideoAudio,
     videoModel,
     workspace,
   }
@@ -1338,6 +1361,7 @@ export function resolveSubmission(input: {
   productCategory: ProductCategory
   prompt: string
   subjectMode: SubjectMode
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
   workspace: WorkspaceTab
@@ -1356,6 +1380,7 @@ export function resolveSubmission(input: {
         outputQuality: input.outputQuality,
         prompt: input.prompt,
         subjectMode: input.subjectMode,
+        videoAudio: input.videoAudio,
         videoDuration: input.videoDuration,
         videoModel: input.videoModel,
     })
@@ -1422,6 +1447,7 @@ export async function submitGenerationRequest(
     prompt: resolvedPromptSet[0]?.prompt ?? basePrompt,
     subjectMode: resolvedPromptSet[0]?.subjectMode ?? input.subjectMode,
     videoDuration: input.videoDuration,
+    videoAudio: input.videoAudio,
     videoModel: input.videoModel,
     workspace: input.workspace,
   })
@@ -1438,6 +1464,7 @@ export async function submitGenerationRequest(
         productCategory: input.productCategory,
         prompt,
         subjectMode,
+        videoAudio: input.videoAudio,
         videoDuration: input.videoDuration,
         videoModel: input.videoModel,
         workspace: input.workspace,

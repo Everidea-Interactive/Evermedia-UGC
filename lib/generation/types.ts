@@ -28,6 +28,7 @@ export type CharacterAgeGroup =
   | 'senior'
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
+export type VideoAudio = 'no-audio' | 'with-audio'
 export type OutputQuality = '720p' | '1080p' | '4k'
 export type ImageResolution = '1K' | '2K' | '4K'
 export type VideoResolution = '720p' | '1080p'
@@ -203,6 +204,7 @@ export type GenerationSnapshot = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }
@@ -269,16 +271,22 @@ export type KiePricingMatrix = {
       withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
     kling: {
-      promptOnly: Record<VideoDuration, GenerationCostRate>
-      withReference: Record<VideoDuration, GenerationCostRate>
+      promptOnly: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
     }
     'veo-3.1': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
     }
     'seedance-1.5-pro': {
-      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
     }
   }
 }

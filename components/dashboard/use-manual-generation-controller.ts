@@ -29,6 +29,7 @@ import type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
@@ -52,6 +53,7 @@ function createGenerationSnapshot(input: {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }): GenerationSnapshot {
@@ -97,6 +99,7 @@ export function useManualGenerationController(input: {
   const subjectMode = useGenerationStore((state) => state.subjectMode)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoAudio = useGenerationStore((state) => state.videoAudio)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const [isSubmittingGeneration, setIsSubmittingGeneration] = useState(false)
 
@@ -118,6 +121,7 @@ export function useManualGenerationController(input: {
         shotEnvironment,
         subjectMode,
         textPrompt,
+        videoAudio,
         videoDuration,
         videoModel,
       }),
@@ -137,6 +141,7 @@ export function useManualGenerationController(input: {
       shotEnvironment,
       subjectMode,
       textPrompt,
+      videoAudio,
       videoDuration,
       videoModel,
     ],
@@ -264,6 +269,7 @@ export function useManualGenerationController(input: {
       shotEnvironment: state.shotEnvironment,
       subjectMode: state.subjectMode,
       textPrompt: state.textPrompt,
+      videoAudio: state.videoAudio,
       videoDuration: state.videoDuration,
       videoModel: state.videoModel,
     })

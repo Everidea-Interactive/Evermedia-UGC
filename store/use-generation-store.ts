@@ -28,6 +28,7 @@ import type {
   ProductCategory,
   ShotEnvironment,
   SubjectMode,
+  VideoAudio,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -83,6 +84,7 @@ type GenerationStateShape = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }
@@ -139,6 +141,7 @@ type GenerationStore = GenerationStateShape & {
   setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
   setSubjectMode: (subjectMode: SubjectMode) => void
   setTextPrompt: (textPrompt: string) => void
+  setVideoAudio: (videoAudio: VideoAudio) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
   setVideoModel: (videoModel: VideoModelOption) => void
   updateGuidedShotPrompt: (slug: string, prompt: string) => void
@@ -288,6 +291,7 @@ function createInitialState(): GenerationStateShape {
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
   }
@@ -512,6 +516,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         shotEnvironment: normalizedConfig.shotEnvironment,
         subjectMode: normalizedConfig.subjectMode,
         textPrompt: normalizedConfig.textPrompt,
+        videoAudio: normalizedConfig.videoAudio,
         videoDuration: normalizedConfig.videoDuration,
         videoModel: normalizedConfig.videoModel,
       }
@@ -553,6 +558,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       shotEnvironment: nextState.shotEnvironment,
       subjectMode: nextState.subjectMode,
       textPrompt: nextState.textPrompt,
+      videoAudio: nextState.videoAudio,
       videoDuration: nextState.videoDuration,
       videoModel: nextState.videoModel,
     })
@@ -792,6 +798,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
   setSubjectMode: (subjectMode) => set(createSubjectModeState(subjectMode)),
   setTextPrompt: (textPrompt) => set({ textPrompt }),
+  setVideoAudio: (videoAudio) => set({ videoAudio }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) => set({ videoModel }),
   updateGuidedShotPrompt: (slug, prompt) =>
@@ -861,6 +868,7 @@ export type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'

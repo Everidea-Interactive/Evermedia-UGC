@@ -10,6 +10,7 @@ import type {
   NamedAssetKey,
   SubmittedAssetDescriptor,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
@@ -111,6 +112,7 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('batchSize', String(snapshot.batchSize))
   formData.append('textPrompt', snapshot.textPrompt)
   formData.append('videoDuration', snapshot.videoDuration)
+  formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
@@ -161,6 +163,7 @@ export function buildGuidedAnalysisFormData(input: {
   productUrl: string
   shotCount: BatchSize
   videoDuration?: VideoDuration
+  videoAudio?: VideoAudio
   videoModel?: VideoModelOption
   workspace?: WorkspaceTab
 }) {
@@ -179,6 +182,7 @@ export function buildGuidedAnalysisFormData(input: {
   formData.append('shotCount', String(workspace === 'video' ? 1 : input.shotCount))
   formData.append('videoModel', input.videoModel ?? 'veo-3.1')
   formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('cameraMovement', input.cameraMovement ?? '')
 
   return { formData }
@@ -195,6 +199,7 @@ export function buildGuidedGenerationFormData(input: {
   plan: GuidedAnalysisPlan
   productUrl: string
   videoDuration?: VideoDuration
+  videoAudio?: VideoAudio
   videoModel?: VideoModelOption
   workspace?: WorkspaceTab
 }) {
@@ -243,6 +248,7 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('batchSize', String(guidedShots.length))
   formData.append('textPrompt', '')
   formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('outputQuality', input.outputQuality)
   formData.append('cameraMovement', input.cameraMovement ?? '')
   formData.append('guidedShots', JSON.stringify(guidedShots))

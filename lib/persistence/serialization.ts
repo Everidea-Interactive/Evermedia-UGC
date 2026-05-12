@@ -23,6 +23,7 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   shotEnvironment: 'indoor',
   subjectMode: 'lifestyle',
   textPrompt: '',
+  videoAudio: 'no-audio',
   videoDuration: 'base',
   videoModel: 'veo-3.1',
 }

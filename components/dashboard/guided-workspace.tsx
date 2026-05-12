@@ -55,6 +55,7 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
   OutputQuality,
+  VideoAudio,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -72,6 +73,15 @@ const fieldLabelClassName =
 const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoDurations: VideoDuration[] = ['base', 'extended']
+const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
+
+function supportsVideoAudioSelection(model: VideoModelOption) {
+  return model === 'kling' || model === 'seedance-1.5-pro'
+}
+
+function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
+  return supportsVideoAudioSelection(model) ? null : 'with-audio'
+}
 
 const conceptCopy = {
   affiliate: {
@@ -222,6 +232,10 @@ function getGuidedVideoDurationLabel(
   return '8s'
 }
 
+function getGuidedVideoAudioLabel(videoAudio: VideoAudio) {
+  return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
+}
+
 function getAnalyzeHelperText({
   hasHero,
   hasPlan,
@@ -284,6 +298,7 @@ function createGuidedEstimateInput(input: {
   outputQuality: OutputQuality
   shotCount: 1 | 2 | 3 | 4
   shots: GuidedAnalysisShot[]
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }) {
@@ -342,6 +357,7 @@ function createGuidedEstimateInput(input: {
     outputQuality: input.outputQuality,
     products: [input.heroAsset],
     subjectMode: input.shots[0]?.subjectMode ?? 'product-only',
+    videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
   }
@@ -1133,7 +1149,9 @@ function GuidedRunPanel({
   setImageModel,
   setOutputQuality,
   setVideoDuration,
+  setVideoAudio,
   setVideoModel,
+  videoAudio,
   videoDuration,
   videoModel,
   kiePricing,
@@ -1154,7 +1172,9 @@ function GuidedRunPanel({
   setImageModel: (model: ImageModelOption) => void
   setOutputQuality: (quality: OutputQuality) => void
   setVideoDuration: (duration: VideoDuration) => void
+  setVideoAudio: (videoAudio: VideoAudio) => void
   setVideoModel: (model: VideoModelOption) => void
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
   kiePricing: KiePricingResponse | null
@@ -1241,6 +1261,38 @@ function GuidedRunPanel({
                       </option>
                     ))}
                   </Select>
+                </FieldBlock>
+
+                <FieldBlock
+                  description="Audio behavior depends on the selected video model."
+                  htmlFor="guided-video-audio"
+                  label="Audio"
+                >
+                  {supportsVideoAudioSelection(videoModel) ? (
+                    <Select
+                      aria-label="Video audio"
+                      id="guided-video-audio"
+                      onChange={(event) =>
+                        setVideoAudio(event.target.value as VideoAudio)
+                      }
+                      value={videoAudio}
+                    >
+                      {videoAudioOptions.map((audioOption) => (
+                        <option key={audioOption} value={audioOption}>
+                          {getGuidedVideoAudioLabel(audioOption)}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Select
+                      aria-label="Video audio"
+                      disabled
+                      id="guided-video-audio"
+                      value="with-audio"
+                    >
+                      <option value="with-audio">Included by model</option>
+                    </Select>
+                  )}
                 </FieldBlock>
 
                 <FieldBlock
@@ -1453,6 +1505,7 @@ export function GuidedWorkspace({
   const imageModel = useGenerationStore((state) => state.imageModel)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoAudio = useGenerationStore((state) => state.videoAudio)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setAnalysisError = useGenerationStore((state) => state.setAnalysisError)
   const setAnalysisStatus = useGenerationStore((state) => state.setAnalysisStatus)
@@ -1471,6 +1524,7 @@ export function GuidedWorkspace({
   const setImageModel = useGenerationStore((state) => state.setImageModel)
   const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
+  const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const updateGuidedShotPrompt = useGenerationStore(
     (state) => state.updateGuidedShotPrompt,
@@ -1500,6 +1554,7 @@ export function GuidedWorkspace({
           outputQuality,
           shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
           shots: guidedPlan?.shots ?? [],
+          videoAudio,
           videoDuration,
           videoModel,
         }),
@@ -1514,6 +1569,7 @@ export function GuidedWorkspace({
       imageModel,
       outputQuality,
       videoDuration,
+      videoAudio,
       videoModel,
       kiePricing?.matrix,
     ],
@@ -1546,6 +1602,18 @@ export function GuidedWorkspace({
     hasHero,
     hasPlan,
   })
+  useEffect(() => {
+    if (activeTab !== 'video') {
+      return
+    }
+
+    const forcedAudio = getForcedVideoAudio(videoModel)
+
+    if (forcedAudio && videoAudio !== forcedAudio) {
+      setVideoAudio(forcedAudio)
+    }
+  }, [activeTab, setVideoAudio, videoAudio, videoModel])
+
   useEffect(() => {
     const runId = generationRun.runId
 
@@ -1626,6 +1694,7 @@ export function GuidedWorkspace({
         productUrl: guidedInput.productUrl,
         shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         videoDuration,
+        videoAudio,
         videoModel,
         workspace: activeTab,
       })
@@ -1705,6 +1774,7 @@ export function GuidedWorkspace({
         shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         shots: guidedPlan.shots,
         videoDuration,
+        videoAudio,
         videoModel,
       }),
       kiePricing?.matrix ?? null,
@@ -1735,6 +1805,7 @@ export function GuidedWorkspace({
         plan: guidedPlan,
         productUrl: guidedInput.productUrl,
         videoDuration,
+        videoAudio,
         videoModel,
         workspace: activeTab,
       })
@@ -1883,7 +1954,9 @@ export function GuidedWorkspace({
               setImageModel={setImageModel}
               setOutputQuality={setOutputQuality}
               setVideoDuration={setVideoDuration}
+              setVideoAudio={setVideoAudio}
               setVideoModel={setVideoModel}
+              videoAudio={videoAudio}
               videoDuration={videoDuration}
               videoModel={videoModel}
               kiePricing={kiePricing}

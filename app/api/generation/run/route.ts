@@ -90,6 +90,7 @@ function createEstimateSnapshot(
   | 'products'
   | 'subjectMode'
   | 'videoDuration'
+  | 'videoAudio'
   | 'videoModel'
 > {
   const assets = createEmptyNamedAssetSlots()
@@ -120,6 +121,7 @@ function createEstimateSnapshot(
     outputQuality: input.outputQuality,
     products,
     subjectMode: input.subjectMode,
+    videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
   }
@@ -166,6 +168,7 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     shotEnvironment: input.shotEnvironment,
     subjectMode: input.subjectMode,
     textPrompt: input.textPrompt,
+    videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
   })
