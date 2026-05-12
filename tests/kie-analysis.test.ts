@@ -89,13 +89,13 @@ describe('KIE analysis adapters', () => {
     const body = buildClaudeAnalysisBody({
       contentConcept: 'driven-ads',
       heroImageUrl: 'https://files.example.com/hero.png',
-      model: 'claude-haiku-4-5',
+      model: 'claude-sonnet-4-6',
       productPage: null,
       shotCount: 2,
       workspace: 'image',
     })
 
-    expect(body.model).toBe('claude-haiku-4-5')
+    expect(body.model).toBe('claude-sonnet-4-6')
     expect(body.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

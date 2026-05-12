@@ -13,7 +13,6 @@ import type {
 
 export const kieAnalysisModels: KieAnalysisModel[] = [
   'gemini-2.5-flash',
-  'claude-haiku-4-5',
   'claude-sonnet-4-6',
 ]
 
@@ -32,11 +31,8 @@ export function normalizeKieAnalysisModel(
 ): KieAnalysisModel | null {
   switch (value) {
     case 'gemini-2.5-flash':
-    case 'claude-haiku-4-5':
     case 'claude-sonnet-4-6':
       return value
-    case 'claude-haiku-4.5':
-      return 'claude-haiku-4-5'
     case 'claude-sonnet-4.5':
     case 'claude-sonnet-4.6':
       return 'claude-sonnet-4-6'

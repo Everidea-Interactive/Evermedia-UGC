@@ -259,7 +259,7 @@ export function buildClaudeAnalysisBody(input: {
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroImageUrl: string
-  model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
+  model: Extract<KieAnalysisModel, 'claude-sonnet-4-6'>
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -536,7 +536,7 @@ export async function analyzeGuidedProductPlan(input: {
         ...input,
         model: input.analysisModel as Extract<
           KieAnalysisModel,
-          'claude-haiku-4-5' | 'claude-sonnet-4-6'
+          'claude-sonnet-4-6'
         >,
       })
     : buildGeminiAnalysisBody({

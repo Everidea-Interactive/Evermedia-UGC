@@ -87,7 +87,6 @@ const conceptCopy = {
 } as const
 
 const analysisModelLabels = {
-  'claude-haiku-4-5': 'Claude Haiku 4.5',
   'claude-sonnet-4-6': 'Claude Sonnet 4.6',
   'gemini-2.5-flash': 'Gemini 2.5 Flash',
 } as const

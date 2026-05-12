@@ -144,6 +144,7 @@ export async function POST(request: Request) {
       'cameraMovement',
       ['orbit', 'dolly', 'drone', 'crash-zoom', 'macro'] as const,
     )
+    const shouldUseInlineHeroImage = analysisModel === 'gemini-2.5-flash'
 
     if (!(heroImage instanceof File) || heroImage.size === 0) {
       throw new Error('A hero product image is required.')
@@ -179,12 +180,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const isGeminiModel = analysisModel === 'gemini-2.5-flash'
-    const heroImageDataUrl = isGeminiModel
+    const heroImageDataUrl = shouldUseInlineHeroImage
       ? await createGeminiHeroImageDataUrl(heroImage)
       : null
-    const heroImageUrl = isGeminiModel
-      ? 'inline://gemini-hero-image'
+    const heroImageUrl = shouldUseInlineHeroImage
+      ? 'inline://guided-hero-image'
       : await uploadImageFileToKieBase64(
           getKieApiKey(),
           heroImage,

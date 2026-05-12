@@ -79,7 +79,7 @@ describe('POST /api/guided/analyze', () => {
     expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).toHaveBeenCalledWith(
       expect.objectContaining({
-        heroImageUrl: 'inline://gemini-hero-image',
+        heroImageUrl: 'inline://guided-hero-image',
         heroImageDataUrl: expect.stringMatching(/^data:image\/(jpeg|png|webp|gif);base64,/),
         productPage: null,
       }),
@@ -107,6 +107,17 @@ describe('POST /api/guided/analyze', () => {
         workspace: 'video',
       }),
     )
+  })
+
+  it('rejects Haiku analysis model after model deprecation', async () => {
+    const formData = buildBaseFormData()
+    formData.set('analysisModel', 'claude-haiku-4-5')
+
+    const response = await POST(createRequest(formData))
+
+    expect(response.status).toBe(400)
+    expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
+    expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
   })
 
   it('uses scraped product page context when the product URL is reachable', async () => {

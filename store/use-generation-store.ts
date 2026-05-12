@@ -194,7 +194,7 @@ function createGuidedInputState(): GuidedInputState {
     endFrameAsset: createSlot('guided-end-frame', 'End Frame'),
     heroAsset: createSlot('guided-hero', 'Hero Product'),
     productUrl: '',
-    shotCount: 4,
+    shotCount: 1,
   }
 }
 
