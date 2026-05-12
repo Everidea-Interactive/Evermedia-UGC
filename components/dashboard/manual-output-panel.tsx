@@ -18,7 +18,7 @@ import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
-import type { AssetSlot, WorkspaceTab } from '@/lib/generation/types'
+import type { AssetSlot, GenerationVariant, WorkspaceTab } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -118,6 +118,12 @@ function PreviewStage({
               <div className="grid gap-3 sm:grid-cols-2">
                 {galleryItems.map((item) => (
                   <OutputGalleryCard item={item} key={item.variantId} />
+                ))}
+              </div>
+            ) : runState.variants.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {runState.variants.map((variant) => (
+                  <OutputPendingCard key={variant.variantId} variant={variant} />
                 ))}
               </div>
             ) : displayVariant ? (
@@ -228,6 +234,26 @@ function OutputGalleryCard({
         ) : (
           media
         )}
+      </div>
+    </div>
+  )
+}
+
+function OutputPendingCard({ variant }: { variant: GenerationVariant }) {
+  return (
+    <div className={cn(rowClassName, 'overflow-hidden p-2')}>
+      <div className="mb-2 px-1">
+        <p className="text-sm font-medium text-muted-foreground">#{variant.index}</p>
+      </div>
+      <div className="flex aspect-square items-center justify-center rounded-md bg-secondary/20 text-center text-sm text-muted-foreground">
+        <div className="grid gap-2 px-4">
+          {variant.status === 'rendering' ? (
+            <LoaderCircle className="mx-auto size-6 animate-spin" suppressHydrationWarning />
+          ) : (
+            <AlertTriangle className="mx-auto size-6" suppressHydrationWarning />
+          )}
+          <span>{variant.status === 'rendering' ? 'Generating...' : variant.error ?? 'Render failed'}</span>
+        </div>
       </div>
     </div>
   )

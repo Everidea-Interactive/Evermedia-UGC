@@ -196,6 +196,40 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByText('Build the input set')).toBeNull()
   })
 
+  it('switches to outputs when a manual generation run starts rendering', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    expect(await screen.findByText('Build the input set')).toBeTruthy()
+
+    await act(async () => {
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'manual-run-start',
+        startedAt: Date.now(),
+        status: 'rendering',
+        workspace: 'image',
+      })
+    })
+
+    expect(await screen.findByText('Render output')).toBeTruthy()
+  })
+
   it('renders each empty reference card label only once', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
 
@@ -411,6 +445,17 @@ describe('StudioWorkspace', () => {
     const faceCard = container.querySelector('.reference-card')
 
     expect(faceCard?.querySelector('.animate-spin')).toBeNull()
+  })
+
+  it('keeps guided-style loading copy and tile rendering paths in manual output', async () => {
+    const source = await readFile(
+      join(process.cwd(), 'components/dashboard/manual-output-panel.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('OutputPendingCard')
+    expect(source).toContain("variant.status === 'rendering' ? 'Generating...'")
+    expect(source).toContain('runState.variants.map((variant) => (')
   })
 
   it('keeps the manual workspace on the eager studio path', async () => {
