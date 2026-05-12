@@ -66,6 +66,25 @@ describe('KIE analysis adapters', () => {
     )
   })
 
+  it('prefers inline hero image data URL for Gemini when provided', () => {
+    const inlineImageUrl = 'data:image/png;base64,AAA='
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageDataUrl: inlineImageUrl,
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      workspace: 'image',
+    })
+    const userContent = body.messages[1]?.content
+    const imageEntry = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'image_url')
+      : null
+
+    expect(imageEntry?.image_url.url).toBe(inlineImageUrl)
+  })
+
   it('builds the Claude analysis payload with tool calling', () => {
     const body = buildClaudeAnalysisBody({
       contentConcept: 'driven-ads',

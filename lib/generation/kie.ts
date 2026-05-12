@@ -54,6 +54,8 @@ import type {
 
 export const KIE_API_BASE_URL = 'https://api.kie.ai'
 const KIE_FILE_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-stream-upload'
+const KIE_FILE_BASE64_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-base64-upload'
+const KIE_COMMON_DOWNLOAD_URL_ENDPOINT = `${KIE_API_BASE_URL}/api/v1/common/download-url`
 export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
@@ -267,13 +269,13 @@ function extractRemoteUrl(payload: unknown): string | null {
 
     const record = node as Record<string, unknown>
     const directCandidates = [
-      record.url,
-      record.fileUrl,
-      record.fileURL,
-      record.file_url,
       record.downloadUrl,
       record.downloadURL,
       record.download_url,
+      record.fileUrl,
+      record.fileURL,
+      record.file_url,
+      record.url,
       record.remoteUrl,
       record.remote_url,
       record.link,
@@ -917,6 +919,135 @@ export async function uploadFileToKie(
   }
 
   return remoteUrl
+}
+
+export async function uploadImageFileToKieBase64(
+  apiKey: string,
+  file: File,
+  uploadPath = 'evermedia-ugc/image',
+) {
+  const contentType = file.type || 'application/octet-stream'
+  const bytes = Buffer.from(await file.arrayBuffer())
+  const base64Data = `data:${contentType};base64,${bytes.toString('base64')}`
+
+  const response = await fetchKieWithTimeout(
+    KIE_FILE_BASE64_UPLOAD_URL,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64Data,
+        uploadPath,
+      }),
+    },
+    'KIE base64 file upload',
+  )
+
+  if (!response.ok) {
+    throw new Error(await readKieError(response))
+  }
+
+  const payload = (await response.json()) as unknown
+  const remoteUrl = (() => {
+    if (!payload || typeof payload !== 'object') {
+      return null
+    }
+
+    const root = payload as Record<string, unknown>
+    const data =
+      root.data && typeof root.data === 'object'
+        ? (root.data as Record<string, unknown>)
+        : null
+
+    // For multimodal model inputs, prefer canonical kie download by fileId.
+    const fileId =
+      typeof data?.fileId === 'string'
+        ? data.fileId.trim()
+        : typeof root.fileId === 'string'
+          ? root.fileId.trim()
+          : null
+
+    if (fileId) {
+      return `https://kieai.redpandaai.co/download/${fileId}`
+    }
+
+    // Then prefer stable fileUrl fields over tempfile download URLs.
+    const preferredCandidates = [
+      data?.fileUrl,
+      data?.fileURL,
+      data?.file_url,
+      data?.url,
+      data?.downloadUrl,
+      data?.downloadURL,
+      data?.download_url,
+      root.fileUrl,
+      root.fileURL,
+      root.file_url,
+      root.url,
+      root.downloadUrl,
+      root.downloadURL,
+      root.download_url,
+    ]
+
+    for (const candidate of preferredCandidates) {
+      if (typeof candidate === 'string' && isRemoteHttpUrl(candidate.trim())) {
+        return candidate.trim()
+      }
+    }
+
+    return extractRemoteUrl(payload)
+  })()
+
+  if (!remoteUrl) {
+    throw new Error(
+      `KIE base64 upload did not return a usable remote URL. payload=${summarizePayload(payload)}`,
+    )
+  }
+
+  if (remoteUrl.includes('tempfile.redpandaai.co')) {
+    const normalizedUrl = await resolveKieDownloadUrl(apiKey, remoteUrl)
+    return normalizedUrl ?? remoteUrl
+  }
+
+  return remoteUrl
+}
+
+async function resolveKieDownloadUrl(apiKey: string, url: string) {
+  const response = await fetchKieWithTimeout(
+    KIE_COMMON_DOWNLOAD_URL_ENDPOINT,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+      cache: 'no-store',
+    },
+    'KIE download URL normalization',
+  )
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = (await response.json()) as unknown
+
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const record = payload as Record<string, unknown>
+  const data = record.data
+
+  if (typeof data === 'string' && isRemoteHttpUrl(data.trim())) {
+    return data.trim()
+  }
+
+  return null
 }
 
 export function parseGenerationFormData(formData: FormData): ParsedGenerationRequest {

@@ -6,7 +6,7 @@ vi.mock('@/lib/auth/session', () => ({
 
 vi.mock('@/lib/generation/kie', () => ({
   getKieApiKey: vi.fn(),
-  uploadFileToKie: vi.fn(),
+  uploadImageFileToKieBase64: vi.fn(),
 }))
 
 vi.mock('@/lib/generation/kie-analysis', () => ({
@@ -19,7 +19,7 @@ vi.mock('@/lib/generation/product-page', () => ({
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { analyzeGuidedProductPlan } from '@/lib/generation/kie-analysis'
-import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
+import { getKieApiKey, uploadImageFileToKieBase64 } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
 import { POST } from '@/app/api/guided/analyze/route'
 
@@ -65,7 +65,9 @@ describe('POST /api/guided/analyze', () => {
       id: 'user-1',
     })
     vi.mocked(getKieApiKey).mockReturnValue('test-key')
-    vi.mocked(uploadFileToKie).mockResolvedValue('https://files.example.com/hero.png')
+    vi.mocked(uploadImageFileToKieBase64).mockResolvedValue(
+      'https://files.example.com/hero.png',
+    )
     vi.mocked(analyzeGuidedProductPlan).mockResolvedValue(guidedPlan)
   })
 
@@ -74,9 +76,11 @@ describe('POST /api/guided/analyze', () => {
 
     expect(response.status).toBe(200)
     expect(scrapeProductPage).not.toHaveBeenCalled()
+    expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).toHaveBeenCalledWith(
       expect.objectContaining({
-        heroImageUrl: 'https://files.example.com/hero.png',
+        heroImageUrl: 'inline://gemini-hero-image',
+        heroImageDataUrl: expect.stringMatching(/^data:image\/(jpeg|png|webp|gif);base64,/),
         productPage: null,
       }),
     )
@@ -165,7 +169,7 @@ describe('POST /api/guided/analyze', () => {
     const response = await POST(createRequest(formData))
 
     expect(response.status).toBe(400)
-    expect(uploadFileToKie).not.toHaveBeenCalled()
+    expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
   })
 
@@ -182,22 +186,23 @@ describe('POST /api/guided/analyze', () => {
 
     expect(response.status).toBe(400)
     expect(payload.error).toContain('PNG, JPG, JPEG, WEBP, or GIF')
-    expect(uploadFileToKie).not.toHaveBeenCalled()
+    expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
   })
 
   it('returns a gateway timeout when the KIE upload hangs', async () => {
     const formData = buildBaseFormData()
 
-    vi.mocked(uploadFileToKie).mockRejectedValue(
-      new Error('KIE file upload timed out after 60 seconds.'),
+    vi.mocked(uploadImageFileToKieBase64).mockRejectedValue(
+      new Error('KIE base64 file upload timed out after 60 seconds.'),
     )
 
     const response = await POST(createRequest(formData))
     const payload = (await response.json()) as { error?: string }
 
-    expect(response.status).toBe(504)
-    expect(payload.error).toContain('KIE file upload timed out')
-    expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
+    // Gemini path no longer uploads remote files; upload timeout should not block analyze.
+    expect(response.status).toBe(200)
+    expect(payload.error).toBeUndefined()
+    expect(analyzeGuidedProductPlan).toHaveBeenCalled()
   })
 })

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
@@ -7,7 +8,7 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import { analyzeGuidedProductPlan } from '@/lib/generation/kie-analysis'
-import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
+import { getKieApiKey, uploadImageFileToKieBase64 } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
 
 export const runtime = 'nodejs'
@@ -85,6 +86,31 @@ function getGuidedAnalyzeErrorStatus(message: string) {
   return 400
 }
 
+async function createGeminiHeroImageDataUrl(file: File) {
+  const source = Buffer.from(await file.arrayBuffer())
+
+  try {
+    const optimized = await sharp(source)
+      .rotate()
+      .resize({
+        width: 1024,
+        height: 1024,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({
+        quality: 70,
+        mozjpeg: true,
+      })
+      .toBuffer()
+
+    return `data:image/jpeg;base64,${optimized.toString('base64')}`
+  } catch {
+    const contentType = file.type || 'application/octet-stream'
+    return `data:${contentType};base64,${source.toString('base64')}`
+  }
+}
+
 export async function POST(request: Request) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -153,14 +179,24 @@ export async function POST(request: Request) {
       }
     }
 
-    const apiKey = getKieApiKey()
-    const heroImageUrl = await uploadFileToKie(apiKey, heroImage, 'image')
+    const isGeminiModel = analysisModel === 'gemini-2.5-flash'
+    const heroImageDataUrl = isGeminiModel
+      ? await createGeminiHeroImageDataUrl(heroImage)
+      : null
+    const heroImageUrl = isGeminiModel
+      ? 'inline://gemini-hero-image'
+      : await uploadImageFileToKieBase64(
+          getKieApiKey(),
+          heroImage,
+          'evermedia-ugc/image',
+        )
     const guidedShotCount =
       workspace === 'video' ? 1 : clampGuidedShotCount(shotCount)
     const plan = await analyzeGuidedProductPlan({
       analysisModel,
       contentConcept: contentConcept as (typeof contentConcepts)[number],
       cameraMovement,
+      heroImageDataUrl,
       heroImageUrl,
       productPage,
       shotCount: guidedShotCount,

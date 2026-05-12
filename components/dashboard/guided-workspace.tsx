@@ -1530,7 +1530,11 @@ export function GuidedWorkspace({
     [estimate, kieStatus.credits, kieStatus.error, kiePricingError],
   )
   const canGenerate =
-    hasPlan && hasHero && !activeRunInGuidedMode && creditValidation.canGenerate
+    hasPlan &&
+    hasHero &&
+    analysisStatus !== 'analyzing' &&
+    !activeRunInGuidedMode &&
+    creditValidation.canGenerate
 
   const analysisHelperText = getAnalyzeHelperText({
     hasHero,

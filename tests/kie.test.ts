@@ -290,6 +290,156 @@ describe('KIE batch submission', () => {
     ).resolves.toBe('https://files.example.com/product.png')
   })
 
+  it('prefers canonical downloadUrl over url when both are present in upload payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            downloadUrl: 'https://kieai.redpandaai.co/download/file_abc123456',
+            url: 'https://tempfile.redpandaai.co/kieai/tmp-upload.png',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      uploadFileToKie(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+        'image',
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/download/file_abc123456')
+  })
+
+  it('prefers fileUrl over downloadUrl for base64 image upload responses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            downloadUrl: 'https://kieai.redpandaai.co/download/file_abc123456',
+            fileUrl: 'https://kieai.redpandaai.co/files/images/my-image.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/files/images/my-image.jpg')
+  })
+
+  it('normalizes tempfile.redpandaai.co URLs via common download-url for base64 uploads', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: {
+              downloadUrl:
+                'https://tempfile.redpandaai.co/kieai/966458/evermedia-ugc/image/9_000000000256.jpg',
+            },
+            success: true,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: 'https://tempfile.1f6cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbd98',
+            msg: 'success',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://tempfile.1f6cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbd98')
+  })
+
+  it('uses canonical /download/<fileId> URL when base64 upload response includes fileId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            fileId: 'file_abc123456',
+            downloadUrl:
+              'https://tempfile.redpandaai.co/kieai/966458/evermedia-ugc/image/9_000000000256.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/download/file_abc123456')
+  })
+
+  it('does not send a fixed fileName in base64 uploads to avoid stale overwrite cache', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            fileUrl: 'https://kieai.redpandaai.co/files/images/generated-random.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await uploadImageFileToKieBase64(
+      'test-key',
+      new File(['product'], 'product.png', { type: 'image/png' }),
+    )
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      base64Data: string
+      fileName?: string
+      uploadPath: string
+    }
+
+    expect(requestBody.base64Data.startsWith('data:image/png;base64,')).toBe(true)
+    expect(requestBody.uploadPath).toBe('evermedia-ugc/image')
+    expect('fileName' in requestBody).toBe(false)
+  })
+
   it('returns a clear timeout error when a KIE request is aborted', async () => {
     vi.stubGlobal(
       'fetch',
