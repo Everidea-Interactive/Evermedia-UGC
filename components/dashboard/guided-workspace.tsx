@@ -102,8 +102,6 @@ const analysisModelLabels = {
 } as const
 
 const imageModelLabels = {
-  'gpt-image-2': 'GPT Image 2',
-  'grok-imagine': 'Grok Imagine',
   'nano-banana': 'Nano Banana 2',
 } as const
 
@@ -128,12 +126,7 @@ function getImageQualityOptions(
   imageModel: ImageModelOption,
   kiePricing: KiePricingResponse | null,
 ) {
-  return (
-    kiePricing?.supportedImageQualities?.[imageModel] ??
-    (imageModel === 'grok-imagine'
-      ? (['1080p'] as OutputQuality[])
-      : imageQualities)
-  )
+  return kiePricing?.supportedImageQualities?.[imageModel] ?? imageQualities
 }
 
 function getImageQualityLabel(quality: OutputQuality) {

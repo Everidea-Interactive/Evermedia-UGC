@@ -40,7 +40,7 @@ export type CameraMovement =
   | 'crash-zoom'
   | 'macro'
 
-export type ImageModelOption = 'nano-banana' | 'grok-imagine' | 'gpt-image-2'
+export type ImageModelOption = 'nano-banana'
 export type VideoModelOption =
   | 'veo-3.1'
   | 'kling'

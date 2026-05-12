@@ -812,6 +812,108 @@ describe('KIE batch submission', () => {
     })
   })
 
+  it('uses all uploaded references for grok image-to-video payloads', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_face1',
+          key: 'face1',
+          label: 'Face 1',
+          order: 0,
+          remoteUrl: 'https://files.example.com/face-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_location',
+          key: 'location',
+          label: 'Location',
+          order: 3,
+          remoteUrl: 'https://files.example.com/location.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'grok-imagine',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'grok-imagine/image-to-video',
+      input: {
+        image_urls: [
+          'https://files.example.com/face-1.png',
+          'https://files.example.com/clothing.png',
+          'https://files.example.com/location.png',
+        ],
+      },
+    })
+  })
+
+  it('uses all uploaded references for kling image-to-video payloads', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_location',
+          key: 'location',
+          label: 'Location',
+          order: 3,
+          remoteUrl: 'https://files.example.com/location.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'with-audio',
+      videoModel: 'kling',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'kling-2.6/image-to-video',
+      input: {
+        image_urls: [
+          'https://files.example.com/product.png',
+          'https://files.example.com/clothing.png',
+          'https://files.example.com/location.png',
+        ],
+        sound: true,
+      },
+    })
+  })
+
   it('uses Nano Banana 2 image inputs for uploaded supporting references', () => {
     const submission = resolveSubmission({
       assets: [
@@ -991,98 +1093,6 @@ describe('KIE batch submission', () => {
     })
   })
 
-  it('uses the first available uploaded reference for grok image edits and tags the prompt', () => {
-    const submission = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'asset_clothing',
-          key: 'clothing',
-          label: 'Clothing',
-          order: 2,
-          remoteUrl: 'https://files.example.com/clothing.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'grok-imagine',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoAudio: 'no-audio',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-
-    expect(submission.modelName).toBe('grok-imagine/image-to-image')
-    expect(submission.requestBody).toMatchObject({
-      model: 'grok-imagine/image-to-image',
-      input: {
-        prompt: expect.stringContaining(
-          '@image1 Create exactly one clean 2x2 grid image',
-        ),
-        image_urls: ['https://files.example.com/clothing.png'],
-      },
-    })
-  })
-
-  it('uses GPT Image 2 model identifiers for both reference and prompt-only image generation', () => {
-    const withReference = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'asset_face1',
-          key: 'face1',
-          label: 'Face 1',
-          order: 0,
-          remoteUrl: 'https://files.example.com/face.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'gpt-image-2',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoAudio: 'no-audio',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-    const promptOnly = resolveSubmission({
-      assets: [],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'gpt-image-2',
-      outputQuality: '4k',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoAudio: 'no-audio',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-
-    expect(withReference.modelName).toBe('gpt-image-2-image-to-image')
-    expect(withReference.requestBody).toMatchObject({
-      model: 'gpt-image-2-image-to-image',
-      input: {
-        aspect_ratio: '3:4',
-        input_urls: ['https://files.example.com/face.png'],
-        resolution: '2K',
-      },
-    })
-    expect(promptOnly.modelName).toBe('gpt-image-2-text-to-image')
-    expect(promptOnly.requestBody).toMatchObject({
-      model: 'gpt-image-2-text-to-image',
-      input: {
-        aspect_ratio: '3:4',
-        resolution: '4K',
-      },
-    })
-  })
 })
 
 describe('KIE status', () => {

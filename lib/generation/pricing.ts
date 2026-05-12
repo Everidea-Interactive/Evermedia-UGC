@@ -591,34 +591,7 @@ export function getGenerationCostEstimate(
 
   if (snapshot.activeTab === 'image') {
     const imageResolution = getImageResolution(snapshot.outputQuality)
-
-    if (snapshot.imageModel === 'nano-banana') {
-      perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
-    } else if (snapshot.imageModel === 'gpt-image-2') {
-      const hasReference = Boolean(
-        choosePrimaryReferenceSlot({
-          assets: snapshot.assets,
-          products: snapshot.products,
-          subjectMode: snapshot.subjectMode,
-        }),
-      )
-
-      perTaskRate = hasReference
-        ? pricingMatrix.image['gpt-image-2'].withReference[imageResolution]
-        : pricingMatrix.image['gpt-image-2'].promptOnly[imageResolution]
-    } else {
-      const hasReference = Boolean(
-        choosePrimaryReferenceSlot({
-          assets: snapshot.assets,
-          products: snapshot.products,
-          subjectMode: snapshot.subjectMode,
-        }),
-      )
-
-      perTaskRate = hasReference
-        ? pricingMatrix.image['grok-imagine'].withReference
-        : pricingMatrix.image['grok-imagine'].promptOnly
-    }
+    perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
   } else if (snapshot.videoModel === 'veo-3.1') {
     perTaskRate = hasVeoReferenceSlot({
       assets: snapshot.assets,

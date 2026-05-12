@@ -153,16 +153,6 @@ export const imageModels: Array<{
   value: ImageModelOption
 }> = [
   {
-    helper: 'OpenAI GPT Image 2 with 1K / 2K / 4K tiers',
-    label: 'GPT Image 2',
-    value: 'gpt-image-2',
-  },
-  {
-    helper: 'Text and image-led still renders',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
-  },
-  {
     helper: 'Google image generation with direct reference input',
     label: 'Nano Banana 2',
     value: 'nano-banana',
@@ -240,10 +230,7 @@ export function getImageQualityOptions(
   imageModel: ImageModelOption,
   kiePricing: KiePricingResponse | null,
 ) {
-  return (
-    kiePricing?.supportedImageQualities?.[imageModel] ??
-    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : imageQualities)
-  )
+  return kiePricing?.supportedImageQualities?.[imageModel] ?? imageQualities
 }
 
 export function getImageQualityLabel(quality: OutputQuality) {

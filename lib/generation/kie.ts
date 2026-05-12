@@ -425,14 +425,6 @@ function getImageAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '1:1' : '2:3'
 }
 
-function getGptImage2AspectRatio(subjectMode: SubjectMode) {
-  return subjectMode === 'product-only' ? '1:1' : '3:4'
-}
-
-function getGptImage2Resolution(outputQuality: OutputQuality) {
-  return getImageResolution(outputQuality)
-}
-
 function getVideoAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '16:9' : '9:16'
 }
@@ -557,6 +549,32 @@ function collectImageReferenceAssets(
   ]
 }
 
+function collectVideoReferenceUrls(
+  subjectMode: SubjectMode,
+  assets: UploadedAssetDescriptor[],
+  options?: {
+    includeEndFrame?: boolean
+    max?: number
+  },
+) {
+  const urls = collectImageReferenceAssets(subjectMode, assets).map(
+    (asset) => asset.remoteUrl,
+  )
+  const endFrame = chooseEndFrameReference(assets)
+
+  if (options?.includeEndFrame && endFrame?.remoteUrl) {
+    urls.push(endFrame.remoteUrl)
+  }
+
+  const dedupedUrls = urls.filter(
+    (url, index) => url.length > 0 && urls.indexOf(url) === index,
+  )
+
+  return typeof options?.max === 'number'
+    ? dedupedUrls.slice(0, options.max)
+    : dedupedUrls
+}
+
 function collectNanoBananaReferenceAssets(
   subjectMode: SubjectMode,
   assets: UploadedAssetDescriptor[],
@@ -679,16 +697,6 @@ function buildNanoBananaPrompt(input: {
     .trim()
 }
 
-function ensureGrokImagePromptReference(prompt: string) {
-  const trimmedPrompt = prompt.trim()
-
-  if (/@image1\b/.test(trimmedPrompt)) {
-    return trimmedPrompt
-  }
-
-  return `@image1 ${trimmedPrompt}`.trim()
-}
-
 function buildMarketImagePayload(input: {
   assets: UploadedAssetDescriptor[]
   imageGrid?: boolean
@@ -729,60 +737,7 @@ function buildMarketImagePayload(input: {
       },
     }
   }
-
-  if (input.imageModel === 'gpt-image-2') {
-    const modelName = primaryReference
-      ? 'gpt-image-2-image-to-image'
-      : 'gpt-image-2-text-to-image'
-    const gptImage2AspectRatio = getGptImage2AspectRatio(input.subjectMode)
-
-    return {
-      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-      modelName,
-      provider: 'market' as const,
-      requestBody: {
-        model: modelName,
-        input: {
-          prompt: primaryReference
-            ? ensureGrokImagePromptReference(prompt)
-            : prompt,
-          ...(primaryReference
-            ? { input_urls: [primaryReference.remoteUrl] }
-            : null),
-          aspect_ratio: gptImage2AspectRatio,
-          resolution: getGptImage2Resolution(input.outputQuality),
-        },
-      },
-    }
-  }
-
-  if (primaryReference) {
-    return {
-      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-      modelName: 'grok-imagine/image-to-image',
-      provider: 'market' as const,
-      requestBody: {
-        model: 'grok-imagine/image-to-image',
-        input: {
-          prompt: ensureGrokImagePromptReference(prompt),
-          image_urls: [primaryReference.remoteUrl],
-        },
-      },
-    }
-  }
-
-  return {
-    endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-    modelName: 'grok-imagine/text-to-image',
-    provider: 'market' as const,
-      requestBody: {
-        model: 'grok-imagine/text-to-image',
-        input: {
-          prompt,
-          aspect_ratio: aspectRatio,
-        },
-      },
-  }
+  throw new Error(`Unsupported image model: ${input.imageModel}`)
 }
 
 function buildVideoPayload(input: {
@@ -798,12 +753,22 @@ function buildVideoPayload(input: {
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
   const videoResolution = getVideoResolution(input.outputQuality)
+  const referenceImageUrls = collectVideoReferenceUrls(
+    input.subjectMode,
+    input.assets,
+    {
+      includeEndFrame: true,
+    },
+  )
 
   if (input.videoModel === 'veo-3.1') {
-    const imageUrls = [
-      primaryReference?.remoteUrl,
-      endFrameReference?.remoteUrl,
-    ].filter((value): value is string => Boolean(value))
+    const imageUrls = referenceImageUrls.slice(0, 3)
+    const hasExplicitEndFramePair =
+      Boolean(primaryReference?.remoteUrl) &&
+      Boolean(endFrameReference?.remoteUrl) &&
+      imageUrls.length === 2 &&
+      imageUrls[0] === primaryReference?.remoteUrl &&
+      imageUrls[1] === endFrameReference?.remoteUrl
 
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/veo/generate`,
@@ -817,9 +782,9 @@ function buildVideoPayload(input: {
         enableFallback: false,
         enableTranslation: true,
         generationType:
-          imageUrls.length === 2
+          hasExplicitEndFramePair
             ? 'FIRST_AND_LAST_FRAMES_2_VIDEO'
-            : imageUrls.length === 1
+            : imageUrls.length >= 1
               ? 'REFERENCE_2_VIDEO'
               : 'TEXT_2_VIDEO',
       },
@@ -838,11 +803,9 @@ function buildVideoPayload(input: {
       requestBody: {
         model: modelName,
         input: {
-          prompt: primaryReference
-            ? ensureGrokImagePromptReference(input.prompt)
-            : input.prompt,
+          prompt: input.prompt,
           ...(primaryReference
-            ? { image_urls: [primaryReference.remoteUrl] }
+            ? { image_urls: referenceImageUrls }
             : null),
           aspect_ratio: aspectRatio,
           mode: 'normal',
@@ -854,10 +817,7 @@ function buildVideoPayload(input: {
   }
 
   if (input.videoModel === 'seedance-1.5-pro') {
-    const inputUrls = [
-      primaryReference?.remoteUrl,
-      endFrameReference?.remoteUrl,
-    ].filter((value): value is string => Boolean(value))
+    const inputUrls = referenceImageUrls
 
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
@@ -892,7 +852,7 @@ function buildVideoPayload(input: {
       input: {
         prompt: input.prompt,
         ...(primaryReference
-          ? { image_urls: [primaryReference.remoteUrl] }
+          ? { image_urls: referenceImageUrls }
           : null),
         sound: input.videoAudio === 'with-audio',
         duration: getKlingDuration(input.videoDuration),
@@ -1081,7 +1041,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const imageModel = readEnum(
     formData,
     'imageModel',
-    ['nano-banana', 'grok-imagine', 'gpt-image-2'] as const,
+    ['nano-banana'] as const,
   )
   const videoModel = readEnum(
     formData,

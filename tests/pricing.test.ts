@@ -256,27 +256,27 @@ describe('generation pricing', () => {
     })
   })
 
-  it('estimates Grok prompt-only image cost for batch size 2', () => {
+  it('estimates Nano Banana prompt-only image cost for batch size 2', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         batchSize: 2,
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )
 
     expect(estimate).toEqual({
       available: true,
-      credits: 8,
+      credits: 24,
       reason: null,
-      usd: 0.04,
+      usd: 0.12,
     })
   })
 
-  it('estimates GPT Image 2 prompt-only 4k image cost', () => {
+  it('estimates Nano Banana prompt-only 4k image cost', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
-        imageModel: 'gpt-image-2',
+        imageModel: 'nano-banana',
         outputQuality: '4k',
       }),
       pricingMatrix,
@@ -284,29 +284,29 @@ describe('generation pricing', () => {
 
     expect(estimate).toEqual({
       available: true,
-      credits: 16,
+      credits: 12,
       reason: null,
-      usd: 0.08,
+      usd: 0.06,
     })
   })
 
-  it('estimates Grok image cost with a reference for batch size 4', () => {
+  it('estimates Nano Banana image cost with a reference for batch size 4', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         assets: createAssets({
           face1: createSlot('face1', 'Face 1', true),
         }),
         batchSize: 4,
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )
 
     expect(estimate).toEqual({
       available: true,
-      credits: 16,
+      credits: 48,
       reason: null,
-      usd: 0.08,
+      usd: 0.24,
     })
   })
 
@@ -411,7 +411,7 @@ describe('generation pricing', () => {
   it('blocks generation while the credit balance is still unavailable', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )
