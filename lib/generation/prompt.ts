@@ -38,6 +38,9 @@ const subjectPhrases: Record<SubjectMode, string> = {
     'Stage a lifestyle composition that naturally includes a person interacting with the product.',
 }
 
+const lifestyleImageAnatomySafeguard =
+  'Anatomy integrity: render natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, correctly attached limbs, and no duplicated, missing, fused, or distorted body parts.'
+
 const environmentPhrases: Record<ShotEnvironment, string> = {
   indoor: 'Shot environment: curated indoor setting with studio-grade control.',
   outdoor: 'Shot environment: outdoor location with natural environmental context.',
@@ -176,6 +179,10 @@ export function compileGenerationPrompt(input: {
       input.characterGender,
       input.characterAgeGroup,
     ].filter((value) => value !== 'any')
+
+    if (input.workspace === 'image') {
+      promptParts.push(lifestyleImageAnatomySafeguard)
+    }
 
     if (demographicSelections.length > 0) {
       promptParts.push(

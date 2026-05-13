@@ -124,6 +124,28 @@ describe('compileGenerationPrompt', () => {
     )
   })
 
+  it('adds anatomy safeguards for lifestyle image prompts', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [makeAsset({ key: 'face1', label: 'Face 1' })],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Actor holds the bottle with both hands.',
+      videoDuration: 'base',
+      workspace: 'image',
+    })
+
+    expect(prompt).toContain(
+      'Anatomy integrity: render natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, correctly attached limbs, and no duplicated, missing, fused, or distorted body parts.',
+    )
+  })
+
   it('omits demographics and figure art direction for product-only prompts', () => {
     const prompt = compileGenerationPrompt({
       assets: [
