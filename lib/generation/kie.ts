@@ -104,6 +104,35 @@ export type ParsedGenerationRequest = {
   workspace: WorkspaceTab
 }
 
+export type GenerationRequestErrorCode =
+  | 'invalid_input'
+  | 'server_config'
+  | 'service_unavailable'
+
+export class GenerationRequestError extends Error {
+  code: GenerationRequestErrorCode
+  status: number
+
+  constructor(input: {
+    code: GenerationRequestErrorCode
+    message: string
+    status: number
+  }) {
+    super(input.message)
+    this.name = 'GenerationRequestError'
+    this.code = input.code
+    this.status = input.status
+  }
+}
+
+function createServiceUnavailableError(message: string) {
+  return new GenerationRequestError({
+    code: 'service_unavailable',
+    message,
+    status: 503,
+  })
+}
+
 type ResolvedAssetDescriptor = SubmittedAssetDescriptor & { file: File }
 
 type PromptVariantDescriptor = {
@@ -117,7 +146,11 @@ export function getKieApiKey() {
   const apiKey = process.env.KIE_API_KEY
 
   if (!apiKey) {
-    throw new Error('KIE_API_KEY is not configured on the server.')
+    throw new GenerationRequestError({
+      code: 'server_config',
+      message: 'KIE_API_KEY is not configured on the server.',
+      status: 500,
+    })
   }
 
   return apiKey
@@ -127,7 +160,11 @@ function readString(formData: FormData, key: string) {
   const value = formData.get(key)
 
   if (typeof value !== 'string') {
-    throw new Error(`Missing required form field: ${key}.`)
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Missing required form field: ${key}.`,
+      status: 400,
+    })
   }
 
   return value
@@ -151,7 +188,11 @@ function readOptionalEnum<T extends string>(
   }
 
   if (!values.includes(value as T)) {
-    throw new Error(`Invalid value for ${key}.`)
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Invalid value for ${key}.`,
+      status: 400,
+    })
   }
 
   return value as T
@@ -165,7 +206,11 @@ function readEnum<T extends string>(
   const value = readString(formData, key)
 
   if (!values.includes(value as T)) {
-    throw new Error(`Invalid value for ${key}.`)
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Invalid value for ${key}.`,
+      status: 400,
+    })
   }
 
   return value as T
@@ -381,7 +426,7 @@ export async function fetchKieWithTimeout(
     })
   } catch (error) {
     if (isAbortError(error)) {
-      throw new Error(
+      throw createServiceUnavailableError(
         `${action} timed out after ${Math.round(KIE_REQUEST_TIMEOUT_MS / 1000)} seconds.`,
       )
     }
@@ -402,14 +447,16 @@ async function fetchKieCredits(
   })
 
   if (!response.ok) {
-    throw new Error(await readKieError(response))
+    throw createServiceUnavailableError(await readKieError(response))
   }
 
   const payload = (await response.json()) as unknown
   const credits = extractCredits(payload)
 
   if (credits === null) {
-    throw new Error('KIE credit response did not include a usable balance.')
+    throw createServiceUnavailableError(
+      'KIE credit response did not include a usable balance.',
+    )
   }
 
   return {
@@ -737,7 +784,11 @@ function buildMarketImagePayload(input: {
       },
     }
   }
-  throw new Error(`Unsupported image model: ${input.imageModel}`)
+  throw new GenerationRequestError({
+    code: 'invalid_input',
+    message: `Unsupported image model: ${input.imageModel}`,
+    status: 400,
+  })
 }
 
 function buildVideoPayload(input: {
@@ -881,14 +932,14 @@ export async function uploadFileToKie(
   }, 'KIE file upload')
 
   if (!response.ok) {
-    throw new Error(await readKieError(response))
+    throw createServiceUnavailableError(await readKieError(response))
   }
 
   const payload = (await response.json()) as unknown
   const remoteUrl = extractRemoteUrl(payload)
 
   if (!remoteUrl) {
-    throw new Error(
+    throw createServiceUnavailableError(
       `KIE file upload did not return a usable remote URL. payload=${summarizePayload(payload)}`,
     )
   }
@@ -922,7 +973,7 @@ export async function uploadImageFileToKieBase64(
   )
 
   if (!response.ok) {
-    throw new Error(await readKieError(response))
+    throw createServiceUnavailableError(await readKieError(response))
   }
 
   const payload = (await response.json()) as unknown
@@ -977,7 +1028,7 @@ export async function uploadImageFileToKieBase64(
   })()
 
   if (!remoteUrl) {
-    throw new Error(
+    throw createServiceUnavailableError(
       `KIE base64 upload did not return a usable remote URL. payload=${summarizePayload(payload)}`,
     )
   }
@@ -1033,21 +1084,28 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
   if (![1, 2, 3, 4].includes(requestedBatchSize)) {
-    throw new Error('Batch size must be between 1 and 4.')
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: 'Batch size must be between 1 and 4.',
+      status: 400,
+    })
   }
 
   const batchSize = workspace === 'video' ? 1 : requestedBatchSize
 
-  const imageModel = readEnum(
-    formData,
-    'imageModel',
-    ['nano-banana'] as const,
-  )
-  const videoModel = readEnum(
-    formData,
-    'videoModel',
-    ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
-  )
+  const imageModel =
+    workspace === 'image'
+      ? readEnum(formData, 'imageModel', ['nano-banana'] as const)
+      : 'nano-banana'
+  const videoModel =
+    workspace === 'video'
+      ? readEnum(formData, 'videoModel', [
+          'veo-3.1',
+          'kling',
+          'grok-imagine',
+          'seedance-1.5-pro',
+        ] as const)
+      : 'veo-3.1'
   const outputQuality = readEnum(
     formData,
     'outputQuality',
@@ -1055,13 +1113,21 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   )
 
   if (workspace === 'video' && outputQuality === '4k') {
-    throw new Error('Video output quality supports only 720p or 1080p.')
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: 'Video output quality supports only 720p or 1080p.',
+      status: 400,
+    })
   }
   const manifestValue = readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
 
   if (!Array.isArray(parsedManifest)) {
-    throw new Error('Asset manifest is malformed.')
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: 'Asset manifest is malformed.',
+      status: 400,
+    })
   }
 
   const guided = (() => {
@@ -1081,7 +1147,11 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     )
 
     if (!analysisModel) {
-      throw new Error('Unsupported guided analysis model.')
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Unsupported guided analysis model.',
+        status: 400,
+      })
     }
     const productUrl = readOptionalString(formData, 'productUrl') ?? ''
     const parsedGuidedShots = safeJsonParse(guidedShotsValue)
@@ -1129,7 +1199,11 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
 
   const assetDescriptors = parsedManifest.map((asset, index) => {
     if (!asset || typeof asset !== 'object') {
-      throw new Error('Asset manifest contains an invalid entry.')
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Asset manifest contains an invalid entry.',
+        status: 400,
+      })
     }
 
     const record = asset as Record<string, unknown>
@@ -1145,11 +1219,19 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       (kind !== 'named' && kind !== 'product') ||
       typeof order !== 'number'
     ) {
-      throw new Error('Asset manifest entry is missing required fields.')
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Asset manifest entry is missing required fields.',
+        status: 400,
+      })
     }
 
     if (!(file instanceof File) || file.size === 0) {
-      throw new Error(`Missing uploaded file for ${label}.`)
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: `Missing uploaded file for ${label}.`,
+        status: 400,
+      })
     }
 
     const parsedKey =
@@ -1269,7 +1351,7 @@ export async function submitProviderTask(
   })
 
   if (!response.ok) {
-    throw new Error(await readKieError(response))
+    throw createServiceUnavailableError(await readKieError(response))
   }
 
   const payload = (await response.json()) as Record<string, unknown>
@@ -1278,7 +1360,7 @@ export async function submitProviderTask(
       ? (payload.data as Record<string, unknown>)
       : null
   if (payload.code !== undefined && payload.code !== 200) {
-    throw new Error(
+    throw createServiceUnavailableError(
       typeof payload.msg === 'string' && payload.msg.length > 0
         ? payload.msg
         : `KIE returned error code ${String(payload.code)}.`,
@@ -1299,7 +1381,9 @@ export async function submitProviderTask(
     ) ?? null
 
   if (!taskId) {
-    throw new Error('KIE generation request did not return a task ID.')
+    throw createServiceUnavailableError(
+      'KIE generation request did not return a task ID.',
+    )
   }
 
   return taskId
@@ -1549,14 +1633,16 @@ export async function getTaskStatus(input: {
   })
 
   if (!response.ok) {
-    throw new Error(await readKieError(response))
+    throw createServiceUnavailableError(await readKieError(response))
   }
 
   const payload = (await response.json()) as Record<string, unknown>
   const data = payload.data as Record<string, unknown> | undefined
 
   if (!data) {
-    throw new Error('KIE task status response did not include data.')
+    throw createServiceUnavailableError(
+      'KIE task status response did not include data.',
+    )
   }
 
   if (input.provider === 'veo') {

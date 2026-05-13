@@ -102,6 +102,41 @@ describe('KIE batch submission', () => {
     )
   })
 
+  it('falls back to the default image model for video workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('imageModel', 'grok-imagine')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('video')
+    expect(parsed.imageModel).toBe('nano-banana')
+  })
+
+  it('keeps strict image model validation for image workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'image')
+    formData.set('imageModel', 'grok-imagine')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Invalid value for imageModel.',
+    )
+  })
+
+  it('ignores invalid video model values for image workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'image')
+    formData.set('videoModel', 'veo-4')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('image')
+    expect(parsed.videoModel).toBe('veo-3.1')
+  })
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })

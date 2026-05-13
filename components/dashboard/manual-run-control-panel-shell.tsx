@@ -7,13 +7,13 @@ import {
   batchSizes,
   cameraMovements,
   creativeStyles,
-  durations,
   getForcedVideoAudio,
   getVideoAudioLabel,
   figureArtDirections,
   getImageQualityLabel,
   getImageQualityOptions,
   getVideoDurationLabel,
+  getVideoDurationOptions,
   supportsVideoAudioSelection,
   imageModels,
   productCategories,
@@ -360,7 +360,7 @@ function RunControlPanel({
                       }
                       value={videoDuration}
                     >
-                      {durations.map((duration) => (
+                      {getVideoDurationOptions(videoModel).map((duration) => (
                         <option key={duration} value={duration}>
                           {getVideoDurationLabel(videoModel, duration)}
                         </option>

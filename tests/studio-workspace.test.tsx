@@ -255,6 +255,40 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Location')).toHaveLength(1)
   })
 
+  it('shows a single clip-length option for Veo 3.1', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('veo-3.1')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Review and run generation')
+
+    const durationSelect = screen.getByLabelText('Video Duration')
+    const options = Array.from(durationSelect.querySelectorAll('option')).map((option) =>
+      option.textContent?.trim(),
+    )
+
+    expect(options).toEqual(['8s'])
+  })
+
   it('keeps reference cards readable on mobile without wrapping the file CTA', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
 

@@ -4,6 +4,7 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
+  GenerationRequestError,
   getKieStatus,
   parseGenerationFormData,
   submitGenerationRequest,
@@ -127,20 +128,12 @@ function createEstimateSnapshot(
   }
 }
 
-function getGenerationErrorStatus(message: string) {
-  if (message.includes('KIE_API_KEY') || message.includes('configured')) {
-    return 500
+function getGenerationErrorStatus(error: unknown) {
+  if (error instanceof GenerationRequestError) {
+    return error.status
   }
 
-  if (message.startsWith('Not enough KIE credits.')) {
-    return 402
-  }
-
-  if (/KIE|credit|credits|balance|pricing/i.test(message)) {
-    return 503
-  }
-
-  return 400
+  return 500
 }
 
 function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>) {
@@ -204,9 +197,7 @@ export async function POST(request: Request) {
           error: creditValidation.reason ?? 'Generation is blocked.',
         },
         {
-          status: getGenerationErrorStatus(
-            creditValidation.reason ?? 'Generation is blocked.',
-          ),
+          status: 402,
         },
       )
     }
@@ -260,7 +251,7 @@ export async function POST(request: Request) {
         error: message,
       },
       {
-        status: getGenerationErrorStatus(message),
+        status: getGenerationErrorStatus(error),
       },
     )
   }

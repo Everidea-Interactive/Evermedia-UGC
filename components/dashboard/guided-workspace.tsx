@@ -23,6 +23,10 @@ import { Select } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  getVideoDurationLabel,
+  getVideoDurationOptions,
+} from '@/components/dashboard/manual-workspace-config'
+import {
   buildGuidedAnalysisFormData,
   buildGuidedGenerationFormData,
 } from '@/lib/generation/client'
@@ -72,7 +76,6 @@ const fieldLabelClassName =
 
 const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 const videoQualities: OutputQuality[] = ['720p', '1080p']
-const videoDurations: VideoDuration[] = ['base', 'extended']
 const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 function supportsVideoAudioSelection(model: VideoModelOption) {
@@ -206,24 +209,6 @@ function formatEstimateUsd(usd: number | null, usdToIdrRate: number) {
   }).format(idr)
 }
 
-function getGuidedVideoDurationLabel(
-  model: VideoModelOption,
-  duration: VideoDuration,
-) {
-  if (model === 'kling') {
-    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
-  }
-
-  if (model === 'grok-imagine') {
-    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
-  }
-
-  if (model === 'seedance-1.5-pro') {
-    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
-  }
-
-  return '8s'
-}
 
 function getGuidedVideoAudioLabel(videoAudio: VideoAudio) {
   return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
@@ -1301,9 +1286,9 @@ function GuidedRunPanel({
                     }
                     value={videoDuration}
                   >
-                    {videoDurations.map((duration) => (
+                    {getVideoDurationOptions(videoModel).map((duration) => (
                       <option key={duration} value={duration}>
-                        {getGuidedVideoDurationLabel(videoModel, duration)}
+                        {getVideoDurationLabel(videoModel, duration)}
                       </option>
                     ))}
                   </Select>

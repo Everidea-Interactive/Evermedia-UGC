@@ -191,6 +191,43 @@ export const videoQualities: OutputQuality[] = ['720p', '1080p']
 export const durations: VideoDuration[] = ['base', 'extended']
 export const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
+const videoDurationConfig: Record<
+  VideoModelOption,
+  {
+    labels: Record<VideoDuration, string>
+    options: VideoDuration[]
+  }
+> = {
+  'grok-imagine': {
+    labels: {
+      base: 'Base (6s)',
+      extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
+  kling: {
+    labels: {
+      base: 'Base (5s)',
+      extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
+  'seedance-1.5-pro': {
+    labels: {
+      base: 'Base (8s)',
+      extended: 'Extended (12s)',
+    },
+    options: durations,
+  },
+  'veo-3.1': {
+    labels: {
+      base: '8s',
+      extended: '8s',
+    },
+    options: ['base'],
+  },
+}
+
 export function getVideoAudioLabel(videoAudio: VideoAudio) {
   return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
 }
@@ -211,19 +248,11 @@ export function getVideoDurationLabel(
   model: VideoModelOption,
   duration: VideoDuration,
 ) {
-  if (model === 'kling') {
-    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
-  }
+  return videoDurationConfig[model].labels[duration]
+}
 
-  if (model === 'grok-imagine') {
-    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
-  }
-
-  if (model === 'seedance-1.5-pro') {
-    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
-  }
-
-  return '8s'
+export function getVideoDurationOptions(model: VideoModelOption): VideoDuration[] {
+  return videoDurationConfig[model].options
 }
 
 export function getImageQualityOptions(

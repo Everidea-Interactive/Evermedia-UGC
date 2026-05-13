@@ -28,6 +28,16 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   videoModel: 'veo-3.1',
 }
 
+function readSnapshotEnum<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+) {
+  return typeof value === 'string' && allowed.includes(value as T)
+    ? (value as T)
+    : fallback
+}
+
 function normalizeGuidedSnapshot(
   value: Partial<GenerationConfigSnapshot>['guided'],
 ): GenerationConfigSnapshot['guided'] {
@@ -108,6 +118,16 @@ export function normalizeProjectConfigSnapshot(
       snapshot.experience === 'ideation'
         ? snapshot.experience
         : 'manual',
+    imageModel: readSnapshotEnum(
+      snapshot.imageModel,
+      ['nano-banana'] as const,
+      defaultProjectConfigSnapshot.imageModel,
+    ),
+    videoModel: readSnapshotEnum(
+      snapshot.videoModel,
+      ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
+      defaultProjectConfigSnapshot.videoModel,
+    ),
     guided: normalizeGuidedSnapshot(snapshot.guided),
   }
 

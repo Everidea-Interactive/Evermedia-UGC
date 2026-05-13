@@ -7,6 +7,17 @@ vi.mock('@/lib/auth/session', () => ({
 vi.mock('@/lib/generation/kie', () => ({
   buildPromptSnapshot: vi.fn(),
   createRunId: vi.fn(),
+  GenerationRequestError: class GenerationRequestError extends Error {
+    code: string
+    status: number
+
+    constructor(input: { code: string; message: string; status: number }) {
+      super(input.message)
+      this.name = 'GenerationRequestError'
+      this.code = input.code
+      this.status = input.status
+    }
+  },
   getKieStatus: vi.fn(),
   parseGenerationFormData: vi.fn(),
   submitGenerationRequest: vi.fn(),
@@ -38,6 +49,7 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
+  GenerationRequestError,
   getKieStatus,
   parseGenerationFormData,
   submitGenerationRequest,
@@ -416,6 +428,80 @@ describe('POST /api/generation/run', () => {
     expect(submitGenerationRequest).not.toHaveBeenCalled()
     await expect(response.json()).resolves.toMatchObject({
       error: 'Not enough KIE credits. 12 required, 4 available.',
+    })
+  })
+
+  it('returns 400 when request parsing fails with a validation error', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      email: 'user@example.com',
+      id: 'user-1',
+    })
+    vi.mocked(parseGenerationFormData).mockImplementation(() => {
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Invalid value for imageModel.',
+        status: 400,
+      })
+    })
+
+    const response = await POST(
+      new Request('http://localhost/api/generation/run', {
+        body: new FormData(),
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid value for imageModel.',
+    })
+  })
+
+  it('returns 503 when upstream KIE submission fails', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      email: 'user@example.com',
+      id: 'user-1',
+    })
+    vi.mocked(parseGenerationFormData).mockReturnValue({
+      activeModel: 'nano-banana',
+      assetDescriptors: [],
+      batchSize: 1,
+      cameraMovement: 'orbit',
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      experience: 'manual',
+      figureArtDirection: 'none',
+      guided: null,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Prompt',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+    vi.mocked(submitGenerationRequest).mockRejectedValue(
+      new GenerationRequestError({
+        code: 'service_unavailable',
+        message: '503 Service Unavailable: upstream failed',
+        status: 503,
+      }),
+    )
+
+    const response = await POST(
+      new Request('http://localhost/api/generation/run', {
+        body: new FormData(),
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({
+      error: '503 Service Unavailable: upstream failed',
     })
   })
 

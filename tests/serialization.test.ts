@@ -107,6 +107,16 @@ describe('normalizeProjectConfigSnapshot', () => {
 
     expect(snapshot.experience).toBe('ideation')
   })
+
+  it('falls back invalid persisted model values to defaults', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      imageModel: 'grok-imagine' as never,
+      videoModel: 'veo-4' as never,
+    })
+
+    expect(snapshot.imageModel).toBe('nano-banana')
+    expect(snapshot.videoModel).toBe('veo-3.1')
+  })
 })
 
 describe('createGenerationRunState', () => {
