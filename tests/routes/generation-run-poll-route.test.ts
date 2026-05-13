@@ -244,6 +244,25 @@ describe('GET /api/generation/runs/[runId]', () => {
       }),
     )
     await expect(response.json()).resolves.toMatchObject({
+      configSnapshot: {
+        activeTab: 'image',
+        batchSize: 1,
+        cameraMovement: 'orbit',
+        characterAgeGroup: 'any',
+        characterGender: 'any',
+        creativeStyle: 'ugc-lifestyle',
+        experience: 'manual',
+        figureArtDirection: 'none',
+        guided: null,
+        imageModel: 'nano-banana',
+        outputQuality: '1080p',
+        productCategory: 'cosmetics',
+        shotEnvironment: 'indoor',
+        subjectMode: 'lifestyle',
+        textPrompt: 'Prompt',
+        videoDuration: 'base',
+        videoModel: 'veo-3.1',
+      },
       run: {
         runId: 'run-1',
         status: 'success',

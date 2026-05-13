@@ -1,22 +1,26 @@
 'use client'
 
-import { Trash2 } from 'lucide-react'
-import { useMemo, useState, useTransition } from 'react'
+import { Forward, LoaderCircle, Trash2 } from 'lucide-react'
+import { startTransition, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/generation/client'
+import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
+import type { GenerationRun } from '@/lib/generation/types'
 import {
   formatIdeationConceptCardText,
   formatIdeationResultText,
 } from '@/lib/generation/ideation'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import type {
+  ProjectConfigSnapshot,
   SavedIdeationHistoryEntry,
   SavedOutputHistoryEntry,
 } from '@/lib/persistence/types'
+import { useGenerationStore } from '@/store/use-generation-store'
 
 type RunGroup = {
   id: string
@@ -185,12 +189,17 @@ export function LibraryPage({
   outputs: SavedOutputHistoryEntry[]
 }) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [isPending, startRefreshTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [forwardingOutputId, setForwardingOutputId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [archiveView, setArchiveView] = useState<ArchiveView>('outputs')
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
+  const forwardManualImageResultToVideo = useGenerationStore(
+    (state) => state.forwardManualImageResultToVideo,
+  )
+  const hydrateProjectConfig = useGenerationStore((state) => state.hydrateProjectConfig)
 
   const runGroups = useMemo(() => buildRunGroups(outputs), [outputs])
   const archiveStats = useMemo(
@@ -257,9 +266,43 @@ export function LibraryPage({
 
     setDeleteTarget(null)
     setIsDeleting(false)
-    startTransition(() => {
+    startRefreshTransition(() => {
       router.refresh()
     })
+  }
+
+  const forwardOutputToVideo = async (outputId: string, runId: string) => {
+    try {
+      setForwardingOutputId(outputId)
+      const runResponse = await fetch(
+        `/api/generation/runs/${encodeURIComponent(runId)}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const runPayload = (await runResponse.json().catch(() => null)) as
+        | {
+            configSnapshot?: ProjectConfigSnapshot
+            error?: string
+            run?: GenerationRun
+          }
+        | null
+
+      if (!runResponse.ok || !runPayload?.configSnapshot) {
+        throw new Error(runPayload?.error ?? 'Unable to load the saved preset.')
+      }
+      const configSnapshot = runPayload.configSnapshot
+
+      const file = await fetchForwardedResultFile(getAssetMediaUrl(outputId))
+
+      startTransition(() => {
+        hydrateProjectConfig(configSnapshot)
+        forwardManualImageResultToVideo(file)
+        router.push('/')
+      })
+    } finally {
+      setForwardingOutputId(null)
+    }
   }
 
   const closeDeleteDialog = (open: boolean) => {
@@ -525,6 +568,33 @@ export function LibraryPage({
                               Download
                             </a>
                           </Button>
+                          {isImageMimeType(entry.output.mimeType) ? (
+                            <Button
+                              disabled={forwardingOutputId === entry.output.id}
+                              onClick={() => {
+                                void forwardOutputToVideo(entry.output.id, entry.run.id)
+                              }}
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                            >
+                              {forwardingOutputId === entry.output.id ? (
+                                <LoaderCircle
+                                  className="animate-spin"
+                                  data-icon="inline-start"
+                                  suppressHydrationWarning
+                                />
+                              ) : (
+                                <Forward
+                                  data-icon="inline-start"
+                                  suppressHydrationWarning
+                                />
+                              )}
+                              {forwardingOutputId === entry.output.id
+                                ? 'Forwarding...'
+                                : 'Forward to Video'}
+                            </Button>
+                          ) : null}
                           <Button
                             className="text-destructive hover:text-destructive"
                             disabled={isDeleting || isPending}

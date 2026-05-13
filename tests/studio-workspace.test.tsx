@@ -3,7 +3,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { LocaleProvider } from '@/components/i18n/locale-provider'
@@ -105,6 +106,36 @@ afterEach(async () => {
 })
 
 describe('StudioWorkspace', () => {
+  it('preserves preloaded video staging across a strict-mode studio mount', async () => {
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    globalThis.cancelAnimationFrame = (handle: number) => {
+      window.clearTimeout(handle)
+    }
+
+    const { StudioWorkspace } = await import('@/components/dashboard/studio-workspace')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().forwardManualImageResultToVideo(
+        new File(['forwarded'], 'forwarded.png', { type: 'image/png' }),
+      )
+    })
+
+    render(
+      <StrictMode>
+        <StudioWorkspace />
+      </StrictMode>,
+    )
+
+    await screen.findByRole('tab', { name: 'References' })
+
+    const state = useGenerationStore.getState()
+    expect(state.activeTab).toBe('video')
+    expect(state.experience).toBe('manual')
+    expect(state.videoReferences[0]?.file?.name).toBe('forwarded.png')
+  })
+
   it('preserves generation state when switching away from manual and only disposes on studio unmount', async () => {
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)
@@ -130,8 +161,10 @@ describe('StudioWorkspace', () => {
 
     unmount()
 
-    expect(useGenerationStore.getState().experience).toBe('manual')
-    expect(useGenerationStore.getState().textPrompt).toBe('')
+    await waitFor(() => {
+      expect(useGenerationStore.getState().experience).toBe('manual')
+      expect(useGenerationStore.getState().textPrompt).toBe('')
+    })
   })
 
   it('normalizes the manual section when image mode cannot show motion controls', async () => {

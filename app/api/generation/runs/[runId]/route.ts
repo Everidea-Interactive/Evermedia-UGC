@@ -175,6 +175,7 @@ export async function GET(
   }
 
   return NextResponse.json({
+    configSnapshot: refreshedBundle.run.configSnapshot,
     run: createGenerationRunState(refreshedBundle.run, refreshedBundle.outputs),
   })
 }
