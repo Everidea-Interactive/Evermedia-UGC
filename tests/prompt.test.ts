@@ -208,3 +208,62 @@ describe('buildVariantPromptSet', () => {
     )
   })
 })
+
+describe('video duration prompt wording', () => {
+  it('uses exact clip lengths in video prompts for the selected model', () => {
+    const basePrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    const extendedPrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'extended',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    const veoExtendedPrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'extended',
+      videoModel: 'veo-3.1',
+      workspace: 'video',
+    })
+
+    expect(basePrompt).toContain('Clip intent: 8-second pacing.')
+    expect(extendedPrompt).toContain('Clip intent: 12-second pacing.')
+    expect(veoExtendedPrompt).toContain('Clip intent: 8-second pacing.')
+  })
+})

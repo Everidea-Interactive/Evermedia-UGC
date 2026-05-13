@@ -10,8 +10,10 @@ import type {
   SubjectMode,
   UploadedAssetDescriptor,
   VideoDuration,
+  VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import { getVideoDurationSeconds } from '@/lib/generation/model-mapping'
 
 type PromptVariantIndex = 1 | 2 | 3 | 4
 
@@ -139,6 +141,7 @@ export function compileGenerationPrompt(input: {
   subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
+  videoModel?: VideoModelOption
   workspace: WorkspaceTab
 }) {
   const endFrame = chooseEndFrameReference(input.assets)
@@ -199,7 +202,10 @@ export function compileGenerationPrompt(input: {
 
   if (input.workspace === 'video') {
     promptParts.push(
-      `Clip intent: ${input.videoDuration === 'base' ? 'short-form 5 to 8 second pacing' : 'extended pacing with extra action beats'}.`,
+      `Clip intent: ${getVideoDurationSeconds(
+        input.videoModel ?? 'veo-3.1',
+        input.videoDuration,
+      )}-second pacing.`,
     )
     promptParts.push(
       `Target delivery: ${input.outputQuality} output where the selected model supports it.`,

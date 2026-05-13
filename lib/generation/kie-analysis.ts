@@ -12,7 +12,7 @@ import type {
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import {
-  getSeedanceDuration,
+  getVideoDurationSeconds,
 } from '@/lib/generation/model-mapping'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
 import {
@@ -130,14 +130,9 @@ function getVideoTargetClipInstruction(input: {
 }) {
   const videoDuration = input.videoDuration ?? 'base'
   const videoModel = input.videoModel ?? 'veo-3.1'
+  const modelLabel = videoModel === 'seedance-1.5-pro' ? 'Seedance 1.5 Pro' : 'Veo 3.1'
 
-  switch (videoModel) {
-    case 'seedance-1.5-pro':
-      return `Target clip length: ${getSeedanceDuration(videoDuration)} seconds for Seedance 1.5 Pro.`
-    case 'veo-3.1':
-    default:
-      return 'Target clip length: 8 seconds for Veo 3.1.'
-  }
+  return `Target clip length: ${getVideoDurationSeconds(videoModel, videoDuration)} seconds for ${modelLabel}.`
 }
 
 function createSystemPrompt(workspace: WorkspaceTab = 'image') {

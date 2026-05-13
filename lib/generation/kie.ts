@@ -554,6 +554,7 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
     subjectMode: input.subjectMode,
     textPrompt: input.textPrompt,
     videoDuration: input.videoDuration,
+    videoModel: input.videoModel,
     workspace: input.workspace,
   })
 }

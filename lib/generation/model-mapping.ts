@@ -4,6 +4,7 @@ import type {
   NamedAssetSlots,
   OutputQuality,
   SubjectMode,
+  VideoModelOption,
   VideoDuration,
   VideoResolution,
 } from '@/lib/generation/types'
@@ -80,4 +81,17 @@ export function getGrokDuration(videoDuration: VideoDuration) {
 
 export function getSeedanceDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '12' : '8'
+}
+
+export function getVideoDurationSeconds(
+  videoModel: VideoModelOption,
+  videoDuration: VideoDuration,
+) {
+  switch (videoModel) {
+    case 'seedance-1.5-pro':
+      return getSeedanceDuration(videoDuration)
+    case 'veo-3.1':
+    default:
+      return '8'
+  }
 }
