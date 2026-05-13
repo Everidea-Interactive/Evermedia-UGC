@@ -79,7 +79,7 @@ const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'kling' || model === 'seedance-1.5-pro'
+  return model === 'seedance-1.5-pro'
 }
 
 function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
@@ -109,8 +109,6 @@ const imageModelLabels = {
 } as const
 
 const videoModelLabels = {
-  'grok-imagine': 'Grok Imagine',
-  kling: 'Kling',
   'seedance-1.5-pro': 'Seedance 1.5 Pro',
   'veo-3.1': 'Veo 3.1',
 } as const

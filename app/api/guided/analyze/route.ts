@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       readOptionalEnum(
         formData,
         'videoModel',
-        ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
+        ['veo-3.1', 'seedance-1.5-pro'] as const,
       ) ?? 'veo-3.1'
     const cameraMovement = readOptionalEnum(
       formData,

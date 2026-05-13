@@ -137,6 +137,20 @@ describe('KIE batch submission', () => {
     expect(parsed.videoModel).toBe('veo-3.1')
   })
 
+  it.each(['kling', 'grok-imagine'])(
+    'rejects deprecated %s video model submissions',
+    (videoModel) => {
+      const formData = buildBaseFormData('1')
+      formData.set('workspace', 'video')
+      formData.set('videoModel', videoModel)
+      formData.append('assetManifest', '[]')
+
+      expect(() => parseGenerationFormData(formData)).toThrow(
+        'Invalid value for videoModel.',
+      )
+    },
+  )
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })
@@ -843,108 +857,6 @@ describe('KIE batch submission', () => {
         nsfw_checker: false,
         prompt: 'Create a polished product motion clip.',
         resolution: '1080p',
-      },
-    })
-  })
-
-  it('uses all uploaded references for grok image-to-video payloads', () => {
-    const submission = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'asset_face1',
-          key: 'face1',
-          label: 'Face 1',
-          order: 0,
-          remoteUrl: 'https://files.example.com/face-1.png',
-        }),
-        makeUploadedAsset({
-          fieldName: 'asset_clothing',
-          key: 'clothing',
-          label: 'Clothing',
-          order: 2,
-          remoteUrl: 'https://files.example.com/clothing.png',
-        }),
-        makeUploadedAsset({
-          fieldName: 'asset_location',
-          key: 'location',
-          label: 'Location',
-          order: 3,
-          remoteUrl: 'https://files.example.com/location.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'nano-banana',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished product motion clip.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoAudio: 'no-audio',
-      videoModel: 'grok-imagine',
-      workspace: 'video',
-    })
-
-    expect(submission.requestBody).toMatchObject({
-      model: 'grok-imagine/image-to-video',
-      input: {
-        image_urls: [
-          'https://files.example.com/face-1.png',
-          'https://files.example.com/clothing.png',
-          'https://files.example.com/location.png',
-        ],
-      },
-    })
-  })
-
-  it('uses all uploaded references for kling image-to-video payloads', () => {
-    const submission = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'product_slot_1',
-          kind: 'product',
-          label: 'Product 1',
-          order: 100,
-          productId: 'product-1',
-          remoteUrl: 'https://files.example.com/product.png',
-        }),
-        makeUploadedAsset({
-          fieldName: 'asset_clothing',
-          key: 'clothing',
-          label: 'Clothing',
-          order: 2,
-          remoteUrl: 'https://files.example.com/clothing.png',
-        }),
-        makeUploadedAsset({
-          fieldName: 'asset_location',
-          key: 'location',
-          label: 'Location',
-          order: 3,
-          remoteUrl: 'https://files.example.com/location.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'nano-banana',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished product motion clip.',
-      subjectMode: 'product-only',
-      videoDuration: 'base',
-      videoAudio: 'with-audio',
-      videoModel: 'kling',
-      workspace: 'video',
-    })
-
-    expect(submission.requestBody).toMatchObject({
-      model: 'kling-2.6/image-to-video',
-      input: {
-        image_urls: [
-          'https://files.example.com/product.png',
-          'https://files.example.com/clothing.png',
-          'https://files.example.com/location.png',
-        ],
-        sound: true,
       },
     })
   })

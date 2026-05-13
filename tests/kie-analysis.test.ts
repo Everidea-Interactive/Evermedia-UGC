@@ -125,7 +125,7 @@ describe('KIE analysis adapters', () => {
       model: 'gemini-2.5-flash',
       productPage: null,
       shotCount: 1,
-      videoModel: 'kling',
+      videoModel: 'seedance-1.5-pro',
       videoDuration: 'extended',
       workspace: 'video',
     })
@@ -135,7 +135,7 @@ describe('KIE analysis adapters', () => {
       : ''
 
     expect(userText).toContain('Create exactly 1 video-generation shot.')
-    expect(userText).toContain('Target clip length: 10 seconds for Kling.')
+    expect(userText).toContain('Target clip length: 12 seconds for Seedance 1.5 Pro.')
     expect(userText).toContain('dolly')
   })
 

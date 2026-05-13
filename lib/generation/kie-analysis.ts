@@ -12,8 +12,6 @@ import type {
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import {
-  getGrokDuration,
-  getKlingDuration,
   getSeedanceDuration,
 } from '@/lib/generation/model-mapping'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
@@ -134,10 +132,6 @@ function getVideoTargetClipInstruction(input: {
   const videoModel = input.videoModel ?? 'veo-3.1'
 
   switch (videoModel) {
-    case 'kling':
-      return `Target clip length: ${getKlingDuration(videoDuration)} seconds for Kling.`
-    case 'grok-imagine':
-      return `Target clip length: ${getGrokDuration(videoDuration)} seconds for Grok Imagine.`
     case 'seedance-1.5-pro':
       return `Target clip length: ${getSeedanceDuration(videoDuration)} seconds for Seedance 1.5 Pro.`
     case 'veo-3.1':

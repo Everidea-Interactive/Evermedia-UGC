@@ -165,16 +165,6 @@ export const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
-    helper: 'Prompt-led short motion clips',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
-  },
-  {
-    helper: 'Market-model text or image video',
-    label: 'Kling',
-    value: 'kling',
-  },
-  {
     helper: 'ByteDance 8s or 12s pro video generation',
     label: 'Seedance 1.5 Pro',
     value: 'seedance-1.5-pro',
@@ -198,20 +188,6 @@ const videoDurationConfig: Record<
     options: VideoDuration[]
   }
 > = {
-  'grok-imagine': {
-    labels: {
-      base: 'Base (6s)',
-      extended: 'Extended (10s)',
-    },
-    options: durations,
-  },
-  kling: {
-    labels: {
-      base: 'Base (5s)',
-      extended: 'Extended (10s)',
-    },
-    options: durations,
-  },
   'seedance-1.5-pro': {
     labels: {
       base: 'Base (8s)',
@@ -233,7 +209,7 @@ export function getVideoAudioLabel(videoAudio: VideoAudio) {
 }
 
 export function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'kling' || model === 'seedance-1.5-pro'
+  return model === 'seedance-1.5-pro'
 }
 
 export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
@@ -248,11 +224,11 @@ export function getVideoDurationLabel(
   model: VideoModelOption,
   duration: VideoDuration,
 ) {
-  return videoDurationConfig[model].labels[duration]
+  return videoDurationConfig[model]?.labels[duration] ?? videoDurationConfig['veo-3.1'].labels.base
 }
 
 export function getVideoDurationOptions(model: VideoModelOption): VideoDuration[] {
-  return videoDurationConfig[model].options
+  return videoDurationConfig[model]?.options ?? videoDurationConfig['veo-3.1'].options
 }
 
 export function getImageQualityOptions(

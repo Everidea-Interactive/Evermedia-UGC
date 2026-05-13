@@ -289,6 +289,19 @@ describe('StudioWorkspace', () => {
     expect(options).toEqual(['8s'])
   })
 
+  it('only exposes active manual video generation models', async () => {
+    const { videoModels } = await import(
+      '@/components/dashboard/manual-workspace-config'
+    )
+
+    expect(videoModels.map((model) => model.value)).toEqual([
+      'seedance-1.5-pro',
+      'veo-3.1',
+    ])
+    expect(videoModels.map((model) => model.label)).not.toContain('Grok Imagine')
+    expect(videoModels.map((model) => model.label)).not.toContain('Kling')
+  })
+
   it('keeps reference cards readable on mobile without wrapping the file CTA', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
 
@@ -359,7 +372,7 @@ describe('StudioWorkspace', () => {
 
     await act(async () => {
       useGenerationStore.getState().setActiveTab('video')
-      useGenerationStore.getState().setVideoModel('grok-imagine')
+      useGenerationStore.getState().setVideoModel('seedance-1.5-pro')
     })
 
     render(
@@ -389,7 +402,7 @@ describe('StudioWorkspace', () => {
     expect(
       screen.getByText('Pilihan model yang sudah disesuaikan untuk workspace ini.'),
     ).toBeTruthy()
-    expect(screen.getByText('Klip gerak singkat dari prompt')).toBeTruthy()
+    expect(screen.getByText('Generasi video ByteDance 8d atau 12d pro')).toBeTruthy()
 
     const presetTab = screen.getByRole('tab', { name: 'Preset' })
     fireEvent.mouseDown(presetTab)

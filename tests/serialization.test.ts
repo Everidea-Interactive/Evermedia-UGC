@@ -117,6 +117,17 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.imageModel).toBe('nano-banana')
     expect(snapshot.videoModel).toBe('veo-3.1')
   })
+
+  it.each(['kling', 'grok-imagine'])(
+    'falls back deprecated persisted %s video models to Veo',
+    (videoModel) => {
+      const snapshot = normalizeProjectConfigSnapshot({
+        videoModel: videoModel as never,
+      })
+
+      expect(snapshot.videoModel).toBe('veo-3.1')
+    },
+  )
 })
 
 describe('createGenerationRunState', () => {

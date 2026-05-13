@@ -310,45 +310,6 @@ describe('generation pricing', () => {
     })
   })
 
-  it('estimates Grok video cost for 1080p extended batch size 2', () => {
-    const estimate = getGenerationCostEstimate(
-      createSnapshot({
-        activeTab: 'video',
-        batchSize: 2,
-        outputQuality: '1080p',
-        videoDuration: 'extended',
-        videoModel: 'grok-imagine',
-      }),
-      pricingMatrix,
-    )
-
-    expect(estimate).toEqual({
-      available: true,
-      credits: 60,
-      reason: null,
-      usd: 0.3,
-    })
-  })
-
-  it('estimates Kling reference-based video cost for base duration', () => {
-    const estimate = getGenerationCostEstimate(
-      createSnapshot({
-        activeTab: 'video',
-        products: [createSlot('product-1', 'Product 1', true), createSlot('product-2', 'Product 2')],
-        subjectMode: 'product-only',
-        videoModel: 'kling',
-      }),
-      pricingMatrix,
-    )
-
-    expect(estimate).toEqual({
-      available: true,
-      credits: 55,
-      reason: null,
-      usd: 0.275,
-    })
-  })
-
   it('estimates Veo 3.1 fast text-to-video cost for batch size 4', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({

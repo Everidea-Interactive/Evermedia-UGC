@@ -43,8 +43,6 @@ export type CameraMovement =
 export type ImageModelOption = 'nano-banana'
 export type VideoModelOption =
   | 'veo-3.1'
-  | 'kling'
-  | 'grok-imagine'
   | 'seedance-1.5-pro'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'

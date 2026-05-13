@@ -66,14 +66,14 @@ describe('guided generation client payloads', () => {
       heroAsset,
       productUrl: '',
       shotCount: 2,
-      videoModel: 'kling',
+      videoModel: 'seedance-1.5-pro',
       videoDuration: 'extended',
       workspace: 'video',
     })
 
     expect(formData.get('workspace')).toBe('video')
     expect(formData.get('shotCount')).toBe('1')
-    expect(formData.get('videoModel')).toBe('kling')
+    expect(formData.get('videoModel')).toBe('seedance-1.5-pro')
     expect(formData.get('videoDuration')).toBe('extended')
     expect(formData.get('videoAudio')).toBe('no-audio')
     expect(formData.get('cameraMovement')).toBe('macro')

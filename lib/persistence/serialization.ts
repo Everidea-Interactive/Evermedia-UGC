@@ -125,7 +125,7 @@ export function normalizeProjectConfigSnapshot(
     ),
     videoModel: readSnapshotEnum(
       snapshot.videoModel,
-      ['veo-3.1', 'kling', 'grok-imagine', 'seedance-1.5-pro'] as const,
+      ['veo-3.1', 'seedance-1.5-pro'] as const,
       defaultProjectConfigSnapshot.videoModel,
     ),
     guided: normalizeGuidedSnapshot(snapshot.guided),

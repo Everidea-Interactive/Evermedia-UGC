@@ -600,18 +600,6 @@ export function getGenerationCostEstimate(
     })
       ? pricingMatrix.video['veo-3.1'].withReference
       : pricingMatrix.video['veo-3.1'].promptOnly
-  } else if (snapshot.videoModel === 'kling') {
-    const hasReference = Boolean(
-      choosePrimaryReferenceSlot({
-        assets: snapshot.assets,
-        products: snapshot.products,
-        subjectMode: snapshot.subjectMode,
-      }),
-    )
-
-    perTaskRate = hasReference
-      ? pricingMatrix.video.kling.withReference[snapshot.videoAudio][snapshot.videoDuration]
-      : pricingMatrix.video.kling.promptOnly[snapshot.videoAudio][snapshot.videoDuration]
   } else if (snapshot.videoModel === 'seedance-1.5-pro') {
     const videoResolution = getVideoResolution(snapshot.outputQuality)
     const hasReference = Boolean(
@@ -629,23 +617,6 @@ export function getGenerationCostEstimate(
       : pricingMatrix.video['seedance-1.5-pro'].promptOnly[videoResolution][
           snapshot.videoAudio
         ][snapshot.videoDuration]
-  } else {
-    const videoResolution = getVideoResolution(snapshot.outputQuality)
-    const hasReference = Boolean(
-      choosePrimaryReferenceSlot({
-        assets: snapshot.assets,
-        products: snapshot.products,
-        subjectMode: snapshot.subjectMode,
-      }),
-    )
-
-    perTaskRate = hasReference
-      ? pricingMatrix.video['grok-imagine'].withReference[videoResolution][
-          snapshot.videoDuration
-        ]
-      : pricingMatrix.video['grok-imagine'].promptOnly[videoResolution][
-          snapshot.videoDuration
-        ]
   }
 
   if (!perTaskRate) {

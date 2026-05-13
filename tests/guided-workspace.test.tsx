@@ -13,6 +13,36 @@ afterEach(() => {
 })
 
 describe('GuidedWorkspace', () => {
+  it('only exposes active guided video generation models', async () => {
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+    })
+
+    render(
+      <GuidedWorkspace
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    const videoModelSelect = await screen.findByLabelText('Video model')
+    const options = Array.from(videoModelSelect.querySelectorAll('option')).map(
+      (option) => option.textContent?.trim(),
+    )
+
+    expect(options).toEqual(['Seedance 1.5 Pro', 'Veo 3.1'])
+    expect(options).not.toContain('Grok Imagine')
+    expect(options).not.toContain('Kling')
+  })
+
   it('translates guided analyze, plan, and results copy when the active locale is Indonesian', async () => {
     await act(async () => {
       useGenerationStore.getState().setActiveTab('image')

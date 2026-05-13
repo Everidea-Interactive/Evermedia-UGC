@@ -11,10 +11,6 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
-  getImageResolution,
-  getGrokDuration,
-  getGrokResolution,
-  getKlingDuration,
   getNanoBananaResolution,
   getSeedanceDuration,
   getVideoResolution,
@@ -480,7 +476,7 @@ function normalizeVideoAudioForModel(
   videoModel: VideoModelOption,
   videoAudio: VideoAudio,
 ): VideoAudio {
-  if (videoModel === 'kling' || videoModel === 'seedance-1.5-pro') {
+  if (videoModel === 'seedance-1.5-pro') {
     return videoAudio
   }
 
@@ -756,7 +752,6 @@ function buildMarketImagePayload(input: {
     input.imageModel === 'nano-banana'
       ? collectNanoBananaReferenceAssets(input.subjectMode, input.assets)
       : collectImageReferenceAssets(input.subjectMode, input.assets)
-  const primaryReference = referenceAssets[0] ?? null
   const aspectRatio = getImageAspectRatio(input.subjectMode)
   const prompt = input.imageGrid
     ? wrapPromptForImageGrid(input.prompt)
@@ -842,31 +837,6 @@ function buildVideoPayload(input: {
     }
   }
 
-  if (input.videoModel === 'grok-imagine') {
-    const modelName = primaryReference
-      ? 'grok-imagine/image-to-video'
-      : 'grok-imagine/text-to-video'
-
-    return {
-      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-      modelName,
-      provider: 'market' as const,
-      requestBody: {
-        model: modelName,
-        input: {
-          prompt: input.prompt,
-          ...(primaryReference
-            ? { image_urls: referenceImageUrls }
-            : null),
-          aspect_ratio: aspectRatio,
-          mode: 'normal',
-          duration: getGrokDuration(input.videoDuration),
-          resolution: getGrokResolution(videoResolution),
-        },
-      },
-    }
-  }
-
   if (input.videoModel === 'seedance-1.5-pro') {
     const inputUrls = referenceImageUrls
 
@@ -890,27 +860,11 @@ function buildVideoPayload(input: {
     }
   }
 
-  const modelName = primaryReference
-    ? 'kling-2.6/image-to-video'
-    : 'kling-2.6/text-to-video'
-
-  return {
-    endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
-    modelName,
-    provider: 'market' as const,
-    requestBody: {
-      model: modelName,
-      input: {
-        prompt: input.prompt,
-        ...(primaryReference
-          ? { image_urls: referenceImageUrls }
-          : null),
-        sound: input.videoAudio === 'with-audio',
-        duration: getKlingDuration(input.videoDuration),
-        aspect_ratio: aspectRatio,
-      },
-    },
-  }
+  throw new GenerationRequestError({
+    code: 'invalid_input',
+    message: `Unsupported video model: ${input.videoModel}`,
+    status: 400,
+  })
 }
 
 export async function uploadFileToKie(
@@ -1101,8 +1055,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     workspace === 'video'
       ? readEnum(formData, 'videoModel', [
           'veo-3.1',
-          'kling',
-          'grok-imagine',
           'seedance-1.5-pro',
         ] as const)
       : 'veo-3.1'
