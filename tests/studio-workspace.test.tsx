@@ -592,4 +592,77 @@ describe('StudioWorkspace', () => {
       expect(screen.getByText('Provider temporarily unavailable.')).toBeTruthy()
     },
   )
+
+  it('forwards a successful manual image result into manual video references', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('manual-forward', {
+          headers: {
+            'Content-Disposition': 'attachment; filename="manual-forward.png"',
+            'Content-Type': 'image/png',
+          },
+          status: 200,
+        }),
+      ),
+    )
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('image')
+      useGenerationStore.getState().setExperience('manual')
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'manual-image-run',
+        status: 'success',
+        workspace: 'image',
+      })
+      useGenerationStore.getState().setGenerationVariants([
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Primary render',
+          prompt: 'Image prompt',
+          result: {
+            model: 'nano-banana',
+            taskId: 'task-1',
+            type: 'image',
+            url: '/api/media/output-1',
+          },
+          status: 'success',
+          taskId: 'task-1',
+          variantId: 'variant-1',
+        },
+      ])
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward to Video' }))
+
+    expect(await screen.findByText('Build the input set')).toBeTruthy()
+
+    const state = useGenerationStore.getState()
+    expect(state.activeTab).toBe('video')
+    expect(state.experience).toBe('manual')
+    expect(state.videoReferences[0]?.file?.name).toBe('manual-forward.png')
+    expect(state.videoReferences[1]?.file).toBeNull()
+  })
 })

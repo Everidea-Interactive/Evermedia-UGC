@@ -310,6 +310,8 @@ export const uiTranslations: Record<string, string> = {
   'Email or password is incorrect. Try again or reset your password.':
     'Email atau kata sandi salah. Coba lagi atau reset kata sandi Anda.',
   'End frame reference': 'Referensi frame akhir',
+  'Forward to Video': 'Teruskan ke Video',
+  'Forwarding...': 'Meneruskan...',
   'Editorial direction when a person is present.':
     'Arah editorial saat ada orang di dalam adegan.',
   'Electronics & Tech': 'Elektronik & Teknologi',
@@ -345,6 +347,24 @@ export const uiTranslations: Record<string, string> = {
     'Gambar utama siap. Jalankan analisis untuk membuat daftar shot terpandu.',
   'Hero image ready. Re-analyze when you want to replace the current prompt set.':
     'Gambar utama siap. Jalankan analisis ulang jika Anda ingin mengganti set prompt saat ini.',
+  'Upload or forward a start frame':
+    'Unggah atau teruskan start frame',
+  'You can replace the start frame before re-analyzing or rendering again.':
+    'Anda dapat mengganti start frame sebelum menjalankan analisis ulang atau render lagi.',
+  'A start frame is required before guided video analysis can begin.':
+    'Start frame diperlukan sebelum analisis video terpandu dapat dimulai.',
+  'A start frame is still required before you can generate the guided video batch.':
+    'Start frame tetap diperlukan sebelum Anda dapat membuat batch video terpandu.',
+  'Analyze the start frame first to unlock guided video prompt editing and rendering.':
+    'Analisis start frame terlebih dahulu untuk membuka pengeditan prompt dan rendering video terpandu.',
+  'Upload or forward the start frame, add any page context, then generate the initial video shot list before editing the prompts.':
+    'Unggah atau teruskan start frame, tambahkan konteks halaman bila perlu, lalu buat daftar shot video awal sebelum mengedit prompt.',
+  'Upload or forward a start frame to unlock guided video analysis.':
+    'Unggah atau teruskan start frame untuk membuka analisis video terpandu.',
+  'Start frame ready. Re-analyze when you want to rebuild the guided video prompt set.':
+    'Start frame siap. Jalankan analisis ulang jika Anda ingin membangun ulang set prompt video terpandu.',
+  'Start frame ready. Analyze to generate the guided video shot list.':
+    'Start frame siap. Jalankan analisis untuk membuat daftar shot video terpandu.',
   'Hook:': 'Hook:',
   'Ideation': 'Ideasi',
   'Ideation analysis needs another pass': 'Analisis ideasi perlu dijalankan lagi',
@@ -360,6 +380,8 @@ export const uiTranslations: Record<string, string> = {
   'Image workspace': 'Workspace gambar',
   'Guided mode uses one product image as the visual anchor for shot planning and final rendering.':
     'Mode terpandu memakai satu gambar produk sebagai acuan utama untuk menyusun shot dan render akhir.',
+  'Guided video mode uses one staged image as the start-frame anchor for analysis and final rendering.':
+    'Mode video terpandu memakai satu gambar yang sudah disiapkan sebagai acuan start frame untuk analisis dan render akhir.',
   'Indoor': 'Indoor',
   'indoor': 'indoor',
   'Indoor or outdoor context.': 'Konteks indoor atau outdoor.',
@@ -705,6 +727,5 @@ export function translateText(locale: Locale, value: string): string {
   if (estimatedCreditsMatch) {
     return `Estimasi: ${estimatedCreditsMatch[1]} kredit`
   }
-
   return value
 }

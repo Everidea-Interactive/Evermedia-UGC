@@ -1,9 +1,10 @@
 'use client'
 
+import { startTransition } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Film, ImageIcon, LoaderCircle } from 'lucide-react'
+import { AlertTriangle, Film, Forward, ImageIcon, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import {
   ImagePreviewTrigger,
@@ -12,6 +13,7 @@ import {
   rowClassName,
 } from '@/components/dashboard/manual-workspace-ui'
 import { Button } from '@/components/ui/button'
+import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
 import { getOutputGalleryItems } from '@/lib/generation/output-gallery'
 import {
   getActiveTaskCount,
@@ -38,8 +40,12 @@ function getSelectedRunVariant(run: ReturnType<typeof useGenerationStore.getStat
 export function OutputPanel({ className }: { className?: string }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
+  const forwardManualImageResultToVideo = useGenerationStore(
+    (state) => state.forwardManualImageResultToVideo,
+  )
   const products = useGenerationStore((state) => state.products)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const [forwardingVariantId, setForwardingVariantId] = useState<string | null>(null)
 
   const loadedAssets = useMemo(
     () =>
@@ -47,6 +53,23 @@ export function OutputPanel({ className }: { className?: string }) {
     [assets, products],
   )
   const runMatchesWorkspace = generationRun.workspace === activeTab
+
+  const handleForwardToVideo = async (item: ReturnType<typeof getOutputGalleryItems>[number]) => {
+    if (item.type !== 'image') {
+      return
+    }
+
+    try {
+      setForwardingVariantId(item.variantId)
+      const file = await fetchForwardedResultFile(item.url)
+
+      startTransition(() => {
+        forwardManualImageResultToVideo(file)
+      })
+    } finally {
+      setForwardingVariantId(null)
+    }
+  }
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -73,6 +96,8 @@ export function OutputPanel({ className }: { className?: string }) {
                 loadedAssets={loadedAssets.length}
                 runMatchesWorkspace={runMatchesWorkspace}
                 runState={generationRun}
+                forwardingVariantId={forwardingVariantId}
+                onForwardToVideo={handleForwardToVideo}
               />
             </div>
           </div>
@@ -84,12 +109,16 @@ export function OutputPanel({ className }: { className?: string }) {
 
 function PreviewStage({
   activeTab,
+  forwardingVariantId,
   loadedAssets,
+  onForwardToVideo,
   runMatchesWorkspace,
   runState,
 }: {
   activeTab: WorkspaceTab
+  forwardingVariantId: string | null
   loadedAssets: number
+  onForwardToVideo: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
 }) {
@@ -117,7 +146,12 @@ function PreviewStage({
             {galleryItems.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {galleryItems.map((item) => (
-                  <OutputGalleryCard item={item} key={item.variantId} />
+                  <OutputGalleryCard
+                    forwardingVariantId={forwardingVariantId}
+                    item={item}
+                    key={item.variantId}
+                    onForwardToVideo={onForwardToVideo}
+                  />
                 ))}
               </div>
             ) : runState.variants.length > 0 ? (
@@ -193,10 +227,16 @@ function PreviewStage({
 }
 
 function OutputGalleryCard({
+  forwardingVariantId,
   item,
+  onForwardToVideo,
 }: {
+  forwardingVariantId: string | null
   item: ReturnType<typeof getOutputGalleryItems>[number]
+  onForwardToVideo: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
 }) {
+  const isForwarding = forwardingVariantId === item.variantId
+  const canForwardToVideo = item.type === 'image'
   const media = item.type === 'image' ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -235,6 +275,25 @@ function OutputGalleryCard({
           media
         )}
       </div>
+      {canForwardToVideo ? (
+        <div className="mt-2 px-1">
+          <Button
+            className="w-full"
+            disabled={isForwarding}
+            onClick={() => onForwardToVideo(item)}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            {isForwarding ? (
+              <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
+            ) : (
+              <Forward data-icon="inline-start" suppressHydrationWarning />
+            )}
+            {isForwarding ? 'Forwarding...' : 'Forward to Video'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

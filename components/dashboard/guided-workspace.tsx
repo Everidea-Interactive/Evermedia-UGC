@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
+  Forward,
   ImageIcon,
   LoaderCircle,
   ScanLine,
@@ -43,6 +44,7 @@ import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
+import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
 import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
@@ -215,10 +217,12 @@ function getGuidedVideoAudioLabel(videoAudio: VideoAudio) {
 function getAnalyzeHelperText({
   hasHero,
   hasPlan,
+  isVideoWorkspace,
   status,
 }: {
   hasHero: boolean
   hasPlan: boolean
+  isVideoWorkspace: boolean
   status: GuidedAnalysisStatus
 }) {
   if (status === 'analyzing') {
@@ -226,14 +230,20 @@ function getAnalyzeHelperText({
   }
 
   if (!hasHero) {
-    return 'Upload the hero product image to unlock guided analysis.'
+    return isVideoWorkspace
+      ? 'Upload or forward a start frame to unlock guided video analysis.'
+      : 'Upload the hero product image to unlock guided analysis.'
   }
 
   if (hasPlan) {
-    return 'Hero image ready. Re-analyze when you want to replace the current prompt set.'
+    return isVideoWorkspace
+      ? 'Start frame ready. Re-analyze when you want to rebuild the guided video prompt set.'
+      : 'Hero image ready. Re-analyze when you want to replace the current prompt set.'
   }
 
-  return 'Hero image ready. Analyze to generate the guided shot list.'
+  return isVideoWorkspace
+    ? 'Start frame ready. Analyze to generate the guided video shot list.'
+    : 'Hero image ready. Analyze to generate the guided shot list.'
 }
 
 function getGenerateHelperText({
@@ -241,22 +251,28 @@ function getGenerateHelperText({
   creditReason,
   hasHero,
   hasPlan,
+  isVideoWorkspace,
 }: {
   activeRun: boolean
   creditReason: string | null
   hasHero: boolean
   hasPlan: boolean
+  isVideoWorkspace: boolean
 }) {
   if (activeRun) {
     return 'The current guided batch is still rendering. Cancel it first if you need to restart.'
   }
 
   if (!hasHero) {
-    return 'The hero product image is still required before you can generate the batch.'
+    return isVideoWorkspace
+      ? 'A start frame is still required before you can generate the guided video batch.'
+      : 'The hero product image is still required before you can generate the batch.'
   }
 
   if (!hasPlan) {
-    return 'Analyze the hero product first to unlock prompt editing and rendering.'
+    return isVideoWorkspace
+      ? 'Analyze the start frame first to unlock guided video prompt editing and rendering.'
+      : 'Analyze the hero product first to unlock prompt editing and rendering.'
   }
 
   if (creditReason) {
@@ -430,7 +446,13 @@ function FieldBlock({
   )
 }
 
-function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
+function GuidedHeroUploadCard({
+  activeTab,
+  slot,
+}: {
+  activeTab: WorkspaceTab
+  slot: AssetSlot
+}) {
   const clearGuidedHeroAsset = useGenerationStore((state) => state.clearGuidedHeroAsset)
   const setGuidedHeroFile = useGenerationStore((state) => state.setGuidedHeroFile)
   const previewUrl = slot.previewUrl
@@ -520,10 +542,15 @@ function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
             <ImageIcon className="size-6" suppressHydrationWarning />
           </div>
           <div>
-            <p className="font-medium text-foreground">Upload the hero product image</p>
+            <p className="font-medium text-foreground">
+              {activeTab === 'video'
+                ? 'Upload or forward a start frame'
+                : 'Upload the hero product image'}
+            </p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Guided mode uses one product image as the visual anchor for shot
-              planning and final rendering.
+              {activeTab === 'video'
+                ? 'Guided video mode uses one staged image as the start-frame anchor for analysis and final rendering.'
+                : 'Guided mode uses one product image as the visual anchor for shot planning and final rendering.'}
             </p>
           </div>
           <Button asChild size="sm" variant="secondary">
@@ -542,8 +569,12 @@ function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
 
       <p className="text-sm leading-6 text-muted-foreground">
         {previewUrl
-          ? 'You can replace the hero image before re-analyzing or rendering again.'
-          : 'A hero image is required before guided analysis can begin.'}
+          ? activeTab === 'video'
+            ? 'You can replace the start frame before re-analyzing or rendering again.'
+            : 'You can replace the hero image before re-analyzing or rendering again.'
+          : activeTab === 'video'
+            ? 'A start frame is required before guided video analysis can begin.'
+            : 'A hero image is required before guided analysis can begin.'}
       </p>
     </div>
   )
@@ -631,10 +662,17 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
 }
 
 function GuidedResultTile({
+  forwardingVariantId,
+  onForwardToVideo,
   variant,
 }: {
+  forwardingVariantId: string | null
+  onForwardToVideo: (variant: GenerationRun['variants'][number]) => void
   variant: GenerationRun['variants'][number]
 }) {
+  const isForwarding = forwardingVariantId === variant.variantId
+  const canForwardToVideo =
+    variant.status === 'success' && variant.result?.type === 'image'
   const content = variant.result?.url ? (
     variant.result.type === 'image' ? (
       <ImagePreviewDialog
@@ -691,6 +729,22 @@ function GuidedResultTile({
         <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">
           {variant.prompt}
         </p>
+        {canForwardToVideo ? (
+          <Button
+            disabled={isForwarding}
+            onClick={() => onForwardToVideo(variant)}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            {isForwarding ? (
+              <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
+            ) : (
+              <Forward data-icon="inline-start" suppressHydrationWarning />
+            )}
+            {isForwarding ? 'Forwarding...' : 'Forward to Video'}
+          </Button>
+        ) : null}
       </div>
     </article>
   )
@@ -744,8 +798,9 @@ function GuidedAnalyzePanel({
               </p>
               <h2 className="font-display text-xl font-semibold">Analyze input</h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                Upload the hero product, add any page context, then generate the
-                initial shot list before editing the prompts.
+                {activeTab === 'video'
+                  ? 'Upload or forward the start frame, add any page context, then generate the initial video shot list before editing the prompts.'
+                  : 'Upload the hero product, add any page context, then generate the initial shot list before editing the prompts.'}
               </p>
             </div>
 
@@ -756,7 +811,7 @@ function GuidedAnalyzePanel({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(420px,1.14fr)_minmax(0,0.86fr)]">
-          <GuidedHeroUploadCard slot={guidedInput.heroAsset} />
+          <GuidedHeroUploadCard activeTab={activeTab} slot={guidedInput.heroAsset} />
 
           <div className="grid gap-4">
             <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
@@ -1391,11 +1446,14 @@ function GuidedRunPanel({
 
 function GuidedResultsSection({
   activeTab,
+  forwardGuidedImageResultToVideo,
   generationRun,
 }: {
   activeTab: WorkspaceTab
+  forwardGuidedImageResultToVideo: (file: File) => void
   generationRun: GenerationRun
 }) {
+  const [forwardingVariantId, setForwardingVariantId] = useState<string | null>(null)
   const visibleRun = isRunVisibleForExperience(generationRun, 'guided', activeTab)
     ? generationRun
     : null
@@ -1404,6 +1462,23 @@ function GuidedResultsSection({
     visibleRun?.status === 'rendering'
       ? 'Guided runs populate one result tile per planned shot as each task completes.'
       : 'Guided runs render one tile per planned shot and keep the prompts attached to each result.'
+
+  const handleForwardToVideo = async (variant: GenerationRun['variants'][number]) => {
+    if (!variant.result?.url || variant.result.type !== 'image') {
+      return
+    }
+
+    try {
+      setForwardingVariantId(variant.variantId)
+      const file = await fetchForwardedResultFile(variant.result.url)
+
+      startTransition(() => {
+        forwardGuidedImageResultToVideo(file)
+      })
+    } finally {
+      setForwardingVariantId(null)
+    }
+  }
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5')}>
@@ -1435,7 +1510,12 @@ function GuidedResultsSection({
         {hasVariants ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleRun?.variants.map((variant) => (
-              <GuidedResultTile key={variant.variantId} variant={variant} />
+              <GuidedResultTile
+                forwardingVariantId={forwardingVariantId}
+                key={variant.variantId}
+                onForwardToVideo={handleForwardToVideo}
+                variant={variant}
+              />
             ))}
           </div>
         ) : (
@@ -1476,7 +1556,11 @@ export function GuidedWorkspace({
   const analysisError = useGenerationStore((state) => state.analysisError)
   const analysisStatus = useGenerationStore((state) => state.analysisStatus)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
+  const experience = useGenerationStore((state) => state.experience)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const guidedVideoStageEventId = useGenerationStore(
+    (state) => state.guidedVideoStageEventId,
+  )
   const guidedInput = useGenerationStore((state) => state.guidedInput)
   const guidedPlan = useGenerationStore((state) => state.guidedPlan)
   const imageModel = useGenerationStore((state) => state.imageModel)
@@ -1496,6 +1580,9 @@ export function GuidedWorkspace({
   const setGuidedPlan = useGenerationStore((state) => state.setGuidedPlan)
   const setGuidedProductUrl = useGenerationStore(
     (state) => state.setGuidedProductUrl,
+  )
+  const forwardGuidedImageResultToVideo = useGenerationStore(
+    (state) => state.forwardGuidedImageResultToVideo,
   )
   const setGuidedShotCount = useGenerationStore((state) => state.setGuidedShotCount)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
@@ -1571,6 +1658,7 @@ export function GuidedWorkspace({
   const analysisHelperText = getAnalyzeHelperText({
     hasHero,
     hasPlan,
+    isVideoWorkspace: activeTab === 'video',
     status: analysisStatus,
   })
   const generateHelperText = getGenerateHelperText({
@@ -1578,7 +1666,26 @@ export function GuidedWorkspace({
     creditReason: creditValidation.reason,
     hasHero,
     hasPlan,
+    isVideoWorkspace: activeTab === 'video',
   })
+  useEffect(() => {
+    if (
+      experience !== 'guided' ||
+      activeTab !== 'video' ||
+      guidedVideoStageEventId === 0
+    ) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setGuidedSection('analyze')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, experience, guidedVideoStageEventId])
+
   useEffect(() => {
     if (activeTab !== 'video') {
       return
@@ -1906,7 +2013,11 @@ export function GuidedWorkspace({
               </TabsContent>
 
               <TabsContent className="mt-0" value="results">
-                <GuidedResultsSection activeTab={activeTab} generationRun={generationRun} />
+                <GuidedResultsSection
+                  activeTab={activeTab}
+                  forwardGuidedImageResultToVideo={forwardGuidedImageResultToVideo}
+                  generationRun={generationRun}
+                />
               </TabsContent>
             </div>
 

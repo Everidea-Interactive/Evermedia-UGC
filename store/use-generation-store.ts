@@ -70,6 +70,7 @@ type GenerationStateShape = {
   figureArtDirection: FigureArtDirection
   generationRun: GenerationRun
   generationErrorEventId: number
+  guidedVideoStageEventId: number
   guidedInput: GuidedInputState
   guidedPlan: GuidedAnalysisPlan | null
   ideationError: string | null
@@ -80,6 +81,7 @@ type GenerationStateShape = {
   outputQuality: OutputQuality
   productCategory: ProductCategory
   products: AssetSlot[]
+  manualVideoStageEventId: number
   sessionStats: GenerationSessionStats
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
@@ -98,6 +100,8 @@ type GenerationStore = GenerationStateShape & {
   clearProductSlot: (id: string) => void
   clearVideoReference: (id: string) => void
   disposeGenerationState: () => void
+  forwardGuidedImageResultToVideo: (file: File) => void
+  forwardManualImageResultToVideo: (file: File) => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
   resetGenerationRun: () => void
@@ -168,7 +172,11 @@ function revokePreviewUrl(previewUrl: string | null) {
 }
 
 function createPreviewUrl(file: File | null) {
-  if (!file || typeof URL === 'undefined') {
+  if (
+    !file ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
     return null
   }
 
@@ -287,6 +295,7 @@ function createInitialState(): GenerationStateShape {
     figureArtDirection: 'none',
     generationRun: createEmptyRunState(),
     generationErrorEventId: 0,
+    guidedVideoStageEventId: 0,
     guidedInput: createGuidedInputState(),
     guidedPlan: null,
     ideationError: null,
@@ -297,6 +306,7 @@ function createInitialState(): GenerationStateShape {
     outputQuality: '1080p',
     productCategory: 'cosmetics',
     products: createProductSlots(),
+    manualVideoStageEventId: 0,
     sessionStats: createEmptySessionStats(),
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
@@ -464,6 +474,35 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     set(createInitialState())
   },
+  forwardGuidedImageResultToVideo: (file) =>
+    set((state) => ({
+      activeTab: 'video',
+      analysisError: null,
+      analysisStatus: 'idle',
+      experience: 'guided',
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, null),
+        heroAsset: setSlotFile(state.guidedInput.heroAsset, file),
+      },
+      guidedPlan: null,
+      guidedVideoStageEventId: state.guidedVideoStageEventId + 1,
+      outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+    })),
+  forwardManualImageResultToVideo: (file) =>
+    set((state) => {
+      const nextVideoReferences = state.videoReferences.map((slot, index) =>
+        setSlotFile(slot, index === 0 ? file : null),
+      )
+
+      return {
+        activeTab: 'video',
+        experience: 'manual',
+        manualVideoStageEventId: state.manualVideoStageEventId + 1,
+        outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+        videoReferences: nextVideoReferences,
+      }
+    }),
   hydrateGenerationRun: (run) =>
     set(() => {
       const nextRun = run

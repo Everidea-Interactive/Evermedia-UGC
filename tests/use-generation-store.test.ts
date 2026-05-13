@@ -131,6 +131,71 @@ describe('useGenerationStore', () => {
     expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
   })
 
+  it('forwards a manual image result into manual video staging with normalized settings', () => {
+    const store = useGenerationStore.getState()
+    const forwardedFile = new File(['manual-forward'], 'manual-forward.png', {
+      type: 'image/png',
+    })
+    const staleRef = new File(['stale-ref'], 'stale-ref.png', {
+      type: 'image/png',
+    })
+
+    store.setActiveTab('image')
+    store.setExperience('manual')
+    store.setOutputQuality('4k')
+    store.setVideoReferenceFile('video-reference-2', staleRef)
+
+    store.forwardManualImageResultToVideo(forwardedFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.experience).toBe('manual')
+    expect(state.activeTab).toBe('video')
+    expect(state.outputQuality).toBe('1080p')
+    expect(state.videoReferences[0]?.file?.name).toBe('manual-forward.png')
+    expect(state.videoReferences[1]?.file).toBeNull()
+    expect(state.videoReferences[2]?.file).toBeNull()
+  })
+
+  it('forwards a guided image result into guided video and clears the stale plan', () => {
+    const store = useGenerationStore.getState()
+    const heroFile = new File(['guided-forward'], 'guided-forward.png', {
+      type: 'image/png',
+    })
+    const staleEndFrame = new File(['end'], 'end.png', { type: 'image/png' })
+
+    store.setExperience('guided')
+    store.setActiveTab('image')
+    store.setGuidedEndFrameFile(staleEndFrame)
+    store.setGuidedPlan({
+      creativeStyle: 'ugc-lifestyle',
+      productCategory: 'cosmetics',
+      shots: [
+        {
+          prompt: 'Old prompt',
+          shotEnvironment: 'indoor',
+          slug: 'old-prompt',
+          subjectMode: 'product-only',
+          tags: [],
+          title: 'Old Prompt',
+        },
+      ],
+      summary: 'Old summary',
+    })
+
+    store.forwardGuidedImageResultToVideo(heroFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.experience).toBe('guided')
+    expect(state.activeTab).toBe('video')
+    expect(state.guidedInput.heroAsset.file?.name).toBe('guided-forward.png')
+    expect(state.guidedInput.endFrameAsset.file).toBeNull()
+    expect(state.guidedPlan).toBeNull()
+    expect(state.analysisStatus).toBe('idle')
+    expect(state.analysisError).toBeNull()
+  })
+
   it('hydrates config snapshots with missing defaults', () => {
     useGenerationStore.getState().hydrateProjectConfig({
       activeTab: 'image',
