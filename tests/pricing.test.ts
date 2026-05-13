@@ -188,6 +188,11 @@ function createSnapshot(
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoReferences: [
+      createSlot('video-reference-1', 'Reference 1'),
+      createSlot('video-reference-2', 'Reference 2'),
+      createSlot('video-reference-3', 'Reference 3'),
+    ],
     videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
@@ -333,7 +338,7 @@ describe('generation pricing', () => {
       createSnapshot({
         activeTab: 'video',
         outputQuality: '1080p',
-        products: [createSlot('product-1', 'Product 1', true)],
+        videoReferences: [createSlot('video-reference-1', 'Reference 1', true)],
         subjectMode: 'product-only',
         videoDuration: 'extended',
         videoModel: 'seedance-1.5-pro',

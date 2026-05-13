@@ -255,6 +255,39 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Location')).toHaveLength(1)
   })
 
+  it('shows exactly three generic reference slots in manual video mode', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.getAllByText('Reference 1')).toHaveLength(1)
+    expect(screen.getAllByText('Reference 2')).toHaveLength(1)
+    expect(screen.getAllByText('Reference 3')).toHaveLength(1)
+    expect(screen.queryByText('People')).toBeNull()
+    expect(screen.queryByText('Style & Environment')).toBeNull()
+    expect(screen.queryByText('Products')).toBeNull()
+  })
+
   it('shows a single clip-length option for Veo 3.1', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
     const { useGenerationStore } = await import('@/store/use-generation-store')

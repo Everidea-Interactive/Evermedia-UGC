@@ -84,6 +84,7 @@ type GenerationStateShape = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
   videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
@@ -95,6 +96,7 @@ type GenerationStore = GenerationStateShape & {
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
   clearProductSlot: (id: string) => void
+  clearVideoReference: (id: string) => void
   disposeGenerationState: () => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
@@ -141,6 +143,7 @@ type GenerationStore = GenerationStateShape & {
   setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
   setSubjectMode: (subjectMode: SubjectMode) => void
   setTextPrompt: (textPrompt: string) => void
+  setVideoReferenceFile: (id: string, file: File | null) => void
   setVideoAudio: (videoAudio: VideoAudio) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
   setVideoModel: (videoModel: VideoModelOption) => void
@@ -150,6 +153,7 @@ type GenerationStore = GenerationStateShape & {
 }
 
 const fixedProductSlotCount = 2
+const fixedVideoReferenceCount = 3
 
 function buildProductLabel(position: number) {
   return `Product ${position}`
@@ -187,6 +191,12 @@ function createSlot(id: string, label: string): AssetSlot {
 function createProductSlots() {
   return Array.from({ length: fixedProductSlotCount }, (_, index) =>
     createSlot(`product-${index + 1}`, buildProductLabel(index + 1)),
+  )
+}
+
+function createVideoReferenceSlots() {
+  return Array.from({ length: fixedVideoReferenceCount }, (_, index) =>
+    createSlot(`video-reference-${index + 1}`, `Reference ${index + 1}`),
   )
 }
 
@@ -291,6 +301,7 @@ function createInitialState(): GenerationStateShape {
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoReferences: createVideoReferenceSlots(),
     videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
@@ -436,11 +447,18 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         slot.id === id ? setSlotFile(slot, null) : slot,
       ),
     })),
+  clearVideoReference: (id) =>
+    set((state) => ({
+      videoReferences: state.videoReferences.map((slot) =>
+        slot.id === id ? setSlotFile(slot, null) : slot,
+      ),
+    })),
   disposeGenerationState: () => {
     const state = get()
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseSlots(state.videoReferences)
     releaseGuidedInput(state.guidedInput)
     releaseIdeationInput(state.ideationInput)
 
@@ -483,6 +501,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
+      releaseSlots(state.videoReferences)
       releaseGuidedInput(state.guidedInput)
       releaseIdeationInput(state.ideationInput)
 
@@ -533,6 +552,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseSlots(state.videoReferences)
     releaseIdeationInput(state.ideationInput)
 
     set({
@@ -558,6 +578,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       shotEnvironment: nextState.shotEnvironment,
       subjectMode: nextState.subjectMode,
       textPrompt: nextState.textPrompt,
+      videoReferences: nextState.videoReferences,
       videoAudio: nextState.videoAudio,
       videoDuration: nextState.videoDuration,
       videoModel: nextState.videoModel,
@@ -798,6 +819,12 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
   setSubjectMode: (subjectMode) => set(createSubjectModeState(subjectMode)),
   setTextPrompt: (textPrompt) => set({ textPrompt }),
+  setVideoReferenceFile: (id, file) =>
+    set((state) => ({
+      videoReferences: state.videoReferences.map((slot) =>
+        slot.id === id ? setSlotFile(slot, file) : slot,
+      ),
+    })),
   setVideoAudio: (videoAudio) => set({ videoAudio }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) => set({ videoModel }),

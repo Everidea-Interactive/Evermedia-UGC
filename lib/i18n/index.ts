@@ -472,6 +472,9 @@ export const uiTranslations: Record<string, string> = {
   'Ready to Analyze': 'Siap Dianalisis',
   'Re-analyze': 'Analisis ulang',
   'Reference board': 'Papan referensi',
+  'Reference 1': 'Referensi 1',
+  'Reference 2': 'Referensi 2',
+  'Reference 3': 'Referensi 3',
   'Review the missing requirement or provider error, then re-run the ideation pass from this control panel.':
     'Tinjau kebutuhan yang belum terpenuhi atau error dari provider, lalu jalankan ulang proses ideasi dari panel kontrol ini.',
   'Review the three concepts, then copy a single card or the full ideation brief.':
@@ -511,6 +514,8 @@ export const uiTranslations: Record<string, string> = {
   'Subject Configuration': 'Konfigurasi subjek',
   'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.':
     'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
+  'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.':
+    'Siapkan hingga tiga referensi frame awal di sini. Pertahankan urutannya agar model menerima arahan yang jelas dari Referensi 1 hingga Referensi 3.',
   'hero': 'hero',
   'Staged assets': 'Aset tersiap',
   'Style & Environment': 'Gaya & Lingkungan',

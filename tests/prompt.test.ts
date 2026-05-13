@@ -22,7 +22,7 @@ function makeAsset(
 }
 
 describe('compileGenerationPrompt', () => {
-  it('creates a deterministic lifestyle video prompt with role-aware references', () => {
+  it('creates a deterministic lifestyle video prompt with generic ordered references', () => {
     const prompt = compileGenerationPrompt({
       assets: [
         makeAsset({ key: 'face1', label: 'Face 1' }),
@@ -65,16 +65,13 @@ describe('compileGenerationPrompt', () => {
 
     expect(prompt).toContain('Create a video for a beauty and cosmetics campaign.')
     expect(prompt).toContain(
-      'Identity reference: Face 1. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.',
+      'Reference 1: Face 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
     )
     expect(prompt).toContain(
-      'Product reference: Product 1. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.',
+      'Reference 2: Clothing. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
     )
     expect(prompt).toContain(
-      'Wardrobe reference: Clothing. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.',
-    )
-    expect(prompt).toContain(
-      'Use End Frame as the end-frame guidance when supported.',
+      'Reference 3: Product 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
     )
     expect(prompt).toContain(
       'Shot environment: curated indoor setting with studio-grade control.',
@@ -82,6 +79,11 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Character demographics: female, young adult.',
     )
+    expect(prompt).toContain('Use End Frame as the end-frame guidance when supported.')
+    expect(prompt).not.toContain('Identity reference:')
+    expect(prompt).not.toContain('Product reference:')
+    expect(prompt).not.toContain('Wardrobe reference:')
+    expect(prompt).not.toContain('Location reference:')
     expect(prompt).not.toContain('south asian')
     expect(prompt).toContain(
       'Figure art direction: curvaceous editorial with full-figure styling, dramatic curves, and fashion-forward composition language.',

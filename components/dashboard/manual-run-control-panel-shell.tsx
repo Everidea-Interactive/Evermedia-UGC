@@ -120,6 +120,7 @@ function RunControlPanel({
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
+  const videoReferences = useGenerationStore((state) => state.videoReferences)
   const batchSize = useGenerationStore((state) => state.batchSize)
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
@@ -148,9 +149,16 @@ function RunControlPanel({
   const generationRun = useGenerationStore((state) => state.generationRun)
 
   const loadedAssets = useMemo(
-    () =>
-      [...Object.values(assets), ...products].filter((slot) => isSlotLoaded(slot)),
-    [assets, products],
+    () => {
+      if (activeTab === 'video') {
+        return [...videoReferences, assets.endFrame].filter((slot) => isSlotLoaded(slot))
+      }
+
+      return [...Object.values(assets), ...products].filter((slot) =>
+        isSlotLoaded(slot),
+      )
+    },
+    [activeTab, assets, products, videoReferences],
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
@@ -160,10 +168,12 @@ function RunControlPanel({
       ? getImageModelLabel(imageModel)
       : getVideoModelLabel(videoModel)
   const primaryInputLabel = getPrimaryInputSummary({
+    activeTab,
     assets,
     products,
     subjectMode,
     textPrompt,
+    videoReferences,
   })
   const characterPresetLabel = getCharacterPresetSummary({
     characterAgeGroup,
@@ -499,16 +509,27 @@ function isSlotLoaded(slot: AssetSlot) {
 }
 
 function getPrimaryInputSummary({
+  activeTab,
   assets,
   products,
   subjectMode,
   textPrompt,
+  videoReferences,
 }: {
+  activeTab: 'image' | 'video'
   assets: NamedAssetSlots
   products: AssetSlot[]
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
 }) {
+  if (activeTab === 'video') {
+    const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
+    if (firstReference) {
+      return firstReference.label
+    }
+  }
+
   const face1 = assets.face1
   const primaryProduct = products[0] ?? null
 

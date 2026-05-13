@@ -202,6 +202,7 @@ export type GenerationSnapshot = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
   videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption

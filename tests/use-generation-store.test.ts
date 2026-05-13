@@ -100,6 +100,37 @@ describe('useGenerationStore', () => {
     expect(state.figureArtDirection).toBe('none')
   })
 
+  it('maintains fixed manual video reference slots and resets them cleanly', () => {
+    const store = useGenerationStore.getState()
+    const ref1 = new File(['ref-1'], 'ref-1.png', { type: 'image/png' })
+    const ref2 = new File(['ref-2'], 'ref-2.png', { type: 'image/png' })
+
+    expect(store.videoReferences.map((slot) => slot.label)).toEqual([
+      'Reference 1',
+      'Reference 2',
+      'Reference 3',
+    ])
+
+    store.setVideoReferenceFile('video-reference-1', ref1)
+    store.setVideoReferenceFile('video-reference-2', ref2)
+
+    let state = useGenerationStore.getState()
+    expect(state.videoReferences[0]?.file?.name).toBe('ref-1.png')
+    expect(state.videoReferences[1]?.file?.name).toBe('ref-2.png')
+
+    const stagedPreview = state.videoReferences[0]?.previewUrl
+    store.clearVideoReference('video-reference-1')
+    state = useGenerationStore.getState()
+
+    expect(revokeObjectURL).toHaveBeenCalledWith(stagedPreview)
+    expect(state.videoReferences[0]?.file).toBeNull()
+    expect(state.videoReferences[0]?.uploadStatus).toBe('idle')
+
+    store.resetGenerationState()
+    state = useGenerationStore.getState()
+    expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
+  })
+
   it('hydrates config snapshots with missing defaults', () => {
     useGenerationStore.getState().hydrateProjectConfig({
       activeTab: 'image',

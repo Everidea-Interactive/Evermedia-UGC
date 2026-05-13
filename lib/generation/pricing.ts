@@ -1,12 +1,10 @@
 import {
-  choosePrimaryReferenceSlot,
   getImageResolution,
   getGrokDuration,
   getGrokResolution,
   getKlingDuration,
   getSeedanceDuration,
   getVideoResolution,
-  hasVeoReferenceSlot,
 } from '@/lib/generation/model-mapping'
 import type {
   GenerationCostEstimate,
@@ -577,6 +575,7 @@ export function getGenerationCostEstimate(
     | 'outputQuality'
     | 'products'
     | 'subjectMode'
+    | 'videoReferences'
     | 'videoDuration'
     | 'videoAudio'
     | 'videoModel'
@@ -587,28 +586,22 @@ export function getGenerationCostEstimate(
     return unavailableEstimate('Live pricing unavailable.')
   }
 
+  const hasManualVideoReference =
+    snapshot.videoReferences.some((slot) => Boolean(slot.file || slot.previewUrl)) ||
+    Boolean(snapshot.assets.endFrame.file || snapshot.assets.endFrame.previewUrl)
+
   let perTaskRate: GenerationCostRate | null = null
 
   if (snapshot.activeTab === 'image') {
     const imageResolution = getImageResolution(snapshot.outputQuality)
     perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
   } else if (snapshot.videoModel === 'veo-3.1') {
-    perTaskRate = hasVeoReferenceSlot({
-      assets: snapshot.assets,
-      products: snapshot.products,
-      subjectMode: snapshot.subjectMode,
-    })
+    perTaskRate = hasManualVideoReference
       ? pricingMatrix.video['veo-3.1'].withReference
       : pricingMatrix.video['veo-3.1'].promptOnly
   } else if (snapshot.videoModel === 'seedance-1.5-pro') {
     const videoResolution = getVideoResolution(snapshot.outputQuality)
-    const hasReference = Boolean(
-      choosePrimaryReferenceSlot({
-        assets: snapshot.assets,
-        products: snapshot.products,
-        subjectMode: snapshot.subjectMode,
-      }),
-    )
+    const hasReference = hasManualVideoReference
 
     perTaskRate = hasReference
       ? pricingMatrix.video['seedance-1.5-pro'].withReference[videoResolution][

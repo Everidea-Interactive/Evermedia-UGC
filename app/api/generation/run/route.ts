@@ -90,6 +90,7 @@ function createEstimateSnapshot(
   | 'outputQuality'
   | 'products'
   | 'subjectMode'
+  | 'videoReferences'
   | 'videoDuration'
   | 'videoAudio'
   | 'videoModel'
@@ -122,6 +123,7 @@ function createEstimateSnapshot(
     outputQuality: input.outputQuality,
     products,
     subjectMode: input.subjectMode,
+    videoReferences: input.workspace === 'video' ? products.slice(0, 3) : [],
     videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,

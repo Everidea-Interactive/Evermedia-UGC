@@ -852,12 +852,69 @@ describe('KIE batch submission', () => {
         generate_audio: false,
         input_urls: [
           'https://files.example.com/product.png',
-          'https://files.example.com/end.png',
         ],
         nsfw_checker: false,
         prompt: 'Create a polished product motion clip.',
         resolution: '1080p',
       },
+    })
+  })
+
+  it('caps Veo references to ordered start frames and keeps end-frame guidance', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_2',
+          kind: 'product',
+          label: 'Reference 2',
+          order: 1,
+          productId: 'video-reference-2',
+          remoteUrl: 'https://files.example.com/ref-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_3',
+          kind: 'product',
+          label: 'Reference 3',
+          order: 2,
+          productId: 'video-reference-3',
+          remoteUrl: 'https://files.example.com/ref-3.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'veo-3.1',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      imageUrls: [
+        'https://files.example.com/ref-1.png',
+        'https://files.example.com/ref-2.png',
+        'https://files.example.com/end.png',
+      ],
+      generationType: 'REFERENCE_2_VIDEO',
     })
   })
 

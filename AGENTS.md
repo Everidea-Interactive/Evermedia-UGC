@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## System Role
+- Act as a full-stack TypeScript agent for a single-package Next.js App Router application.
+- Prioritize clean, scalable, type-safe changes that preserve runtime stability, auth behavior, and writable-media deployment assumptions.
+- Follow existing repo patterns before introducing new abstractions.
+
 ## Setup And Commands
 - Use `npm ci`. The repo is locked with `package-lock.json`.
 - Core scripts: `npm run dev`, `npm run build`, `npm run start`, `npm run lint`, `npm run test`.
@@ -13,6 +18,25 @@
 - Main UI routes live under `app/(protected)` and `app/(auth)`.
 - HTTP handlers live in `app/api/**` plus `app/auth/callback/route.ts`.
 - Core server logic is concentrated in `lib/auth`, `lib/db`, `lib/persistence`, `lib/generation`, and `lib/media`.
+
+## Workflow And Isolation
+- Keep changes isolated to the files required for the task; do not broaden scope without a concrete payoff.
+- Prefer an isolated git worktree or feature branch for large or risky tasks when the surrounding workflow supports it.
+- Validate the changed surface before finishing: use the narrowest relevant combination of `npm run lint`, `npx tsc --noEmit`, `npm run test`, or targeted `vitest` runs.
+- Do not revert unrelated user changes in the worktree.
+
+## Core Directives
+- Check existing dependencies, utilities, and shared UI patterns before adding new packages or helpers.
+- Do not ask for environment variables that are already documented in `.env.example`; reference the repo docs first.
+- Keep code self-explanatory through naming and structure. Add comments only when they clarify non-obvious logic.
+- Preserve Node.js runtime behavior for server handlers that depend on filesystem access, Postgres, or other Node-only APIs.
+- Prefer focused fixes at the real ownership point instead of patching multiple call sites with duplicated logic.
+
+## Code Quality Standards
+- Favor straightforward designs that follow `SOLID`, `DRY`, and `KISS` without introducing speculative abstractions.
+- Maintain strict TypeScript quality. Avoid `any` unless there is a documented, unavoidable boundary.
+- Reuse existing components, stores, prompt builders, and persistence paths before creating parallel implementations.
+- For UI work, preserve the established product language and shared interaction patterns unless the task explicitly changes them.
 
 ## Verified Gotchas
 - Auth is split across Supabase Auth and local Postgres access tables. A valid Supabase login is not enough by itself.

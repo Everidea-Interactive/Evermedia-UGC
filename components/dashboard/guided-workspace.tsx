@@ -333,6 +333,7 @@ function createGuidedEstimateInput(input: {
     outputQuality: input.outputQuality,
     products: [input.heroAsset],
     subjectMode: input.shots[0]?.subjectMode ?? 'product-only',
+    videoReferences: input.activeTab === 'video' ? [input.heroAsset] : [],
     videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,

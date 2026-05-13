@@ -23,21 +23,15 @@ const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'location',
 ]
 
-const videoWorkspaceNamedAssets: NamedAssetKey[] = [
-  'face1',
-  'face2',
-  'clothing',
-  'location',
-  'endFrame',
-]
-
 function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
-  return workspace === 'video'
-    ? videoWorkspaceNamedAssets
-    : imageWorkspaceNamedAssets
+  return workspace === 'video' ? [] : imageWorkspaceNamedAssets
 }
 
 function getPrimaryReference(snapshot: GenerationSnapshot) {
+  if (snapshot.activeTab === 'video') {
+    return snapshot.videoReferences.find((slot) => slot.file) ?? null
+  }
+
   const face1 = snapshot.assets.face1
   const primaryProduct = snapshot.products[0] ?? null
 
@@ -116,39 +110,70 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('outputQuality', snapshot.outputQuality)
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
-  for (const [order, key] of namedAssetKeys.entries()) {
-    const slot = snapshot.assets[key]
+  if (snapshot.activeTab === 'video') {
+    snapshot.videoReferences.forEach((reference, index) => {
+      if (!reference.file) {
+        return
+      }
 
-    if (!slot.file) {
-      continue
+      const fieldName = `video_reference_${index + 1}`
+      assetManifest.push({
+        fieldName,
+        kind: 'product',
+        label: reference.label,
+        order: index,
+        productId: reference.id,
+      })
+      formData.append(fieldName, reference.file)
+    })
+
+    const endFrame = snapshot.assets.endFrame
+    if (endFrame.file) {
+      const fieldName = 'asset_endFrame'
+      assetManifest.push({
+        fieldName,
+        key: 'endFrame',
+        kind: 'named',
+        label: endFrame.label,
+        order: 100,
+      })
+      formData.append(fieldName, endFrame.file)
+    }
+  } else {
+    for (const [order, key] of namedAssetKeys.entries()) {
+      const slot = snapshot.assets[key]
+
+      if (!slot.file) {
+        continue
+      }
+
+      const fieldName = `asset_${key}`
+      assetManifest.push({
+        fieldName,
+        key,
+        kind: 'named',
+        label: slot.label,
+        order,
+      })
+      formData.append(fieldName, slot.file)
     }
 
-    const fieldName = `asset_${key}`
-    assetManifest.push({
-      fieldName,
-      key,
-      kind: 'named',
-      label: slot.label,
-      order,
+    snapshot.products.forEach((product, index) => {
+      if (!product.file) {
+        return
+      }
+
+      const fieldName = `product_${product.id}`
+      assetManifest.push({
+        fieldName,
+        kind: 'product',
+        label: product.label,
+        order: 100 + index,
+        productId: product.id,
+      })
+      formData.append(fieldName, product.file)
     })
-    formData.append(fieldName, slot.file)
   }
-
-  snapshot.products.forEach((product, index) => {
-    if (!product.file) {
-      return
-    }
-
-    const fieldName = `product_${product.id}`
-    assetManifest.push({
-      fieldName,
-      kind: 'product',
-      label: product.label,
-      order: 100 + index,
-      productId: product.id,
-    })
-    formData.append(fieldName, product.file)
-  })
 
   formData.append('assetManifest', JSON.stringify(assetManifest))
 

@@ -800,16 +800,19 @@ function buildVideoPayload(input: {
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
   const videoResolution = getVideoResolution(input.outputQuality)
-  const referenceImageUrls = collectVideoReferenceUrls(
+  const orderedStartReferenceUrls = collectVideoReferenceUrls(
     input.subjectMode,
     input.assets,
     {
-      includeEndFrame: true,
+      max: 3,
     },
   )
 
   if (input.videoModel === 'veo-3.1') {
-    const imageUrls = referenceImageUrls.slice(0, 3)
+    const imageUrls =
+      endFrameReference?.remoteUrl
+        ? [...orderedStartReferenceUrls.slice(0, 2), endFrameReference.remoteUrl]
+        : orderedStartReferenceUrls
     const hasExplicitEndFramePair =
       Boolean(primaryReference?.remoteUrl) &&
       Boolean(endFrameReference?.remoteUrl) &&
@@ -839,7 +842,7 @@ function buildVideoPayload(input: {
   }
 
   if (input.videoModel === 'seedance-1.5-pro') {
-    const inputUrls = referenceImageUrls
+    const inputUrls = orderedStartReferenceUrls
 
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
