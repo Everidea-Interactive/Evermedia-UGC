@@ -100,6 +100,102 @@ describe('useGenerationStore', () => {
     expect(state.figureArtDirection).toBe('none')
   })
 
+  it('maintains fixed manual video reference slots and resets them cleanly', () => {
+    const store = useGenerationStore.getState()
+    const ref1 = new File(['ref-1'], 'ref-1.png', { type: 'image/png' })
+    const ref2 = new File(['ref-2'], 'ref-2.png', { type: 'image/png' })
+
+    expect(store.videoReferences.map((slot) => slot.label)).toEqual([
+      'Reference 1',
+      'Reference 2',
+      'Reference 3',
+    ])
+
+    store.setVideoReferenceFile('video-reference-1', ref1)
+    store.setVideoReferenceFile('video-reference-2', ref2)
+
+    let state = useGenerationStore.getState()
+    expect(state.videoReferences[0]?.file?.name).toBe('ref-1.png')
+    expect(state.videoReferences[1]?.file?.name).toBe('ref-2.png')
+
+    const stagedPreview = state.videoReferences[0]?.previewUrl
+    store.clearVideoReference('video-reference-1')
+    state = useGenerationStore.getState()
+
+    expect(revokeObjectURL).toHaveBeenCalledWith(stagedPreview)
+    expect(state.videoReferences[0]?.file).toBeNull()
+    expect(state.videoReferences[0]?.uploadStatus).toBe('idle')
+
+    store.resetGenerationState()
+    state = useGenerationStore.getState()
+    expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
+  })
+
+  it('forwards a manual image result into manual video staging with normalized settings', () => {
+    const store = useGenerationStore.getState()
+    const forwardedFile = new File(['manual-forward'], 'manual-forward.png', {
+      type: 'image/png',
+    })
+    const staleRef = new File(['stale-ref'], 'stale-ref.png', {
+      type: 'image/png',
+    })
+
+    store.setActiveTab('image')
+    store.setExperience('manual')
+    store.setOutputQuality('4k')
+    store.setVideoReferenceFile('video-reference-2', staleRef)
+
+    store.forwardManualImageResultToVideo(forwardedFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.experience).toBe('manual')
+    expect(state.activeTab).toBe('video')
+    expect(state.outputQuality).toBe('1080p')
+    expect(state.videoReferences[0]?.file?.name).toBe('manual-forward.png')
+    expect(state.videoReferences[1]?.file).toBeNull()
+    expect(state.videoReferences[2]?.file).toBeNull()
+  })
+
+  it('forwards a guided image result into guided video and clears the stale plan', () => {
+    const store = useGenerationStore.getState()
+    const heroFile = new File(['guided-forward'], 'guided-forward.png', {
+      type: 'image/png',
+    })
+    const staleEndFrame = new File(['end'], 'end.png', { type: 'image/png' })
+
+    store.setExperience('guided')
+    store.setActiveTab('image')
+    store.setGuidedEndFrameFile(staleEndFrame)
+    store.setGuidedPlan({
+      creativeStyle: 'ugc-lifestyle',
+      productCategory: 'cosmetics',
+      shots: [
+        {
+          prompt: 'Old prompt',
+          shotEnvironment: 'indoor',
+          slug: 'old-prompt',
+          subjectMode: 'product-only',
+          tags: [],
+          title: 'Old Prompt',
+        },
+      ],
+      summary: 'Old summary',
+    })
+
+    store.forwardGuidedImageResultToVideo(heroFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.experience).toBe('guided')
+    expect(state.activeTab).toBe('video')
+    expect(state.guidedInput.heroAsset.file?.name).toBe('guided-forward.png')
+    expect(state.guidedInput.endFrameAsset.file).toBeNull()
+    expect(state.guidedPlan).toBeNull()
+    expect(state.analysisStatus).toBe('idle')
+    expect(state.analysisError).toBeNull()
+  })
+
   it('hydrates config snapshots with missing defaults', () => {
     useGenerationStore.getState().hydrateProjectConfig({
       activeTab: 'image',

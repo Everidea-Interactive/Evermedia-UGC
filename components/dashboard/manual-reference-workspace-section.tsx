@@ -1,6 +1,6 @@
 'use client'
 
-import { Package2 } from 'lucide-react'
+import { Image, Package2 } from 'lucide-react'
 
 import {
   peopleReferenceCards,
@@ -17,16 +17,22 @@ import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 export function ReferenceWorkspaceSection({ className }: { className?: string }) {
+  const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
+  const videoReferences = useGenerationStore((state) => state.videoReferences)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
   const clearProductSlot = useGenerationStore((state) => state.clearProductSlot)
+  const clearVideoReference = useGenerationStore((state) => state.clearVideoReference)
   const resetGenerationState = useGenerationStore(
     (state) => state.resetGenerationState,
   )
   const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
   const setProductSlotFile = useGenerationStore(
     (state) => state.setProductSlotFile,
+  )
+  const setVideoReferenceFile = useGenerationStore(
+    (state) => state.setVideoReferenceFile,
   )
   const productSlots = products.slice(0, 2)
 
@@ -35,7 +41,11 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <SectionHeader
-            description="Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan."
+            description={
+              activeTab === 'video'
+                ? 'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.'
+                : 'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.'
+            }
             eyebrow="Reference board"
             title="Build the input set"
           />
@@ -48,48 +58,63 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
           </Button>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-x-6">
-          <div className="grid gap-5">
-            <ReferenceCardGroup title="People">
-              {peopleReferenceCards.map((asset) => (
-                <ReferenceCard
-                  icon={asset.icon}
-                  inputId={`asset-${asset.key}`}
-                  key={asset.key}
-                  onClear={() => clearNamedAsset(asset.key)}
-                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
-                  slot={assets[asset.key]}
-                />
-              ))}
-            </ReferenceCardGroup>
+        {activeTab === 'video' ? (
+          <ReferenceCardGroup title="References">
+            {videoReferences.map((referenceSlot) => (
+              <ReferenceCard
+                icon={Image}
+                inputId={referenceSlot.id}
+                key={referenceSlot.id}
+                onClear={() => clearVideoReference(referenceSlot.id)}
+                onSelect={(file) => setVideoReferenceFile(referenceSlot.id, file)}
+                slot={referenceSlot}
+              />
+            ))}
+          </ReferenceCardGroup>
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-x-6">
+            <div className="grid gap-5">
+              <ReferenceCardGroup title="People">
+                {peopleReferenceCards.map((asset) => (
+                  <ReferenceCard
+                    icon={asset.icon}
+                    inputId={`asset-${asset.key}`}
+                    key={asset.key}
+                    onClear={() => clearNamedAsset(asset.key)}
+                    onSelect={(file) => setNamedAssetFile(asset.key, file)}
+                    slot={assets[asset.key]}
+                  />
+                ))}
+              </ReferenceCardGroup>
 
-            <ReferenceCardGroup title="Style & Environment">
-              {styleReferenceCards.map((asset) => (
+              <ReferenceCardGroup title="Style & Environment">
+                {styleReferenceCards.map((asset) => (
+                  <ReferenceCard
+                    icon={asset.icon}
+                    inputId={`asset-${asset.key}`}
+                    key={asset.key}
+                    onClear={() => clearNamedAsset(asset.key)}
+                    onSelect={(file) => setNamedAssetFile(asset.key, file)}
+                    slot={assets[asset.key]}
+                  />
+                ))}
+              </ReferenceCardGroup>
+            </div>
+
+            <ReferenceCardGroup className="xl:self-start" title="Products">
+              {productSlots.map((product) => (
                 <ReferenceCard
-                  icon={asset.icon}
-                  inputId={`asset-${asset.key}`}
-                  key={asset.key}
-                  onClear={() => clearNamedAsset(asset.key)}
-                  onSelect={(file) => setNamedAssetFile(asset.key, file)}
-                  slot={assets[asset.key]}
+                  icon={Package2}
+                  inputId={`product-${product.id}`}
+                  key={product.id}
+                  onClear={() => clearProductSlot(product.id)}
+                  onSelect={(file) => setProductSlotFile(product.id, file)}
+                  slot={product}
                 />
               ))}
             </ReferenceCardGroup>
           </div>
-
-          <ReferenceCardGroup className="xl:self-start" title="Products">
-            {productSlots.map((product) => (
-              <ReferenceCard
-                icon={Package2}
-                inputId={`product-${product.id}`}
-                key={product.id}
-                onClear={() => clearProductSlot(product.id)}
-                onSelect={(file) => setProductSlotFile(product.id, file)}
-                slot={product}
-              />
-            ))}
-          </ReferenceCardGroup>
-        </div>
+        )}
       </div>
     </section>
   )

@@ -12,9 +12,7 @@ import type {
 } from '@/lib/generation/types'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import {
-  getGrokDuration,
-  getKlingDuration,
-  getSeedanceDuration,
+  getVideoDurationSeconds,
 } from '@/lib/generation/model-mapping'
 import type { ScrapedProductPage } from '@/lib/generation/product-page'
 import {
@@ -88,6 +86,7 @@ const guidedPlanJsonSchema = {
 } as const
 
 const guidedPlanToolName = 'submit_guided_analysis_plan'
+const GEMINI_GUIDED_ANALYSIS_TIMEOUT_MS = 180_000
 
 function isClaudeModel(model: KieAnalysisModel) {
   return model.startsWith('claude-')
@@ -104,17 +103,22 @@ function formatProductPageContext(productPage: ScrapedProductPage | null) {
     return 'Product page context: unavailable.'
   }
 
+  const clamp = (value: string | null | undefined, max = 140) => {
+    if (!value) {
+      return 'n/a'
+    }
+
+    return value.length > max ? `${value.slice(0, max)}...` : value
+  }
+
   const contextLines = [
-    `Product page URL: ${productPage.url}`,
-    `Title tag: ${productPage.title ?? 'n/a'}`,
-    `Meta description: ${productPage.description ?? 'n/a'}`,
-    `OG title: ${productPage.ogTitle ?? 'n/a'}`,
-    `OG description: ${productPage.ogDescription ?? 'n/a'}`,
-    `JSON-LD product name: ${productPage.jsonLdName ?? 'n/a'}`,
-    `Brand: ${productPage.brand ?? 'n/a'}`,
-    `Price: ${productPage.price ?? 'n/a'}`,
-    `Currency: ${productPage.currency ?? 'n/a'}`,
-    `Page images: ${productPage.images.slice(0, 3).join(', ') || 'n/a'}`,
+    `URL: ${clamp(productPage.url, 180)}`,
+    `Title: ${clamp(productPage.title)}`,
+    `Brand: ${clamp(productPage.brand, 80)}`,
+    `Price: ${clamp(productPage.price, 40)}`,
+    `Currency: ${clamp(productPage.currency, 16)}`,
+    `Desc: ${clamp(productPage.description, 180)}`,
+    `Primary image: ${clamp(productPage.images[0], 200)}`,
   ]
 
   return contextLines.join('\n')
@@ -126,33 +130,18 @@ function getVideoTargetClipInstruction(input: {
 }) {
   const videoDuration = input.videoDuration ?? 'base'
   const videoModel = input.videoModel ?? 'veo-3.1'
+  const modelLabel = videoModel === 'seedance-1.5-pro' ? 'Seedance 1.5 Pro' : 'Veo 3.1'
 
-  switch (videoModel) {
-    case 'kling':
-      return `Target clip length: ${getKlingDuration(videoDuration)} seconds for Kling.`
-    case 'grok-imagine':
-      return `Target clip length: ${getGrokDuration(videoDuration)} seconds for Grok Imagine.`
-    case 'seedance-1.5-pro':
-      return `Target clip length: ${getSeedanceDuration(videoDuration)} seconds for Seedance 1.5 Pro.`
-    case 'veo-3.1':
-    default:
-      return 'Target clip length: 8 seconds for Veo 3.1.'
-  }
+  return `Target clip length: ${getVideoDurationSeconds(videoModel, videoDuration)} seconds for ${modelLabel}.`
 }
 
 function createSystemPrompt(workspace: WorkspaceTab = 'image') {
-  const medium =
-    workspace === 'video'
-      ? 'product video prompts for an e-commerce creative studio'
-      : 'product photography prompts for an e-commerce creative studio'
-
+  const medium = workspace === 'video' ? 'video-generation' : 'image-generation'
   return [
-    `You are planning ${medium}.`,
-    'Return only valid structured output that matches the provided schema.',
-    `Each shot must be materially distinct, usable as a direct ${workspace === 'video' ? 'video-generation' : 'image-generation'} prompt, and grounded in the uploaded hero product image.`,
-    'Preserve product identity, color, material, silhouette, and branding.',
-    'Do not mention camera model names or unsupported technical jargon.',
-    'If a structured response schema or tool is available, use it directly and do not wrap the answer in prose.',
+    'You are an e-commerce creative planner.',
+    `Return JSON only, matching schema exactly; no prose.`,
+    `Create distinct, production-ready ${medium} prompts from the hero image.`,
+    'Preserve product identity, color, material, shape, and branding.',
   ].join(' ')
 }
 
@@ -181,14 +170,14 @@ function createUserPrompt(input: {
   const promptLines = [
     `Create exactly ${input.shotCount} ${workspace === 'video' ? 'video-generation' : 'image-generation'} ${shotNoun}.`,
     getConceptInstruction(input.contentConcept),
-    'Choose the single best productCategory and creativeStyle for the full set.',
-    'Use product-only shots when detail, material, or packaging focus is strongest. Use lifestyle only when human interaction would improve conversion.',
+    'Pick one productCategory and one creativeStyle for the full set.',
+    'Use product-only for detail/packaging focus; use lifestyle only when it clearly improves conversion.',
   ]
 
   if (workspace === 'video') {
     promptLines.push(
       getVideoTargetClipInstruction(input),
-      'Clip intent: write one complete video-generation prompt with motion, pacing, subject action, and final visual state sized to the target length.',
+      'Write complete prompts with motion, pacing, subject action, and end state.',
     )
 
     if (input.cameraMovement) {
@@ -199,10 +188,8 @@ function createUserPrompt(input: {
   }
 
   promptLines.push(
-    'Each prompt should be generation-ready and specific about composition, styling, product focus, lighting, and conversion intent.',
-    'Make the titles short and readable.',
-    'Make the slugs lowercase and URL-safe.',
-    'Tags should be short production labels such as close-up, hero, lifestyle, detail, texture, full-body, or studio.',
+    'Each prompt must be specific about composition, styling, product focus, lighting, and conversion intent.',
+    'Keep titles short; slugs lowercase URL-safe; tags short.',
     formatProductPageContext(input.productPage),
   )
 
@@ -212,6 +199,7 @@ function createUserPrompt(input: {
 export function buildGeminiAnalysisBody(input: {
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
+  heroImageDataUrl?: string | null
   heroImageUrl: string
   model: Extract<KieAnalysisModel, 'gemini-2.5-flash'>
   productPage: ScrapedProductPage | null
@@ -234,7 +222,7 @@ export function buildGeminiAnalysisBody(input: {
           },
           {
             image_url: {
-              url: input.heroImageUrl,
+              url: input.heroImageDataUrl ?? input.heroImageUrl,
             },
             type: 'image_url',
           },
@@ -260,7 +248,7 @@ export function buildClaudeAnalysisBody(input: {
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroImageUrl: string
-  model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
+  model: Extract<KieAnalysisModel, 'claude-sonnet-4-6'>
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -519,6 +507,7 @@ export async function analyzeGuidedProductPlan(input: {
   analysisModel: KieAnalysisModel
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
+  heroImageDataUrl?: string | null
   heroImageUrl: string
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
@@ -536,7 +525,7 @@ export async function analyzeGuidedProductPlan(input: {
         ...input,
         model: input.analysisModel as Extract<
           KieAnalysisModel,
-          'claude-haiku-4-5' | 'claude-sonnet-4-6'
+          'claude-sonnet-4-6'
         >,
       })
     : buildGeminiAnalysisBody({
@@ -552,6 +541,10 @@ export async function analyzeGuidedProductPlan(input: {
       'Content-Type': 'application/json',
     },
     method: 'POST',
+    signal:
+      input.analysisModel === 'gemini-2.5-flash'
+        ? AbortSignal.timeout(GEMINI_GUIDED_ANALYSIS_TIMEOUT_MS)
+        : undefined,
   }, 'KIE guided analysis')
 
   if (!response.ok) {

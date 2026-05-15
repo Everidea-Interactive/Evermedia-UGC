@@ -10,8 +10,10 @@ import type {
   SubjectMode,
   UploadedAssetDescriptor,
   VideoDuration,
+  VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
+import { getVideoDurationSeconds } from '@/lib/generation/model-mapping'
 
 type PromptVariantIndex = 1 | 2 | 3 | 4
 
@@ -37,6 +39,9 @@ const subjectPhrases: Record<SubjectMode, string> = {
   lifestyle:
     'Stage a lifestyle composition that naturally includes a person interacting with the product.',
 }
+
+const lifestyleImageAnatomySafeguard =
+  'Anatomy integrity: render natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, correctly attached limbs, and no duplicated, missing, fused, or distorted body parts.'
 
 const environmentPhrases: Record<ShotEnvironment, string> = {
   indoor: 'Shot environment: curated indoor setting with studio-grade control.',
@@ -96,6 +101,13 @@ function getOrderedProductReferences(assets: UploadedAssetDescriptor[]) {
     .sort((left, right) => left.order - right.order)
 }
 
+function getOrderedVideoStartReferences(assets: UploadedAssetDescriptor[]) {
+  return assets
+    .filter((asset) => !(asset.kind === 'named' && asset.key === 'endFrame'))
+    .slice()
+    .sort((left, right) => left.order - right.order)
+}
+
 export function choosePrimaryReference(
   subjectMode: SubjectMode,
   assets: UploadedAssetDescriptor[],
@@ -136,11 +148,13 @@ export function compileGenerationPrompt(input: {
   subjectMode: SubjectMode
   textPrompt: string
   videoDuration: VideoDuration
+  videoModel?: VideoModelOption
   workspace: WorkspaceTab
 }) {
   const endFrame = chooseEndFrameReference(input.assets)
   const named = getNamedReferenceMap(input.assets)
   const products = getOrderedProductReferences(input.assets)
+  const videoReferences = getOrderedVideoStartReferences(input.assets)
   const face1 = named.get('face1')
   const face2 = named.get('face2')
   const identityReference =
@@ -148,16 +162,27 @@ export function compileGenerationPrompt(input: {
   const productReference = products[0] ?? null
   const clothingReference = named.get('clothing') ?? null
   const locationReference = named.get('location') ?? null
-  const explicitlyDescribedFieldNames = new Set(
-    [
+  const explicitlyDescribedFieldNames = new Set<string>(
+    [endFrame?.fieldName].filter((value): value is string => Boolean(value)),
+  )
+
+  if (input.workspace === 'video') {
+    for (const reference of videoReferences) {
+      explicitlyDescribedFieldNames.add(reference.fieldName)
+    }
+  } else {
+    for (const fieldName of [
       identityReference?.fieldName,
       face1 && face2 ? face2.fieldName : null,
       productReference?.fieldName,
       clothingReference?.fieldName,
       locationReference?.fieldName,
-      endFrame?.fieldName,
-    ].filter((value): value is string => Boolean(value)),
-  )
+    ]) {
+      if (fieldName) {
+        explicitlyDescribedFieldNames.add(fieldName)
+      }
+    }
+  }
   const supportingReferenceLabels = input.assets
     .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
     .map((asset) => asset.label)
@@ -177,6 +202,10 @@ export function compileGenerationPrompt(input: {
       input.characterAgeGroup,
     ].filter((value) => value !== 'any')
 
+    if (input.workspace === 'image') {
+      promptParts.push(lifestyleImageAnatomySafeguard)
+    }
+
     if (demographicSelections.length > 0) {
       promptParts.push(
         `Character demographics: ${demographicSelections
@@ -192,7 +221,10 @@ export function compileGenerationPrompt(input: {
 
   if (input.workspace === 'video') {
     promptParts.push(
-      `Clip intent: ${input.videoDuration === 'base' ? 'short-form 5 to 8 second pacing' : 'extended pacing with extra action beats'}.`,
+      `Clip intent: ${getVideoDurationSeconds(
+        input.videoModel ?? 'veo-3.1',
+        input.videoDuration,
+      )}-second pacing.`,
     )
     promptParts.push(
       `Target delivery: ${input.outputQuality} output where the selected model supports it.`,
@@ -203,34 +235,42 @@ export function compileGenerationPrompt(input: {
     promptParts.push(movementPhrases[input.cameraMovement])
   }
 
-  if (identityReference) {
-    promptParts.push(
-      `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
-    )
-  }
+  if (input.workspace === 'video') {
+    videoReferences.slice(0, 3).forEach((reference, index) => {
+      promptParts.push(
+        `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
+      )
+    })
+  } else {
+    if (identityReference) {
+      promptParts.push(
+        `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
+      )
+    }
 
-  if (face1 && face2) {
-    promptParts.push(
-      `Additional face reference: ${face2.label}. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.`,
-    )
-  }
+    if (face1 && face2) {
+      promptParts.push(
+        `Additional face reference: ${face2.label}. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.`,
+      )
+    }
 
-  if (productReference) {
-    promptParts.push(
-      `Product reference: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
-    )
-  }
+    if (productReference) {
+      promptParts.push(
+        `Product reference: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
+      )
+    }
 
-  if (clothingReference) {
-    promptParts.push(
-      `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
-    )
-  }
+    if (clothingReference) {
+      promptParts.push(
+        `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
+      )
+    }
 
-  if (locationReference) {
-    promptParts.push(
-      `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
-    )
+    if (locationReference) {
+      promptParts.push(
+        `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
+      )
+    }
   }
 
   if (supportingReferenceLabels.length > 0) {

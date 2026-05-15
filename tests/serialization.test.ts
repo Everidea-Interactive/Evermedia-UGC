@@ -19,6 +19,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'lifestyle',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -46,6 +47,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'product-only',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -126,6 +128,7 @@ describe('normalizeProjectConfigSnapshot', () => {
       subjectMode: 'product-only',
       textPrompt: '',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
     })
 
@@ -155,6 +158,27 @@ describe('normalizeProjectConfigSnapshot', () => {
 
     expect(snapshot.experience).toBe('ideation')
   })
+
+  it('falls back invalid persisted model values to defaults', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      imageModel: 'grok-imagine' as never,
+      videoModel: 'veo-4' as never,
+    })
+
+    expect(snapshot.imageModel).toBe('nano-banana')
+    expect(snapshot.videoModel).toBe('veo-3.1')
+  })
+
+  it.each(['kling', 'grok-imagine'])(
+    'falls back deprecated persisted %s video models to Veo',
+    (videoModel) => {
+      const snapshot = normalizeProjectConfigSnapshot({
+        videoModel: videoModel as never,
+      })
+
+      expect(snapshot.videoModel).toBe('veo-3.1')
+    },
+  )
 })
 
 describe('createGenerationRunState', () => {
@@ -181,6 +205,7 @@ describe('createGenerationRunState', () => {
         subjectMode: 'product-only',
         textPrompt: '',
         videoDuration: 'base',
+      videoAudio: 'no-audio',
         videoModel: 'veo-3.1',
       }),
       createdAt: '2026-04-30T00:00:00.000Z',
@@ -197,3 +222,4 @@ describe('createGenerationRunState', () => {
     expect(createGenerationRunState(run, []).experience).toBe('guided')
   })
 })
+

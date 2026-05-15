@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
+  Forward,
   ImageIcon,
   LoaderCircle,
   ScanLine,
@@ -25,6 +26,10 @@ import { Select } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  getVideoDurationLabel,
+  getVideoDurationOptions,
+} from '@/components/dashboard/manual-workspace-config'
+import {
   buildCreativePlanningFormData,
   buildGuidedAnalysisFormData,
   buildGuidedGenerationFormData,
@@ -42,6 +47,7 @@ import {
   getCompletedVariantCount,
   getFailedVariantCount,
 } from '@/lib/generation/run-copy'
+import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
 import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
@@ -59,6 +65,7 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
   OutputQuality,
+  VideoAudio,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -75,7 +82,15 @@ const fieldLabelClassName =
 
 const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 const videoQualities: OutputQuality[] = ['720p', '1080p']
-const videoDurations: VideoDuration[] = ['base', 'extended']
+const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
+
+function supportsVideoAudioSelection(model: VideoModelOption) {
+  return model === 'seedance-1.5-pro'
+}
+
+function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
+  return supportsVideoAudioSelection(model) ? null : 'with-audio'
+}
 
 const conceptCopy = {
   affiliate: {
@@ -91,20 +106,15 @@ const conceptCopy = {
 } as const
 
 const analysisModelLabels = {
-  'claude-haiku-4-5': 'Claude Haiku 4.5',
   'claude-sonnet-4-6': 'Claude Sonnet 4.6',
   'gemini-2.5-flash': 'Gemini 2.5 Flash',
 } as const
 
 const imageModelLabels = {
-  'gpt-image-2': 'GPT Image 2',
-  'grok-imagine': 'Grok Imagine',
   'nano-banana': 'Nano Banana 2',
 } as const
 
 const videoModelLabels = {
-  'grok-imagine': 'Grok Imagine',
-  kling: 'Kling',
   'seedance-1.5-pro': 'Seedance 1.5 Pro',
   'veo-3.1': 'Veo 3.1',
 } as const
@@ -123,12 +133,7 @@ function getImageQualityOptions(
   imageModel: ImageModelOption,
   kiePricing: KiePricingResponse | null,
 ) {
-  return (
-    kiePricing?.supportedImageQualities?.[imageModel] ??
-    (imageModel === 'grok-imagine'
-      ? (['1080p'] as OutputQuality[])
-      : imageQualities)
-  )
+  return kiePricing?.supportedImageQualities?.[imageModel] ?? imageQualities
 }
 
 function getImageQualityLabel(quality: OutputQuality) {
@@ -208,23 +213,9 @@ function formatEstimateUsd(usd: number | null, usdToIdrRate: number) {
   }).format(idr)
 }
 
-function getGuidedVideoDurationLabel(
-  model: VideoModelOption,
-  duration: VideoDuration,
-) {
-  if (model === 'kling') {
-    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
-  }
 
-  if (model === 'grok-imagine') {
-    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
-  }
-
-  if (model === 'seedance-1.5-pro') {
-    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
-  }
-
-  return '8s'
+function getGuidedVideoAudioLabel(videoAudio: VideoAudio) {
+  return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
 }
 
 function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
@@ -243,10 +234,12 @@ function getAnalysisStatusLabel(status: GuidedAnalysisStatus) {
 function getAnalyzeHelperText({
   hasHero,
   hasPlan,
+  isVideoWorkspace,
   status,
 }: {
   hasHero: boolean
   hasPlan: boolean
+  isVideoWorkspace: boolean
   status: GuidedAnalysisStatus
 }) {
   if (status === 'analyzing') {
@@ -254,14 +247,20 @@ function getAnalyzeHelperText({
   }
 
   if (!hasHero) {
-    return 'Upload the hero product image to unlock guided analysis.'
+    return isVideoWorkspace
+      ? 'Upload or forward a start frame to unlock guided video analysis.'
+      : 'Upload the hero product image to unlock guided analysis.'
   }
 
   if (hasPlan) {
-    return 'Hero image ready. Re-analyze when you want to replace the current prompt set.'
+    return isVideoWorkspace
+      ? 'Start frame ready. Re-analyze when you want to rebuild the guided video prompt set.'
+      : 'Hero image ready. Re-analyze when you want to replace the current prompt set.'
   }
 
-  return 'Hero image ready. Analyze to generate the guided shot list.'
+  return isVideoWorkspace
+    ? 'Start frame ready. Analyze to generate the guided video shot list.'
+    : 'Hero image ready. Analyze to generate the guided shot list.'
 }
 
 function getGenerateHelperText({
@@ -270,23 +269,29 @@ function getGenerateHelperText({
   hasHero,
   hasCreativePlan,
   hasPlan,
+  isVideoWorkspace,
 }: {
   activeRun: boolean
   creditReason: string | null
   hasHero: boolean
   hasCreativePlan: boolean
   hasPlan: boolean
+  isVideoWorkspace: boolean
 }) {
   if (activeRun) {
     return 'The current guided batch is still rendering. Cancel it first if you need to restart.'
   }
 
   if (!hasHero) {
-    return 'The hero product image is still required before you can generate the batch.'
+    return isVideoWorkspace
+      ? 'A start frame is still required before you can generate the guided video batch.'
+      : 'The hero product image is still required before you can generate the batch.'
   }
 
   if (!hasPlan) {
-    return 'Analyze the hero product first to unlock prompt editing and rendering.'
+    return isVideoWorkspace
+      ? 'Analyze the start frame first to unlock guided video prompt editing and rendering.'
+      : 'Analyze the hero product first to unlock prompt editing and rendering.'
   }
 
   if (!hasCreativePlan) {
@@ -308,6 +313,7 @@ function createGuidedEstimateInput(input: {
   outputQuality: OutputQuality
   shotCount: 1 | 2 | 3 | 4
   shots: GuidedAnalysisShot[]
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }) {
@@ -366,6 +372,8 @@ function createGuidedEstimateInput(input: {
     outputQuality: input.outputQuality,
     products: [input.heroAsset],
     subjectMode: input.shots[0]?.subjectMode ?? 'product-only',
+    videoReferences: input.activeTab === 'video' ? [input.heroAsset] : [],
+    videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
   }
@@ -472,7 +480,13 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
+function GuidedHeroUploadCard({
+  activeTab,
+  slot,
+}: {
+  activeTab: WorkspaceTab
+  slot: AssetSlot
+}) {
   const clearGuidedHeroAsset = useGenerationStore((state) => state.clearGuidedHeroAsset)
   const setGuidedHeroFile = useGenerationStore((state) => state.setGuidedHeroFile)
   const previewUrl = slot.previewUrl
@@ -562,10 +576,15 @@ function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
             <ImageIcon className="size-6" suppressHydrationWarning />
           </div>
           <div>
-            <p className="font-medium text-foreground">Upload the hero product image</p>
+            <p className="font-medium text-foreground">
+              {activeTab === 'video'
+                ? 'Upload or forward a start frame'
+                : 'Upload the hero product image'}
+            </p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Guided mode uses one product image as the visual anchor for shot
-              planning and final rendering.
+              {activeTab === 'video'
+                ? 'Guided video mode uses one staged image as the start-frame anchor for analysis and final rendering.'
+                : 'Guided mode uses one product image as the visual anchor for shot planning and final rendering.'}
             </p>
           </div>
           <Button asChild size="sm" variant="secondary">
@@ -584,8 +603,12 @@ function GuidedHeroUploadCard({ slot }: { slot: AssetSlot }) {
 
       <p className="text-sm leading-6 text-muted-foreground">
         {previewUrl
-          ? 'You can replace the hero image before re-analyzing or rendering again.'
-          : 'A hero image is required before guided analysis can begin.'}
+          ? activeTab === 'video'
+            ? 'You can replace the start frame before re-analyzing or rendering again.'
+            : 'You can replace the hero image before re-analyzing or rendering again.'
+          : activeTab === 'video'
+            ? 'A start frame is required before guided video analysis can begin.'
+            : 'A hero image is required before guided analysis can begin.'}
       </p>
     </div>
   )
@@ -673,10 +696,17 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
 }
 
 function GuidedResultTile({
+  forwardingVariantId,
+  onForwardToVideo,
   variant,
 }: {
+  forwardingVariantId: string | null
+  onForwardToVideo: (variant: GenerationRun['variants'][number]) => void
   variant: GenerationRun['variants'][number]
 }) {
+  const isForwarding = forwardingVariantId === variant.variantId
+  const canForwardToVideo =
+    variant.status === 'success' && variant.result?.type === 'image'
   const content = variant.result?.url ? (
     variant.result.type === 'image' ? (
       <ImagePreviewDialog
@@ -733,6 +763,22 @@ function GuidedResultTile({
         <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">
           {variant.prompt}
         </p>
+        {canForwardToVideo ? (
+          <Button
+            disabled={isForwarding}
+            onClick={() => onForwardToVideo(variant)}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            {isForwarding ? (
+              <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
+            ) : (
+              <Forward data-icon="inline-start" suppressHydrationWarning />
+            )}
+            {isForwarding ? 'Forwarding...' : 'Forward to Video'}
+          </Button>
+        ) : null}
       </div>
     </article>
   )
@@ -786,8 +832,9 @@ function GuidedAnalyzePanel({
               </p>
               <h2 className="font-display text-xl font-semibold">Analyze input</h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                Upload the hero product, add any page context, then generate the
-                initial shot list before editing the prompts.
+                {activeTab === 'video'
+                  ? 'Upload or forward the start frame, add any page context, then generate the initial video shot list before editing the prompts.'
+                  : 'Upload the hero product, add any page context, then generate the initial shot list before editing the prompts.'}
               </p>
             </div>
 
@@ -798,7 +845,7 @@ function GuidedAnalyzePanel({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(420px,1.14fr)_minmax(0,0.86fr)]">
-          <GuidedHeroUploadCard slot={guidedInput.heroAsset} />
+          <GuidedHeroUploadCard activeTab={activeTab} slot={guidedInput.heroAsset} />
 
           <div className="grid gap-4">
             <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
@@ -1169,7 +1216,9 @@ function GuidedRunPanel({
   setImageModel,
   setOutputQuality,
   setVideoDuration,
+  setVideoAudio,
   setVideoModel,
+  videoAudio,
   videoDuration,
   videoModel,
   kiePricing,
@@ -1192,7 +1241,9 @@ function GuidedRunPanel({
   setImageModel: (model: ImageModelOption) => void
   setOutputQuality: (quality: OutputQuality) => void
   setVideoDuration: (duration: VideoDuration) => void
+  setVideoAudio: (videoAudio: VideoAudio) => void
   setVideoModel: (model: VideoModelOption) => void
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
   kiePricing: KiePricingResponse | null
@@ -1347,6 +1398,38 @@ function GuidedRunPanel({
                 </FieldBlock>
 
                 <FieldBlock
+                  description="Audio behavior depends on the selected video model."
+                  htmlFor="guided-video-audio"
+                  label="Audio"
+                >
+                  {supportsVideoAudioSelection(videoModel) ? (
+                    <Select
+                      aria-label="Video audio"
+                      id="guided-video-audio"
+                      onChange={(event) =>
+                        setVideoAudio(event.target.value as VideoAudio)
+                      }
+                      value={videoAudio}
+                    >
+                      {videoAudioOptions.map((audioOption) => (
+                        <option key={audioOption} value={audioOption}>
+                          {getGuidedVideoAudioLabel(audioOption)}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Select
+                      aria-label="Video audio"
+                      disabled
+                      id="guided-video-audio"
+                      value="with-audio"
+                    >
+                      <option value="with-audio">Included by model</option>
+                    </Select>
+                  )}
+                </FieldBlock>
+
+                <FieldBlock
                   description="Clip length passed to models that expose duration controls."
                   htmlFor="guided-video-duration"
                   label="Video Duration"
@@ -1359,9 +1442,9 @@ function GuidedRunPanel({
                     }
                     value={videoDuration}
                   >
-                    {videoDurations.map((duration) => (
+                    {getVideoDurationOptions(videoModel).map((duration) => (
                       <option key={duration} value={duration}>
-                        {getGuidedVideoDurationLabel(videoModel, duration)}
+                        {getVideoDurationLabel(videoModel, duration)}
                       </option>
                     ))}
                   </Select>
@@ -1465,11 +1548,14 @@ function GuidedRunPanel({
 
 function GuidedResultsSection({
   activeTab,
+  forwardGuidedImageResultToVideo,
   generationRun,
 }: {
   activeTab: WorkspaceTab
+  forwardGuidedImageResultToVideo: (file: File) => void
   generationRun: GenerationRun
 }) {
+  const [forwardingVariantId, setForwardingVariantId] = useState<string | null>(null)
   const visibleRun = isRunVisibleForExperience(generationRun, 'guided', activeTab)
     ? generationRun
     : null
@@ -1478,6 +1564,23 @@ function GuidedResultsSection({
     visibleRun?.status === 'rendering'
       ? 'Guided runs populate one result tile per planned shot as each task completes.'
       : 'Guided runs render one tile per planned shot and keep the prompts attached to each result.'
+
+  const handleForwardToVideo = async (variant: GenerationRun['variants'][number]) => {
+    if (!variant.result?.url || variant.result.type !== 'image') {
+      return
+    }
+
+    try {
+      setForwardingVariantId(variant.variantId)
+      const file = await fetchForwardedResultFile(variant.result.url)
+
+      startTransition(() => {
+        forwardGuidedImageResultToVideo(file)
+      })
+    } finally {
+      setForwardingVariantId(null)
+    }
+  }
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5')}>
@@ -1509,7 +1612,12 @@ function GuidedResultsSection({
         {hasVariants ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleRun?.variants.map((variant) => (
-              <GuidedResultTile key={variant.variantId} variant={variant} />
+              <GuidedResultTile
+                forwardingVariantId={forwardingVariantId}
+                key={variant.variantId}
+                onForwardToVideo={handleForwardToVideo}
+                variant={variant}
+              />
             ))}
           </div>
         ) : (
@@ -1558,12 +1666,17 @@ export function GuidedWorkspace({
     (state) => state.creativePlanningStatus,
   )
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
+  const experience = useGenerationStore((state) => state.experience)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const guidedVideoStageEventId = useGenerationStore(
+    (state) => state.guidedVideoStageEventId,
+  )
   const guidedInput = useGenerationStore((state) => state.guidedInput)
   const guidedPlan = useGenerationStore((state) => state.guidedPlan)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoAudio = useGenerationStore((state) => state.videoAudio)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setAnalysisError = useGenerationStore((state) => state.setAnalysisError)
   const setAnalysisStatus = useGenerationStore((state) => state.setAnalysisStatus)
@@ -1591,6 +1704,9 @@ export function GuidedWorkspace({
   const setGuidedProductUrl = useGenerationStore(
     (state) => state.setGuidedProductUrl,
   )
+  const forwardGuidedImageResultToVideo = useGenerationStore(
+    (state) => state.forwardGuidedImageResultToVideo,
+  )
   const setGuidedShotCount = useGenerationStore((state) => state.setGuidedShotCount)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
   const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
@@ -1598,6 +1714,7 @@ export function GuidedWorkspace({
     (state) => state.updateStoryboardShot,
   )
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
+  const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const updateGuidedShotPrompt = useGenerationStore(
     (state) => state.updateGuidedShotPrompt,
@@ -1630,6 +1747,7 @@ export function GuidedWorkspace({
           outputQuality,
           shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
           shots: guidedPlan?.shots ?? [],
+          videoAudio,
           videoDuration,
           videoModel,
         }),
@@ -1644,6 +1762,7 @@ export function GuidedWorkspace({
       imageModel,
       outputQuality,
       videoDuration,
+      videoAudio,
       videoModel,
       kiePricing?.matrix,
     ],
@@ -1662,12 +1781,14 @@ export function GuidedWorkspace({
     hasPlan &&
     hasCreativePlan &&
     hasHero &&
+    analysisStatus !== 'analyzing' &&
     !activeRunInGuidedMode &&
     creditValidation.canGenerate
 
   const analysisHelperText = getAnalyzeHelperText({
     hasHero,
     hasPlan,
+    isVideoWorkspace: activeTab === 'video',
     status: analysisStatus,
   })
   const generateHelperText = getGenerateHelperText({
@@ -1676,7 +1797,38 @@ export function GuidedWorkspace({
     hasCreativePlan,
     hasHero,
     hasPlan,
+    isVideoWorkspace: activeTab === 'video',
   })
+  useEffect(() => {
+    if (
+      experience !== 'guided' ||
+      activeTab !== 'video' ||
+      guidedVideoStageEventId === 0
+    ) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setGuidedSection('analyze')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, experience, guidedVideoStageEventId])
+
+  useEffect(() => {
+    if (activeTab !== 'video') {
+      return
+    }
+
+    const forcedAudio = getForcedVideoAudio(videoModel)
+
+    if (forcedAudio && videoAudio !== forcedAudio) {
+      setVideoAudio(forcedAudio)
+    }
+  }, [activeTab, setVideoAudio, videoAudio, videoModel])
+
   useEffect(() => {
     const runId = generationRun.runId
 
@@ -1757,6 +1909,7 @@ export function GuidedWorkspace({
         productUrl: guidedInput.productUrl,
         shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         videoDuration,
+        videoAudio,
         videoModel,
         workspace: activeTab,
       })
@@ -1886,6 +2039,7 @@ export function GuidedWorkspace({
         shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         shots: guidedPlan.shots,
         videoDuration,
+        videoAudio,
         videoModel,
       }),
       kiePricing?.matrix ?? null,
@@ -1918,6 +2072,7 @@ export function GuidedWorkspace({
         plan: guidedPlan,
         productUrl: guidedInput.productUrl,
         videoDuration,
+        videoAudio,
         videoModel,
         workspace: activeTab,
       })
@@ -2061,7 +2216,11 @@ export function GuidedWorkspace({
               </TabsContent>
 
               <TabsContent className="mt-0" value="results">
-                <GuidedResultsSection activeTab={activeTab} generationRun={generationRun} />
+                <GuidedResultsSection
+                  activeTab={activeTab}
+                  forwardGuidedImageResultToVideo={forwardGuidedImageResultToVideo}
+                  generationRun={generationRun}
+                />
               </TabsContent>
             </div>
 
@@ -2088,7 +2247,9 @@ export function GuidedWorkspace({
               setImageModel={setImageModel}
               setOutputQuality={setOutputQuality}
               setVideoDuration={setVideoDuration}
+              setVideoAudio={setVideoAudio}
               setVideoModel={setVideoModel}
+              videoAudio={videoAudio}
               videoDuration={videoDuration}
               videoModel={videoModel}
               kiePricing={kiePricing}

@@ -44,6 +44,7 @@ export type CharacterAgeGroup =
   | 'senior'
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
 export type VideoDuration = 'base' | 'extended'
+export type VideoAudio = 'no-audio' | 'with-audio'
 export type OutputQuality = '720p' | '1080p' | '4k'
 export type ImageResolution = '1K' | '2K' | '4K'
 export type VideoResolution = '720p' | '1080p'
@@ -55,15 +56,12 @@ export type CameraMovement =
   | 'crash-zoom'
   | 'macro'
 
-export type ImageModelOption = 'nano-banana' | 'grok-imagine' | 'gpt-image-2'
+export type ImageModelOption = 'nano-banana'
 export type VideoModelOption =
   | 'veo-3.1'
-  | 'kling'
-  | 'grok-imagine'
   | 'seedance-1.5-pro'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'
-  | 'claude-haiku-4-5'
   | 'claude-sonnet-4-6'
 export type GenerationProvider = 'market' | 'veo'
 export type KieStatusSource = 'chat-credit' | 'user-credits'
@@ -259,6 +257,8 @@ export type GenerationSnapshot = {
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }
@@ -325,16 +325,22 @@ export type KiePricingMatrix = {
       withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
     kling: {
-      promptOnly: Record<VideoDuration, GenerationCostRate>
-      withReference: Record<VideoDuration, GenerationCostRate>
+      promptOnly: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
     }
     'veo-3.1': {
       promptOnly: GenerationCostRate
       withReference: GenerationCostRate
     }
     'seedance-1.5-pro': {
-      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
     }
   }
 }

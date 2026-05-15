@@ -7,15 +7,19 @@ import {
   batchSizes,
   cameraMovements,
   creativeStyles,
-  durations,
+  getForcedVideoAudio,
+  getVideoAudioLabel,
   figureArtDirections,
   getImageQualityLabel,
   getImageQualityOptions,
   getVideoDurationLabel,
+  getVideoDurationOptions,
+  supportsVideoAudioSelection,
   imageModels,
   productCategories,
   shotEnvironments,
   videoModels,
+  videoAudioOptions,
   videoQualities,
 } from '@/components/dashboard/manual-workspace-config'
 import {
@@ -51,6 +55,7 @@ import type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
@@ -115,6 +120,7 @@ function RunControlPanel({
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
+  const videoReferences = useGenerationStore((state) => state.videoReferences)
   const batchSize = useGenerationStore((state) => state.batchSize)
   const setBatchSize = useGenerationStore((state) => state.setBatchSize)
   const imageModel = useGenerationStore((state) => state.imageModel)
@@ -124,6 +130,8 @@ function RunControlPanel({
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
+  const videoAudio = useGenerationStore((state) => state.videoAudio)
+  const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
@@ -141,9 +149,16 @@ function RunControlPanel({
   const generationRun = useGenerationStore((state) => state.generationRun)
 
   const loadedAssets = useMemo(
-    () =>
-      [...Object.values(assets), ...products].filter((slot) => isSlotLoaded(slot)),
-    [assets, products],
+    () => {
+      if (activeTab === 'video') {
+        return [...videoReferences, assets.endFrame].filter((slot) => isSlotLoaded(slot))
+      }
+
+      return [...Object.values(assets), ...products].filter((slot) =>
+        isSlotLoaded(slot),
+      )
+    },
+    [activeTab, assets, products, videoReferences],
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
@@ -153,10 +168,12 @@ function RunControlPanel({
       ? getImageModelLabel(imageModel)
       : getVideoModelLabel(videoModel)
   const primaryInputLabel = getPrimaryInputSummary({
+    activeTab,
     assets,
     products,
     subjectMode,
     textPrompt,
+    videoReferences,
   })
   const characterPresetLabel = getCharacterPresetSummary({
     characterAgeGroup,
@@ -176,6 +193,18 @@ function RunControlPanel({
       setBatchSize(1)
     }
   }, [activeTab, batchSize, setBatchSize])
+
+  useEffect(() => {
+    if (activeTab !== 'video') {
+      return
+    }
+
+    const forcedAudio = getForcedVideoAudio(videoModel)
+
+    if (forcedAudio && videoAudio !== forcedAudio) {
+      setVideoAudio(forcedAudio)
+    }
+  }, [activeTab, videoAudio, videoModel, setVideoAudio])
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -341,12 +370,45 @@ function RunControlPanel({
                       }
                       value={videoDuration}
                     >
-                      {durations.map((duration) => (
+                      {getVideoDurationOptions(videoModel).map((duration) => (
                         <option key={duration} value={duration}>
                           {getVideoDurationLabel(videoModel, duration)}
                         </option>
                       ))}
                     </Select>
+                    {supportsVideoAudioSelection(videoModel) ? (
+                      <>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Audio
+                        </p>
+                        <Select
+                          aria-label="Video Audio"
+                          onChange={(event) =>
+                            setVideoAudio(event.target.value as VideoAudio)
+                          }
+                          value={videoAudio}
+                        >
+                          {videoAudioOptions.map((videoAudioOption) => (
+                            <option key={videoAudioOption} value={videoAudioOption}>
+                              {getVideoAudioLabel(videoAudioOption)}
+                            </option>
+                          ))}
+                        </Select>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Audio
+                        </p>
+                        <Select
+                          aria-label="Video Audio"
+                          disabled
+                          value="with-audio"
+                        >
+                          <option value="with-audio">Included by model</option>
+                        </Select>
+                      </>
+                    )}
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       Video resolution
                     </p>
@@ -447,16 +509,27 @@ function isSlotLoaded(slot: AssetSlot) {
 }
 
 function getPrimaryInputSummary({
+  activeTab,
   assets,
   products,
   subjectMode,
   textPrompt,
+  videoReferences,
 }: {
+  activeTab: 'image' | 'video'
   assets: NamedAssetSlots
   products: AssetSlot[]
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
 }) {
+  if (activeTab === 'video') {
+    const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
+    if (firstReference) {
+      return firstReference.label
+    }
+  }
+
   const face1 = assets.face1
   const primaryProduct = products[0] ?? null
 

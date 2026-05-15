@@ -53,9 +53,47 @@ export function DashboardShell({
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const generationRun = useGenerationStore((state) => state.generationRun)
+  const experience = useGenerationStore((state) => state.experience)
+  const manualVideoStageEventId = useGenerationStore(
+    (state) => state.manualVideoStageEventId,
+  )
   const [manualSection, setManualSection] = useState<ManualSection>('references')
+  const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
   const visibleManualSection = normalizeManualSection(manualSection, activeTab)
+
+  useEffect(() => {
+    if (experience !== 'manual' || activeTab !== 'video' || manualVideoStageEventId === 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('references')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, experience, manualVideoStageEventId])
+
+  useEffect(() => {
+    if (generationRun.experience !== 'manual' || generationRun.status !== 'rendering' || !generationRun.runId) {
+      return
+    }
+
+    if (lastManualRenderingRunIdRef.current === generationRun.runId) {
+      return
+    }
+
+    lastManualRenderingRunIdRef.current = generationRun.runId
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('outputs')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [generationRun.experience, generationRun.runId, generationRun.status])
 
   useEffect(() => {
     const isTerminalStatus =

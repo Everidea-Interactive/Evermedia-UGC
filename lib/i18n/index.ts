@@ -379,11 +379,14 @@ export const uiTranslations: Record<string, string> = {
   'Copy': 'Salin',
   'Copy card': 'Salin kartu',
   'Copy full brief': 'Salin brief lengkap',
+  'Copy full ideation': 'Salin ideasi lengkap',
   'Copied': 'Tersalin',
   'CTA:': 'CTA:',
   'Delete': 'Hapus',
   'Delete output?': 'Hapus output?',
+  'Delete media?': 'Hapus media?',
   'Delete session?': 'Hapus sesi?',
+  'Delete media set?': 'Hapus set media?',
   'Default': 'Default',
   'Default style bias:': 'Bias gaya default:',
   'Download': 'Unduh',
@@ -394,6 +397,8 @@ export const uiTranslations: Record<string, string> = {
   'Email or password is incorrect. Try again or reset your password.':
     'Email atau kata sandi salah. Coba lagi atau reset kata sandi Anda.',
   'End frame reference': 'Referensi frame akhir',
+  'Forward to Video': 'Teruskan ke Video',
+  'Forwarding...': 'Meneruskan...',
   'Editorial direction when a person is present.':
     'Arah editorial saat ada orang di dalam adegan.',
   'Electronics & Tech': 'Elektronik & Teknologi',
@@ -429,6 +434,24 @@ export const uiTranslations: Record<string, string> = {
     'Gambar utama siap. Jalankan analisis untuk membuat daftar shot terpandu.',
   'Hero image ready. Re-analyze when you want to replace the current prompt set.':
     'Gambar utama siap. Jalankan analisis ulang jika Anda ingin mengganti set prompt saat ini.',
+  'Upload or forward a start frame':
+    'Unggah atau teruskan start frame',
+  'You can replace the start frame before re-analyzing or rendering again.':
+    'Anda dapat mengganti start frame sebelum menjalankan analisis ulang atau render lagi.',
+  'A start frame is required before guided video analysis can begin.':
+    'Start frame diperlukan sebelum analisis video terpandu dapat dimulai.',
+  'A start frame is still required before you can generate the guided video batch.':
+    'Start frame tetap diperlukan sebelum Anda dapat membuat batch video terpandu.',
+  'Analyze the start frame first to unlock guided video prompt editing and rendering.':
+    'Analisis start frame terlebih dahulu untuk membuka pengeditan prompt dan rendering video terpandu.',
+  'Upload or forward the start frame, add any page context, then generate the initial video shot list before editing the prompts.':
+    'Unggah atau teruskan start frame, tambahkan konteks halaman bila perlu, lalu buat daftar shot video awal sebelum mengedit prompt.',
+  'Upload or forward a start frame to unlock guided video analysis.':
+    'Unggah atau teruskan start frame untuk membuka analisis video terpandu.',
+  'Start frame ready. Re-analyze when you want to rebuild the guided video prompt set.':
+    'Start frame siap. Jalankan analisis ulang jika Anda ingin membangun ulang set prompt video terpandu.',
+  'Start frame ready. Analyze to generate the guided video shot list.':
+    'Start frame siap. Jalankan analisis untuk membuat daftar shot video terpandu.',
   'Hook:': 'Hook:',
   'Ideation': 'Ideasi',
   'Ideation analysis needs another pass': 'Analisis ideasi perlu dijalankan lagi',
@@ -440,9 +463,12 @@ export const uiTranslations: Record<string, string> = {
   'Image model': 'Model gambar',
   'Image resolution': 'Resolusi gambar',
   'Image session': 'Sesi gambar',
+  'Image media set': 'Set media gambar',
   'Image workspace': 'Workspace gambar',
   'Guided mode uses one product image as the visual anchor for shot planning and final rendering.':
     'Mode terpandu memakai satu gambar produk sebagai acuan utama untuk menyusun shot dan render akhir.',
+  'Guided video mode uses one staged image as the start-frame anchor for analysis and final rendering.':
+    'Mode video terpandu memakai satu gambar yang sudah disiapkan sebagai acuan start frame untuk analisis dan render akhir.',
   'Indoor': 'Indoor',
   'indoor': 'indoor',
   'Indoor or outdoor context.': 'Konteks indoor atau outdoor.',
@@ -482,16 +508,25 @@ export const uiTranslations: Record<string, string> = {
   'Not loaded': 'Belum dimuat',
   'No product URL captured.': 'Tidak ada URL produk yang tersimpan.',
   'No brief selected': 'Tidak ada brief dipilih',
+  'No ideation selected': 'Tidak ada ideasi dipilih',
   'No guided batch generated yet': 'Belum ada batch terpandu',
   'No ideation brief yet': 'Belum ada brief ideasi',
   'No saved briefs yet': 'Belum ada brief tersimpan',
+  'No saved ideation yet': 'Belum ada ideasi tersimpan',
   'No saved ideation briefs exist yet.': 'Belum ada brief ideasi tersimpan.',
+  'No saved ideation exists yet.': 'Belum ada ideasi tersimpan.',
   'No saved outputs exist for this session yet.':
     'Belum ada output tersimpan untuk sesi ini.',
+  'No saved media exists for this media set yet.':
+    'Belum ada media tersimpan untuk set media ini.',
   'No saved outputs yet': 'Belum ada output tersimpan',
+  'No saved media yet': 'Belum ada media tersimpan',
   'No saved sessions exist yet. Finished generations will appear here.':
     'Belum ada sesi tersimpan. Hasil generasi yang selesai akan muncul di sini.',
+  'No saved media sets exist yet. Finished generations will appear here.':
+    'Belum ada set media tersimpan. Hasil generasi yang selesai akan muncul di sini.',
   'No session selected': 'Tidak ada sesi dipilih',
+  'No media set selected': 'Tidak ada set media dipilih',
   'Offline': 'Offline',
   'Open Library': 'Buka Library',
   'OpenAI GPT Image 2 with 1K / 2K / 4K tiers':
@@ -514,6 +549,7 @@ export const uiTranslations: Record<string, string> = {
   'Output': 'Output',
   'Output Quality': 'Kualitas hasil',
   'Outputs': 'Output',
+  'Media': 'Media',
   'Orbit': 'Orbit',
   'Outdoor': 'Outdoor',
   'outdoor': 'outdoor',
@@ -545,6 +581,9 @@ export const uiTranslations: Record<string, string> = {
   'Ready to Analyze': 'Siap Dianalisis',
   'Re-analyze': 'Analisis ulang',
   'Reference board': 'Papan referensi',
+  'Reference 1': 'Referensi 1',
+  'Reference 2': 'Referensi 2',
+  'Reference 3': 'Referensi 3',
   'Review the missing requirement or provider error, then re-run the ideation pass from this control panel.':
     'Tinjau kebutuhan yang belum terpenuhi atau error dari provider, lalu jalankan ulang proses ideasi dari panel kontrol ini.',
   'Review the three concepts, then copy a single card or the full ideation brief.':
@@ -563,15 +602,19 @@ export const uiTranslations: Record<string, string> = {
   'Run the guided analysis first. The shot list will appear here as editable prompts.':
     'Jalankan analisis terpandu dulu. Daftar shot akan muncul di sini dan bisa langsung Anda edit.',
   'Saved briefs': 'Brief tersimpan',
+  'Saved ideation': 'Ideasi tersimpan',
   'Saved concept set': 'Set konsep tersimpan',
   'Saved ideation brief': 'Brief ideasi tersimpan',
   'Saved outputs': 'Hasil tersimpan',
+  'Saved media': 'Media tersimpan',
   'Senior': 'Senior',
   'Session': 'Sesi',
+  'Media set': 'Set media',
   'Set the scene before generation.': 'Atur adegan sebelum generasi.',
   'Set the structured preset first, then add any optional free-form direction.':
     'Atur preset dasarnya lebih dulu, lalu tambahkan arahan bebas jika perlu.',
   'Sessions': 'Sesi',
+  'Media sets': 'Set media',
   'Setup summary': 'Ringkasan setelan',
   'Shot Count': 'Jumlah shot',
   'Shot Environment': 'Lingkungan shot',
@@ -580,6 +623,8 @@ export const uiTranslations: Record<string, string> = {
   'Subject Configuration': 'Konfigurasi subjek',
   'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.':
     'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
+  'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.':
+    'Siapkan hingga tiga referensi frame awal di sini. Pertahankan urutannya agar model menerima arahan yang jelas dari Referensi 1 hingga Referensi 3.',
   'hero': 'hero',
   'Staged assets': 'Aset tersiap',
   'Style & Environment': 'Gaya & Lingkungan',
@@ -655,6 +700,7 @@ export const uiTranslations: Record<string, string> = {
   'Video Duration': 'Durasi video',
   'Video resolution': 'Resolusi video',
   'Video session': 'Sesi video',
+  'Video media set': 'Set media video',
   'Video workspace': 'Workspace video',
   'Visual direction:': 'Arah visual:',
   'Resolution preference for the guided run.':
@@ -774,6 +820,5 @@ export function translateText(locale: Locale, value: string): string {
   if (estimatedCreditsMatch) {
     return `Estimasi: ${estimatedCreditsMatch[1]} kredit`
   }
-
   return value
 }

@@ -247,7 +247,7 @@ export function buildClaudeIdeationBody(input: {
   contentConcept: ContentConcept
   contentFormat: ContentFormat
   heroImageUrl: string | null
-  model: Extract<KieAnalysisModel, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>
+  model: Extract<KieAnalysisModel, 'claude-sonnet-4-6'>
   outputLanguage: Locale
   productPage: ScrapedProductPage | null
 }) {
@@ -521,7 +521,7 @@ export async function analyzeContentIdeation(input: {
         ...input,
         model: input.analysisModel as Extract<
           KieAnalysisModel,
-          'claude-haiku-4-5' | 'claude-sonnet-4-6'
+          'claude-sonnet-4-6'
         >,
       })
     : buildGeminiIdeationBody({

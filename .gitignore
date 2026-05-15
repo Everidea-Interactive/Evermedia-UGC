@@ -39,6 +39,8 @@ Thumbs.db
 
 # local tooling
 /.codex
+/.planning
+/docs/superpowers
 
 
 # output files

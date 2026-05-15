@@ -12,6 +12,7 @@ import type {
   NamedAssetKey,
   SubmittedAssetDescriptor,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
@@ -24,21 +25,15 @@ const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'location',
 ]
 
-const videoWorkspaceNamedAssets: NamedAssetKey[] = [
-  'face1',
-  'face2',
-  'clothing',
-  'location',
-  'endFrame',
-]
-
 function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
-  return workspace === 'video'
-    ? videoWorkspaceNamedAssets
-    : imageWorkspaceNamedAssets
+  return workspace === 'video' ? [] : imageWorkspaceNamedAssets
 }
 
 function getPrimaryReference(snapshot: GenerationSnapshot) {
+  if (snapshot.activeTab === 'video') {
+    return snapshot.videoReferences.find((slot) => slot.file) ?? null
+  }
+
   const face1 = snapshot.assets.face1
   const primaryProduct = snapshot.products[0] ?? null
 
@@ -113,42 +108,74 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('batchSize', String(snapshot.batchSize))
   formData.append('textPrompt', snapshot.textPrompt)
   formData.append('videoDuration', snapshot.videoDuration)
+  formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
-  for (const [order, key] of namedAssetKeys.entries()) {
-    const slot = snapshot.assets[key]
+  if (snapshot.activeTab === 'video') {
+    snapshot.videoReferences.forEach((reference, index) => {
+      if (!reference.file) {
+        return
+      }
 
-    if (!slot.file) {
-      continue
+      const fieldName = `video_reference_${index + 1}`
+      assetManifest.push({
+        fieldName,
+        kind: 'product',
+        label: reference.label,
+        order: index,
+        productId: reference.id,
+      })
+      formData.append(fieldName, reference.file)
+    })
+
+    const endFrame = snapshot.assets.endFrame
+    if (endFrame.file) {
+      const fieldName = 'asset_endFrame'
+      assetManifest.push({
+        fieldName,
+        key: 'endFrame',
+        kind: 'named',
+        label: endFrame.label,
+        order: 100,
+      })
+      formData.append(fieldName, endFrame.file)
+    }
+  } else {
+    for (const [order, key] of namedAssetKeys.entries()) {
+      const slot = snapshot.assets[key]
+
+      if (!slot.file) {
+        continue
+      }
+
+      const fieldName = `asset_${key}`
+      assetManifest.push({
+        fieldName,
+        key,
+        kind: 'named',
+        label: slot.label,
+        order,
+      })
+      formData.append(fieldName, slot.file)
     }
 
-    const fieldName = `asset_${key}`
-    assetManifest.push({
-      fieldName,
-      key,
-      kind: 'named',
-      label: slot.label,
-      order,
+    snapshot.products.forEach((product, index) => {
+      if (!product.file) {
+        return
+      }
+
+      const fieldName = `product_${product.id}`
+      assetManifest.push({
+        fieldName,
+        kind: 'product',
+        label: product.label,
+        order: 100 + index,
+        productId: product.id,
+      })
+      formData.append(fieldName, product.file)
     })
-    formData.append(fieldName, slot.file)
   }
-
-  snapshot.products.forEach((product, index) => {
-    if (!product.file) {
-      return
-    }
-
-    const fieldName = `product_${product.id}`
-    assetManifest.push({
-      fieldName,
-      kind: 'product',
-      label: product.label,
-      order: 100 + index,
-      productId: product.id,
-    })
-    formData.append(fieldName, product.file)
-  })
 
   formData.append('assetManifest', JSON.stringify(assetManifest))
 
@@ -163,6 +190,7 @@ export function buildGuidedAnalysisFormData(input: {
   productUrl: string
   shotCount: BatchSize
   videoDuration?: VideoDuration
+  videoAudio?: VideoAudio
   videoModel?: VideoModelOption
   workspace?: WorkspaceTab
 }) {
@@ -181,6 +209,7 @@ export function buildGuidedAnalysisFormData(input: {
   formData.append('shotCount', String(workspace === 'video' ? 1 : input.shotCount))
   formData.append('videoModel', input.videoModel ?? 'veo-3.1')
   formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('cameraMovement', input.cameraMovement ?? '')
 
   return { formData }
@@ -199,6 +228,7 @@ export function buildGuidedGenerationFormData(input: {
   plan: GuidedAnalysisPlan
   productUrl: string
   videoDuration?: VideoDuration
+  videoAudio?: VideoAudio
   videoModel?: VideoModelOption
   workspace?: WorkspaceTab
 }) {
@@ -247,6 +277,7 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('batchSize', String(guidedShots.length))
   formData.append('textPrompt', '')
   formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('outputQuality', input.outputQuality)
   formData.append('cameraMovement', input.cameraMovement ?? '')
   formData.append('guidedShots', JSON.stringify(guidedShots))

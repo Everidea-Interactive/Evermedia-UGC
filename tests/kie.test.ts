@@ -30,6 +30,7 @@ function buildBaseFormData(batchSize: string) {
   formData.append('batchSize', batchSize)
   formData.append('textPrompt', 'Create a polished hero campaign image.')
   formData.append('videoDuration', 'base')
+  formData.append('videoAudio', 'no-audio')
   formData.append('outputQuality', '1080p')
   formData.append('cameraMovement', '')
 
@@ -100,6 +101,55 @@ describe('KIE batch submission', () => {
       'Invalid value for shotEnvironment.',
     )
   })
+
+  it('falls back to the default image model for video workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('imageModel', 'grok-imagine')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('video')
+    expect(parsed.imageModel).toBe('nano-banana')
+  })
+
+  it('keeps strict image model validation for image workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'image')
+    formData.set('imageModel', 'grok-imagine')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Invalid value for imageModel.',
+    )
+  })
+
+  it('ignores invalid video model values for image workspace submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'image')
+    formData.set('videoModel', 'veo-4')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('image')
+    expect(parsed.videoModel).toBe('veo-3.1')
+  })
+
+  it.each(['kling', 'grok-imagine'])(
+    'rejects deprecated %s video model submissions',
+    (videoModel) => {
+      const formData = buildBaseFormData('1')
+      formData.set('workspace', 'video')
+      formData.set('videoModel', videoModel)
+      formData.append('assetManifest', '[]')
+
+      expect(() => parseGenerationFormData(formData)).toThrow(
+        'Invalid value for videoModel.',
+      )
+    },
+  )
 
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
@@ -288,6 +338,156 @@ describe('KIE batch submission', () => {
         'image',
       ),
     ).resolves.toBe('https://files.example.com/product.png')
+  })
+
+  it('prefers canonical downloadUrl over url when both are present in upload payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            downloadUrl: 'https://kieai.redpandaai.co/download/file_abc123456',
+            url: 'https://tempfile.redpandaai.co/kieai/tmp-upload.png',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      uploadFileToKie(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+        'image',
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/download/file_abc123456')
+  })
+
+  it('prefers fileUrl over downloadUrl for base64 image upload responses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            downloadUrl: 'https://kieai.redpandaai.co/download/file_abc123456',
+            fileUrl: 'https://kieai.redpandaai.co/files/images/my-image.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/files/images/my-image.jpg')
+  })
+
+  it('normalizes tempfile.redpandaai.co URLs via common download-url for base64 uploads', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: {
+              downloadUrl:
+                'https://tempfile.redpandaai.co/kieai/966458/evermedia-ugc/image/9_000000000256.jpg',
+            },
+            success: true,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: 'https://tempfile.1f6cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbd98',
+            msg: 'success',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://tempfile.1f6cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbd98')
+  })
+
+  it('uses canonical /download/<fileId> URL when base64 upload response includes fileId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            fileId: 'file_abc123456',
+            downloadUrl:
+              'https://tempfile.redpandaai.co/kieai/966458/evermedia-ugc/image/9_000000000256.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await expect(
+      uploadImageFileToKieBase64(
+        'test-key',
+        new File(['product'], 'product.png', { type: 'image/png' }),
+      ),
+    ).resolves.toBe('https://kieai.redpandaai.co/download/file_abc123456')
+  })
+
+  it('does not send a fixed fileName in base64 uploads to avoid stale overwrite cache', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            fileUrl: 'https://kieai.redpandaai.co/files/images/generated-random.jpg',
+          },
+          success: true,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { uploadImageFileToKieBase64 } = await import('../lib/generation/kie')
+    await uploadImageFileToKieBase64(
+      'test-key',
+      new File(['product'], 'product.png', { type: 'image/png' }),
+    )
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      base64Data: string
+      fileName?: string
+      uploadPath: string
+    }
+
+    expect(requestBody.base64Data.startsWith('data:image/png;base64,')).toBe(true)
+    expect(requestBody.uploadPath).toBe('evermedia-ugc/image')
+    expect('fileName' in requestBody).toBe(false)
   })
 
   it('returns a clear timeout error when a KIE request is aborted', async () => {
@@ -635,6 +835,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished product motion clip.',
       subjectMode: 'product-only',
       videoDuration: 'extended',
+      videoAudio: 'no-audio',
       videoModel: 'seedance-1.5-pro',
       workspace: 'video',
     })
@@ -651,12 +852,69 @@ describe('KIE batch submission', () => {
         generate_audio: false,
         input_urls: [
           'https://files.example.com/product.png',
-          'https://files.example.com/end.png',
         ],
         nsfw_checker: false,
         prompt: 'Create a polished product motion clip.',
         resolution: '1080p',
       },
+    })
+  })
+
+  it('caps Veo references to ordered start frames and keeps end-frame guidance', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_2',
+          kind: 'product',
+          label: 'Reference 2',
+          order: 1,
+          productId: 'video-reference-2',
+          remoteUrl: 'https://files.example.com/ref-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_3',
+          kind: 'product',
+          label: 'Reference 3',
+          order: 2,
+          productId: 'video-reference-3',
+          remoteUrl: 'https://files.example.com/ref-3.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'veo-3.1',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      imageUrls: [
+        'https://files.example.com/ref-1.png',
+        'https://files.example.com/ref-2.png',
+        'https://files.example.com/end.png',
+      ],
+      generationType: 'REFERENCE_2_VIDEO',
     })
   })
 
@@ -686,6 +944,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -751,6 +1010,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -789,6 +1049,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'lifestyle',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -815,6 +1076,7 @@ describe('KIE batch submission', () => {
       prompt: 'Create a polished hero campaign image.',
       subjectMode: 'product-only',
       videoDuration: 'base',
+      videoAudio: 'no-audio',
       videoModel: 'veo-3.1',
       workspace: 'image',
     })
@@ -835,95 +1097,6 @@ describe('KIE batch submission', () => {
     })
   })
 
-  it('uses the first available uploaded reference for grok image edits and tags the prompt', () => {
-    const submission = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'asset_clothing',
-          key: 'clothing',
-          label: 'Clothing',
-          order: 2,
-          remoteUrl: 'https://files.example.com/clothing.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'grok-imagine',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-
-    expect(submission.modelName).toBe('grok-imagine/image-to-image')
-    expect(submission.requestBody).toMatchObject({
-      model: 'grok-imagine/image-to-image',
-      input: {
-        prompt: expect.stringContaining(
-          '@image1 Create exactly one clean 2x2 grid image',
-        ),
-        image_urls: ['https://files.example.com/clothing.png'],
-      },
-    })
-  })
-
-  it('uses GPT Image 2 model identifiers for both reference and prompt-only image generation', () => {
-    const withReference = resolveSubmission({
-      assets: [
-        makeUploadedAsset({
-          fieldName: 'asset_face1',
-          key: 'face1',
-          label: 'Face 1',
-          order: 0,
-          remoteUrl: 'https://files.example.com/face.png',
-        }),
-      ],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'gpt-image-2',
-      outputQuality: '1080p',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-    const promptOnly = resolveSubmission({
-      assets: [],
-      cameraMovement: null,
-      creativeStyle: 'ugc-lifestyle',
-      imageModel: 'gpt-image-2',
-      outputQuality: '4k',
-      productCategory: 'cosmetics',
-      prompt: 'Create a polished hero campaign image.',
-      subjectMode: 'lifestyle',
-      videoDuration: 'base',
-      videoModel: 'veo-3.1',
-      workspace: 'image',
-    })
-
-    expect(withReference.modelName).toBe('gpt-image-2-image-to-image')
-    expect(withReference.requestBody).toMatchObject({
-      model: 'gpt-image-2-image-to-image',
-      input: {
-        aspect_ratio: '3:4',
-        input_urls: ['https://files.example.com/face.png'],
-        resolution: '2K',
-      },
-    })
-    expect(promptOnly.modelName).toBe('gpt-image-2-text-to-image')
-    expect(promptOnly.requestBody).toMatchObject({
-      model: 'gpt-image-2-text-to-image',
-      input: {
-        aspect_ratio: '3:4',
-        resolution: '4K',
-      },
-    })
-  })
 })
 
 describe('KIE status', () => {
@@ -995,3 +1168,4 @@ describe('KIE status', () => {
     expect(status.error).toContain('KIE_API_KEY')
   })
 })
+

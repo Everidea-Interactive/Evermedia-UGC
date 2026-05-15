@@ -23,6 +23,7 @@ import type {
   ShotEnvironment,
   PlatformPreset,
   WorkspaceTab,
+  VideoAudio,
   VideoDuration,
   VideoModelOption,
 } from '@/lib/generation/types'
@@ -52,6 +53,7 @@ export type GenerationConfigSnapshot = {
   shotEnvironment: ShotEnvironment
   subjectMode: 'product-only' | 'lifestyle'
   textPrompt: string
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }

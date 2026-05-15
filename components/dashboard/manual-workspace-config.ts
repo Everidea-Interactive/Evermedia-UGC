@@ -28,6 +28,7 @@ import type {
   ShotEnvironment,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
 
@@ -152,16 +153,6 @@ export const imageModels: Array<{
   value: ImageModelOption
 }> = [
   {
-    helper: 'OpenAI GPT Image 2 with 1K / 2K / 4K tiers',
-    label: 'GPT Image 2',
-    value: 'gpt-image-2',
-  },
-  {
-    helper: 'Text and image-led still renders',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
-  },
-  {
     helper: 'Google image generation with direct reference input',
     label: 'Nano Banana 2',
     value: 'nano-banana',
@@ -173,16 +164,6 @@ export const videoModels: Array<{
   label: string
   value: VideoModelOption
 }> = [
-  {
-    helper: 'Prompt-led short motion clips',
-    label: 'Grok Imagine',
-    value: 'grok-imagine',
-  },
-  {
-    helper: 'Market-model text or image video',
-    label: 'Kling',
-    value: 'kling',
-  },
   {
     helper: 'ByteDance 8s or 12s pro video generation',
     label: 'Seedance 1.5 Pro',
@@ -198,34 +179,63 @@ export const videoModels: Array<{
 export const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 export const videoQualities: OutputQuality[] = ['720p', '1080p']
 export const durations: VideoDuration[] = ['base', 'extended']
+export const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
+
+const videoDurationConfig: Record<
+  VideoModelOption,
+  {
+    labels: Record<VideoDuration, string>
+    options: VideoDuration[]
+  }
+> = {
+  'seedance-1.5-pro': {
+    labels: {
+      base: 'Base (8s)',
+      extended: 'Extended (12s)',
+    },
+    options: durations,
+  },
+  'veo-3.1': {
+    labels: {
+      base: '8s',
+      extended: '8s',
+    },
+    options: ['base'],
+  },
+}
+
+export function getVideoAudioLabel(videoAudio: VideoAudio) {
+  return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
+}
+
+export function supportsVideoAudioSelection(model: VideoModelOption) {
+  return model === 'seedance-1.5-pro'
+}
+
+export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
+  if (supportsVideoAudioSelection(model)) {
+    return null
+  }
+
+  return 'with-audio'
+}
 
 export function getVideoDurationLabel(
   model: VideoModelOption,
   duration: VideoDuration,
 ) {
-  if (model === 'kling') {
-    return duration === 'base' ? 'Base (5s)' : 'Extended (10s)'
-  }
+  return videoDurationConfig[model]?.labels[duration] ?? videoDurationConfig['veo-3.1'].labels.base
+}
 
-  if (model === 'grok-imagine') {
-    return duration === 'base' ? 'Base (6s)' : 'Extended (10s)'
-  }
-
-  if (model === 'seedance-1.5-pro') {
-    return duration === 'base' ? 'Base (8s)' : 'Extended (12s)'
-  }
-
-  return '8s'
+export function getVideoDurationOptions(model: VideoModelOption): VideoDuration[] {
+  return videoDurationConfig[model]?.options ?? videoDurationConfig['veo-3.1'].options
 }
 
 export function getImageQualityOptions(
   imageModel: ImageModelOption,
   kiePricing: KiePricingResponse | null,
 ) {
-  return (
-    kiePricing?.supportedImageQualities?.[imageModel] ??
-    (imageModel === 'grok-imagine' ? (['1080p'] as OutputQuality[]) : imageQualities)
-  )
+  return kiePricing?.supportedImageQualities?.[imageModel] ?? imageQualities
 }
 
 export function getImageQualityLabel(quality: OutputQuality) {

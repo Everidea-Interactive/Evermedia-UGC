@@ -3,7 +3,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { LocaleProvider } from '@/components/i18n/locale-provider'
@@ -105,6 +106,36 @@ afterEach(async () => {
 })
 
 describe('StudioWorkspace', () => {
+  it('preserves preloaded video staging across a strict-mode studio mount', async () => {
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    globalThis.cancelAnimationFrame = (handle: number) => {
+      window.clearTimeout(handle)
+    }
+
+    const { StudioWorkspace } = await import('@/components/dashboard/studio-workspace')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().forwardManualImageResultToVideo(
+        new File(['forwarded'], 'forwarded.png', { type: 'image/png' }),
+      )
+    })
+
+    render(
+      <StrictMode>
+        <StudioWorkspace />
+      </StrictMode>,
+    )
+
+    await screen.findByRole('tab', { name: 'References' })
+
+    const state = useGenerationStore.getState()
+    expect(state.activeTab).toBe('video')
+    expect(state.experience).toBe('manual')
+    expect(state.videoReferences[0]?.file?.name).toBe('forwarded.png')
+  })
+
   it('preserves generation state when switching away from manual and only disposes on studio unmount', async () => {
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)
@@ -130,8 +161,10 @@ describe('StudioWorkspace', () => {
 
     unmount()
 
-    expect(useGenerationStore.getState().experience).toBe('manual')
-    expect(useGenerationStore.getState().textPrompt).toBe('')
+    await waitFor(() => {
+      expect(useGenerationStore.getState().experience).toBe('manual')
+      expect(useGenerationStore.getState().textPrompt).toBe('')
+    })
   })
 
   it('normalizes the manual section when image mode cannot show motion controls', async () => {
@@ -196,6 +229,40 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByText('Build the input set')).toBeNull()
   })
 
+  it('switches to outputs when a manual generation run starts rendering', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    expect(await screen.findByText('Build the input set')).toBeTruthy()
+
+    await act(async () => {
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'manual-run-start',
+        startedAt: Date.now(),
+        status: 'rendering',
+        workspace: 'image',
+      })
+    })
+
+    expect(await screen.findByText('Render output')).toBeTruthy()
+  })
+
   it('renders each empty reference card label only once', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
 
@@ -219,6 +286,119 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Face 2')).toHaveLength(1)
     expect(screen.getAllByText('Product 1')).toHaveLength(1)
     expect(screen.getAllByText('Location')).toHaveLength(1)
+  })
+
+  it('shows exactly three generic reference slots in manual video mode', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.getAllByText('Reference 1')).toHaveLength(1)
+    expect(screen.getAllByText('Reference 2')).toHaveLength(1)
+    expect(screen.getAllByText('Reference 3')).toHaveLength(1)
+    expect(screen.queryByText('People')).toBeNull()
+    expect(screen.queryByText('Style & Environment')).toBeNull()
+    expect(screen.queryByText('Products')).toBeNull()
+  })
+
+  it('shows a single clip-length option for Veo 3.1', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('veo-3.1')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Review and run generation')
+
+    const durationSelect = screen.getByLabelText('Video Duration')
+    const options = Array.from(durationSelect.querySelectorAll('option')).map((option) =>
+      option.textContent?.trim(),
+    )
+
+    expect(options).toEqual(['8s'])
+  })
+
+  it('only exposes active manual video generation models', async () => {
+    const { videoModels } = await import(
+      '@/components/dashboard/manual-workspace-config'
+    )
+
+    expect(videoModels.map((model) => model.value)).toEqual([
+      'seedance-1.5-pro',
+      'veo-3.1',
+    ])
+    expect(videoModels.map((model) => model.label)).not.toContain('Grok Imagine')
+    expect(videoModels.map((model) => model.label)).not.toContain('Kling')
+  })
+
+  it('keeps reference cards readable on mobile without wrapping the file CTA', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+
+    const { container } = render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    const groupGrid = screen.getByText('People').nextElementSibling
+    const firstCard = container.querySelector('.reference-card')
+    const fileCta = screen
+      .getAllByText('Choose file')[0]
+      ?.closest('.reference-upload-chip')
+
+    expect(groupGrid?.className).toContain('grid-cols-1')
+    expect(groupGrid?.className).toContain('sm:grid-cols-2')
+    expect(firstCard?.className).toContain('min-h-[14rem]')
+    expect(firstCard?.className).toContain('sm:aspect-square')
+    expect(fileCta?.className).toContain('whitespace-nowrap')
   })
 
   it('translates manual workspace subtext when the active locale is Indonesian', async () => {
@@ -258,7 +438,7 @@ describe('StudioWorkspace', () => {
 
     await act(async () => {
       useGenerationStore.getState().setActiveTab('video')
-      useGenerationStore.getState().setVideoModel('grok-imagine')
+      useGenerationStore.getState().setVideoModel('seedance-1.5-pro')
     })
 
     render(
@@ -288,7 +468,7 @@ describe('StudioWorkspace', () => {
     expect(
       screen.getByText('Pilihan model yang sudah disesuaikan untuk workspace ini.'),
     ).toBeTruthy()
-    expect(screen.getByText('Klip gerak singkat dari prompt')).toBeTruthy()
+    expect(screen.getByText('Generasi video ByteDance 8d atau 12d pro')).toBeTruthy()
 
     const presetTab = screen.getByRole('tab', { name: 'Preset' })
     fireEvent.mouseDown(presetTab)
@@ -380,6 +560,17 @@ describe('StudioWorkspace', () => {
     expect(faceCard?.querySelector('.animate-spin')).toBeNull()
   })
 
+  it('keeps guided-style loading copy and tile rendering paths in manual output', async () => {
+    const source = await readFile(
+      join(process.cwd(), 'components/dashboard/manual-output-panel.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('OutputPendingCard')
+    expect(source).toContain("variant.status === 'rendering' ? 'Generating...'")
+    expect(source).toContain('runState.variants.map((variant) => (')
+  })
+
   it('keeps the manual workspace on the eager studio path', async () => {
     const source = await readFile(
       join(process.cwd(), 'components/dashboard/studio-shell.tsx'),
@@ -434,4 +625,77 @@ describe('StudioWorkspace', () => {
       expect(screen.getByText('Provider temporarily unavailable.')).toBeTruthy()
     },
   )
+
+  it('forwards a successful manual image result into manual video references', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('manual-forward', {
+          headers: {
+            'Content-Disposition': 'attachment; filename="manual-forward.png"',
+            'Content-Type': 'image/png',
+          },
+          status: 200,
+        }),
+      ),
+    )
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('image')
+      useGenerationStore.getState().setExperience('manual')
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'manual-image-run',
+        status: 'success',
+        workspace: 'image',
+      })
+      useGenerationStore.getState().setGenerationVariants([
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Primary render',
+          prompt: 'Image prompt',
+          result: {
+            model: 'nano-banana',
+            taskId: 'task-1',
+            type: 'image',
+            url: '/api/media/output-1',
+          },
+          status: 'success',
+          taskId: 'task-1',
+          variantId: 'variant-1',
+        },
+      ])
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward to Video' }))
+
+    expect(await screen.findByText('Build the input set')).toBeTruthy()
+
+    const state = useGenerationStore.getState()
+    expect(state.activeTab).toBe('video')
+    expect(state.experience).toBe('manual')
+    expect(state.videoReferences[0]?.file?.name).toBe('manual-forward.png')
+    expect(state.videoReferences[1]?.file).toBeNull()
+  })
 })

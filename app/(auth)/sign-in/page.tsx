@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { PasswordVisibilityInput } from '@/components/auth/password-visibility-input'
 import { LanguageSelector } from '@/components/i18n/language-selector'
 import {
   resolveNextPath,
@@ -85,7 +86,6 @@ export default async function SignInPage({
             <LanguageSelector />
           </div>
           <div>
-            <p className="auth-eyebrow auth-signin-only">{copy.secureAccess}</p>
             <p className="auth-eyebrow auth-reset-only">{copy.passwordRecovery}</p>
 
             <h1 className="auth-title auth-signin-only">
@@ -147,7 +147,7 @@ export default async function SignInPage({
                 defaultValue={view.signInEmail}
                 id="sign-in-email"
                 name="email"
-                placeholder="you@example.com"
+                placeholder={copy.email}
                 required
                 type="email"
               />
@@ -157,14 +157,13 @@ export default async function SignInPage({
               <label className="auth-label" htmlFor="sign-in-password">
                 {copy.password}
               </label>
-              <input
+              <PasswordVisibilityInput
                 autoComplete="current-password"
                 className="auth-input"
                 id="sign-in-password"
                 name="password"
-                placeholder={copy.passwordPlaceholder}
+                placeholder={copy.password}
                 required
-                type="password"
               />
             </div>
 
@@ -198,7 +197,7 @@ export default async function SignInPage({
                 defaultValue={view.resetEmail}
                 id="reset-email"
                 name="email"
-                placeholder="you@example.com"
+                placeholder={copy.email}
                 required
                 type="email"
               />

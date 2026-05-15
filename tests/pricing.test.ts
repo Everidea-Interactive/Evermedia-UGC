@@ -188,6 +188,12 @@ function createSnapshot(
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoReferences: [
+      createSlot('video-reference-1', 'Reference 1'),
+      createSlot('video-reference-2', 'Reference 2'),
+      createSlot('video-reference-3', 'Reference 3'),
+    ],
+    videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
     ...overrides,
@@ -222,7 +228,7 @@ describe('generation pricing', () => {
       credits: 30,
       usd: 0.15,
     })
-    expect(pricingMatrix.video.kling.promptOnly.base).toEqual({
+    expect(pricingMatrix.video.kling.promptOnly['no-audio'].base).toEqual({
       credits: 55,
       usd: 0.275,
     })
@@ -230,7 +236,9 @@ describe('generation pricing', () => {
       credits: 60,
       usd: 0.3,
     })
-    expect(pricingMatrix.video['seedance-1.5-pro'].withReference['1080p'].extended).toEqual({
+    expect(
+      pricingMatrix.video['seedance-1.5-pro'].withReference['1080p']['no-audio'].extended,
+    ).toEqual({
       credits: 744,
       usd: 3.72,
     })
@@ -253,27 +261,27 @@ describe('generation pricing', () => {
     })
   })
 
-  it('estimates Grok prompt-only image cost for batch size 2', () => {
+  it('estimates Nano Banana prompt-only image cost for batch size 2', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         batchSize: 2,
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )
 
     expect(estimate).toEqual({
       available: true,
-      credits: 8,
+      credits: 24,
       reason: null,
-      usd: 0.04,
+      usd: 0.12,
     })
   })
 
-  it('estimates GPT Image 2 prompt-only 4k image cost', () => {
+  it('estimates Nano Banana prompt-only 4k image cost', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
-        imageModel: 'gpt-image-2',
+        imageModel: 'nano-banana',
         outputQuality: '4k',
       }),
       pricingMatrix,
@@ -281,68 +289,29 @@ describe('generation pricing', () => {
 
     expect(estimate).toEqual({
       available: true,
-      credits: 16,
+      credits: 12,
       reason: null,
-      usd: 0.08,
+      usd: 0.06,
     })
   })
 
-  it('estimates Grok image cost with a reference for batch size 4', () => {
+  it('estimates Nano Banana image cost with a reference for batch size 4', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         assets: createAssets({
           face1: createSlot('face1', 'Face 1', true),
         }),
         batchSize: 4,
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )
 
     expect(estimate).toEqual({
       available: true,
-      credits: 16,
+      credits: 48,
       reason: null,
-      usd: 0.08,
-    })
-  })
-
-  it('estimates Grok video cost for 1080p extended batch size 2', () => {
-    const estimate = getGenerationCostEstimate(
-      createSnapshot({
-        activeTab: 'video',
-        batchSize: 2,
-        outputQuality: '1080p',
-        videoDuration: 'extended',
-        videoModel: 'grok-imagine',
-      }),
-      pricingMatrix,
-    )
-
-    expect(estimate).toEqual({
-      available: true,
-      credits: 60,
-      reason: null,
-      usd: 0.3,
-    })
-  })
-
-  it('estimates Kling reference-based video cost for base duration', () => {
-    const estimate = getGenerationCostEstimate(
-      createSnapshot({
-        activeTab: 'video',
-        products: [createSlot('product-1', 'Product 1', true), createSlot('product-2', 'Product 2')],
-        subjectMode: 'product-only',
-        videoModel: 'kling',
-      }),
-      pricingMatrix,
-    )
-
-    expect(estimate).toEqual({
-      available: true,
-      credits: 55,
-      reason: null,
-      usd: 0.275,
+      usd: 0.24,
     })
   })
 
@@ -369,7 +338,7 @@ describe('generation pricing', () => {
       createSnapshot({
         activeTab: 'video',
         outputQuality: '1080p',
-        products: [createSlot('product-1', 'Product 1', true)],
+        videoReferences: [createSlot('video-reference-1', 'Reference 1', true)],
         subjectMode: 'product-only',
         videoDuration: 'extended',
         videoModel: 'seedance-1.5-pro',
@@ -408,7 +377,7 @@ describe('generation pricing', () => {
   it('blocks generation while the credit balance is still unavailable', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
-        imageModel: 'grok-imagine',
+        imageModel: 'nano-banana',
       }),
       pricingMatrix,
     )

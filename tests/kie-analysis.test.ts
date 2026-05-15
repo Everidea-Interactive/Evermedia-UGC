@@ -66,17 +66,36 @@ describe('KIE analysis adapters', () => {
     )
   })
 
+  it('prefers inline hero image data URL for Gemini when provided', () => {
+    const inlineImageUrl = 'data:image/png;base64,AAA='
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageDataUrl: inlineImageUrl,
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      workspace: 'image',
+    })
+    const userContent = body.messages[1]?.content
+    const imageEntry = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'image_url')
+      : null
+
+    expect(imageEntry?.image_url.url).toBe(inlineImageUrl)
+  })
+
   it('builds the Claude analysis payload with tool calling', () => {
     const body = buildClaudeAnalysisBody({
       contentConcept: 'driven-ads',
       heroImageUrl: 'https://files.example.com/hero.png',
-      model: 'claude-haiku-4-5',
+      model: 'claude-sonnet-4-6',
       productPage: null,
       shotCount: 2,
       workspace: 'image',
     })
 
-    expect(body.model).toBe('claude-haiku-4-5')
+    expect(body.model).toBe('claude-sonnet-4-6')
     expect(body.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -106,7 +125,7 @@ describe('KIE analysis adapters', () => {
       model: 'gemini-2.5-flash',
       productPage: null,
       shotCount: 1,
-      videoModel: 'kling',
+      videoModel: 'seedance-1.5-pro',
       videoDuration: 'extended',
       workspace: 'video',
     })
@@ -116,7 +135,7 @@ describe('KIE analysis adapters', () => {
       : ''
 
     expect(userText).toContain('Create exactly 1 video-generation shot.')
-    expect(userText).toContain('Target clip length: 10 seconds for Kling.')
+    expect(userText).toContain('Target clip length: 12 seconds for Seedance 1.5 Pro.')
     expect(userText).toContain('dolly')
   })
 
@@ -137,6 +156,25 @@ describe('KIE analysis adapters', () => {
       : ''
 
     expect(userText).toContain('Target clip length: 8 seconds for Seedance 1.5 Pro.')
+  })
+
+  it('uses the selected model clip length in guided video analysis prompts', () => {
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoDuration: 'extended',
+      videoModel: 'veo-3.1',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Target clip length: 8 seconds for Veo 3.1.')
   })
 
   it('parses direct schema-shaped Gemini responses into a guided plan', () => {

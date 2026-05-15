@@ -32,6 +32,7 @@ import type {
   ShotEnvironment,
   StoryboardShot,
   SubjectMode,
+  VideoAudio,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -78,6 +79,7 @@ type GenerationStateShape = {
   figureArtDirection: FigureArtDirection
   generationRun: GenerationRun
   generationErrorEventId: number
+  guidedVideoStageEventId: number
   guidedInput: GuidedInputState
   guidedPlan: GuidedAnalysisPlan | null
   ideationError: string | null
@@ -88,10 +90,13 @@ type GenerationStateShape = {
   outputQuality: OutputQuality
   productCategory: ProductCategory
   products: AssetSlot[]
+  manualVideoStageEventId: number
   sessionStats: GenerationSessionStats
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
   textPrompt: string
+  videoReferences: AssetSlot[]
+  videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
 }
@@ -102,7 +107,10 @@ type GenerationStore = GenerationStateShape & {
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
   clearProductSlot: (id: string) => void
+  clearVideoReference: (id: string) => void
   disposeGenerationState: () => void
+  forwardGuidedImageResultToVideo: (file: File) => void
+  forwardManualImageResultToVideo: (file: File) => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
   resetGenerationRun: () => void
@@ -155,6 +163,8 @@ type GenerationStore = GenerationStateShape & {
   setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
   setSubjectMode: (subjectMode: SubjectMode) => void
   setTextPrompt: (textPrompt: string) => void
+  setVideoReferenceFile: (id: string, file: File | null) => void
+  setVideoAudio: (videoAudio: VideoAudio) => void
   setVideoDuration: (videoDuration: VideoDuration) => void
   setVideoModel: (videoModel: VideoModelOption) => void
   selectCreativePlanCta: (ctaId: string) => void
@@ -168,6 +178,7 @@ type GenerationStore = GenerationStateShape & {
 }
 
 const fixedProductSlotCount = 2
+const fixedVideoReferenceCount = 3
 
 function buildProductLabel(position: number) {
   return `Product ${position}`
@@ -182,7 +193,11 @@ function revokePreviewUrl(previewUrl: string | null) {
 }
 
 function createPreviewUrl(file: File | null) {
-  if (!file || typeof URL === 'undefined') {
+  if (
+    !file ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
     return null
   }
 
@@ -208,6 +223,12 @@ function createProductSlots() {
   )
 }
 
+function createVideoReferenceSlots() {
+  return Array.from({ length: fixedVideoReferenceCount }, (_, index) =>
+    createSlot(`video-reference-${index + 1}`, `Reference ${index + 1}`),
+  )
+}
+
 function createGuidedInputState(): GuidedInputState {
   return {
     analysisModel: 'gemini-2.5-flash',
@@ -215,7 +236,7 @@ function createGuidedInputState(): GuidedInputState {
     endFrameAsset: createSlot('guided-end-frame', 'End Frame'),
     heroAsset: createSlot('guided-hero', 'Hero Product'),
     productUrl: '',
-    shotCount: 4,
+    shotCount: 1,
   }
 }
 
@@ -326,6 +347,7 @@ function createInitialState(): GenerationStateShape {
     figureArtDirection: 'none',
     generationRun: createEmptyRunState(),
     generationErrorEventId: 0,
+    guidedVideoStageEventId: 0,
     guidedInput: createGuidedInputState(),
     guidedPlan: null,
     ideationError: null,
@@ -336,10 +358,13 @@ function createInitialState(): GenerationStateShape {
     outputQuality: '1080p',
     productCategory: 'cosmetics',
     products: createProductSlots(),
+    manualVideoStageEventId: 0,
     sessionStats: createEmptySessionStats(),
     shotEnvironment: 'indoor',
     subjectMode: 'lifestyle',
     textPrompt: '',
+    videoReferences: createVideoReferenceSlots(),
+    videoAudio: 'no-audio',
     videoDuration: 'base',
     videoModel: 'veo-3.1',
   }
@@ -484,16 +509,52 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         slot.id === id ? setSlotFile(slot, null) : slot,
       ),
     })),
+  clearVideoReference: (id) =>
+    set((state) => ({
+      videoReferences: state.videoReferences.map((slot) =>
+        slot.id === id ? setSlotFile(slot, null) : slot,
+      ),
+    })),
   disposeGenerationState: () => {
     const state = get()
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseSlots(state.videoReferences)
     releaseGuidedInput(state.guidedInput)
     releaseIdeationInput(state.ideationInput)
 
     set(createInitialState())
   },
+  forwardGuidedImageResultToVideo: (file) =>
+    set((state) => ({
+      activeTab: 'video',
+      analysisError: null,
+      analysisStatus: 'idle',
+      experience: 'guided',
+      guidedInput: {
+        ...state.guidedInput,
+        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, null),
+        heroAsset: setSlotFile(state.guidedInput.heroAsset, file),
+      },
+      guidedPlan: null,
+      guidedVideoStageEventId: state.guidedVideoStageEventId + 1,
+      outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+    })),
+  forwardManualImageResultToVideo: (file) =>
+    set((state) => {
+      const nextVideoReferences = state.videoReferences.map((slot, index) =>
+        setSlotFile(slot, index === 0 ? file : null),
+      )
+
+      return {
+        activeTab: 'video',
+        experience: 'manual',
+        manualVideoStageEventId: state.manualVideoStageEventId + 1,
+        outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+        videoReferences: nextVideoReferences,
+      }
+    }),
   hydrateGenerationRun: (run) =>
     set(() => {
       const nextRun = run
@@ -531,6 +592,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
       releaseSlots(Object.values(state.assets))
       releaseSlots(state.products)
+      releaseSlots(state.videoReferences)
       releaseGuidedInput(state.guidedInput)
       releaseIdeationInput(state.ideationInput)
 
@@ -571,6 +633,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         shotEnvironment: normalizedConfig.shotEnvironment,
         subjectMode: normalizedConfig.subjectMode,
         textPrompt: normalizedConfig.textPrompt,
+        videoAudio: normalizedConfig.videoAudio,
         videoDuration: normalizedConfig.videoDuration,
         videoModel: normalizedConfig.videoModel,
       }
@@ -587,6 +650,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
     releaseSlots(Object.values(state.assets))
     releaseSlots(state.products)
+    releaseSlots(state.videoReferences)
     releaseIdeationInput(state.ideationInput)
 
     set({
@@ -613,6 +677,8 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       shotEnvironment: nextState.shotEnvironment,
       subjectMode: nextState.subjectMode,
       textPrompt: nextState.textPrompt,
+      videoReferences: nextState.videoReferences,
+      videoAudio: nextState.videoAudio,
       videoDuration: nextState.videoDuration,
       videoModel: nextState.videoModel,
     })
@@ -898,6 +964,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
   setSubjectMode: (subjectMode) => set(createSubjectModeState(subjectMode)),
   setTextPrompt: (textPrompt) => set({ textPrompt }),
+  setVideoReferenceFile: (id, file) =>
+    set((state) => ({
+      videoReferences: state.videoReferences.map((slot) =>
+        slot.id === id ? setSlotFile(slot, file) : slot,
+      ),
+    })),
+  setVideoAudio: (videoAudio) => set({ videoAudio }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) => set({ videoModel }),
   selectCreativePlanCta: (ctaId) =>
@@ -1103,6 +1176,7 @@ export type {
   StoryboardShot,
   SubjectMode,
   VideoDuration,
+  VideoAudio,
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'

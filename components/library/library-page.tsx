@@ -1,22 +1,26 @@
 'use client'
 
-import { Trash2 } from 'lucide-react'
-import { useMemo, useState, useTransition } from 'react'
+import { Forward, LoaderCircle, Trash2 } from 'lucide-react'
+import { startTransition, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/generation/client'
+import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
+import type { GenerationRun } from '@/lib/generation/types'
 import {
   formatIdeationConceptCardText,
   formatIdeationResultText,
 } from '@/lib/generation/ideation'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import type {
+  ProjectConfigSnapshot,
   SavedIdeationHistoryEntry,
   SavedOutputHistoryEntry,
 } from '@/lib/persistence/types'
+import { useGenerationStore } from '@/store/use-generation-store'
 
 type RunGroup = {
   id: string
@@ -27,14 +31,19 @@ type RunGroup = {
 type DeleteTarget =
   | {
       id: string
+      kind: 'output'
       label: string
-      type: 'output'
     }
   | {
       id: string
+      kind: 'session'
       label: string
       outputCount: number
-      type: 'session'
+    }
+  | {
+      id: string
+      kind: 'ideation'
+      label: string
     }
 
 type ArchiveView = 'outputs' | 'ideations'
@@ -171,19 +180,26 @@ function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
 }
 
 export function LibraryPage({
+  accountTag,
   ideations,
   outputs,
 }: {
+  accountTag?: string | null
   ideations: SavedIdeationHistoryEntry[]
   outputs: SavedOutputHistoryEntry[]
 }) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [isPending, startRefreshTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [forwardingOutputId, setForwardingOutputId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [archiveView, setArchiveView] = useState<ArchiveView>('outputs')
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
+  const forwardManualImageResultToVideo = useGenerationStore(
+    (state) => state.forwardManualImageResultToVideo,
+  )
+  const hydrateProjectConfig = useGenerationStore((state) => state.hydrateProjectConfig)
 
   const runGroups = useMemo(() => buildRunGroups(outputs), [outputs])
   const archiveStats = useMemo(
@@ -193,7 +209,6 @@ export function LibraryPage({
       totalIdeations: ideations.length,
       totalOutputs: outputs.length,
       totalSize: outputs.reduce((sum, entry) => sum + entry.output.fileSize, 0),
-      workspaceCount: new Set(outputs.map((entry) => entry.run.workspace)).size,
     }),
     [ideations, outputs],
   )
@@ -218,7 +233,17 @@ export function LibraryPage({
     })
 
     if (!response.ok) {
-      throw new Error('Unable to delete session.')
+      throw new Error('Unable to delete media set.')
+    }
+  }
+
+  const deleteIdeation = async (ideationId: string) => {
+    const response = await fetch(`/api/ideations/${encodeURIComponent(ideationId)}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      throw new Error('Unable to delete ideation brief.')
     }
   }
 
@@ -229,18 +254,55 @@ export function LibraryPage({
 
     setIsDeleting(true)
 
-    if (deleteTarget.type === 'session') {
+    if (deleteTarget.kind === 'session') {
       await deleteSession(deleteTarget.id)
       setSelectedRunId(null)
+    } else if (deleteTarget.kind === 'ideation') {
+      await deleteIdeation(deleteTarget.id)
+      setSelectedIdeationId(null)
     } else {
       await deleteOutput(deleteTarget.id)
     }
 
     setDeleteTarget(null)
     setIsDeleting(false)
-    startTransition(() => {
+    startRefreshTransition(() => {
       router.refresh()
     })
+  }
+
+  const forwardOutputToVideo = async (outputId: string, runId: string) => {
+    try {
+      setForwardingOutputId(outputId)
+      const runResponse = await fetch(
+        `/api/generation/runs/${encodeURIComponent(runId)}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const runPayload = (await runResponse.json().catch(() => null)) as
+        | {
+            configSnapshot?: ProjectConfigSnapshot
+            error?: string
+            run?: GenerationRun
+          }
+        | null
+
+      if (!runResponse.ok || !runPayload?.configSnapshot) {
+        throw new Error(runPayload?.error ?? 'Unable to load the saved preset.')
+      }
+      const configSnapshot = runPayload.configSnapshot
+
+      const file = await fetchForwardedResultFile(getAssetMediaUrl(outputId))
+
+      startTransition(() => {
+        hydrateProjectConfig(configSnapshot)
+        forwardManualImageResultToVideo(file)
+        router.push('/')
+      })
+    } finally {
+      setForwardingOutputId(null)
+    }
   }
 
   const closeDeleteDialog = (open: boolean) => {
@@ -254,8 +316,8 @@ export function LibraryPage({
   }
 
   const deleteDialogDescription =
-    deleteTarget?.type === 'session'
-      ? `Delete this session and its ${deleteTarget.outputCount} saved output${deleteTarget.outputCount === 1 ? '' : 's'}. This cannot be undone.`
+    deleteTarget?.kind === 'session'
+      ? `Delete this media set and its ${deleteTarget.outputCount} saved media item${deleteTarget.outputCount === 1 ? '' : 's'}. This cannot be undone.`
       : deleteTarget
         ? `Delete ${deleteTarget.label}. This cannot be undone.`
         : undefined
@@ -269,18 +331,28 @@ export function LibraryPage({
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-border bg-background p-3">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Saved outputs
+              Saved media
             </p>
             <p className="mt-2 text-lg font-semibold text-foreground">
               {archiveStats.totalOutputs}
             </p>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {archiveStats.latestSavedAt
+                ? formatLibraryTimestamp(archiveStats.latestSavedAt)
+                : 'No saved media yet'}
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-background p-3">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Workspaces
+              Saved ideation
             </p>
             <p className="mt-2 text-lg font-semibold text-foreground">
-              {archiveStats.workspaceCount}
+              {archiveStats.totalIdeations}
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {archiveStats.latestIdeationAt
+                ? formatLibraryTimestamp(archiveStats.latestIdeationAt)
+                : 'No saved ideation yet'}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-background p-3">
@@ -289,29 +361,6 @@ export function LibraryPage({
             </p>
             <p className="mt-2 text-lg font-semibold text-foreground">
               {formatBytes(archiveStats.totalSize) ?? '0 KB'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-background p-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Latest save
-            </p>
-            <p className="mt-2 text-sm font-medium text-foreground">
-              {archiveStats.latestSavedAt
-                ? formatLibraryTimestamp(archiveStats.latestSavedAt)
-                : 'No saved outputs yet'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-background p-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Saved briefs
-            </p>
-            <p className="mt-2 text-lg font-semibold text-foreground">
-              {archiveStats.totalIdeations}
-            </p>
-            <p className="mt-2 text-sm font-medium text-foreground">
-              {archiveStats.latestIdeationAt
-                ? formatLibraryTimestamp(archiveStats.latestIdeationAt)
-                : 'No saved briefs yet'}
             </p>
           </div>
         </div>
@@ -324,14 +373,14 @@ export function LibraryPage({
             size="sm"
             variant={archiveView === 'outputs' ? 'default' : 'secondary'}
           >
-            Saved outputs
+            Saved media
           </Button>
           <Button
             onClick={() => setArchiveView('ideations')}
             size="sm"
             variant={archiveView === 'ideations' ? 'default' : 'secondary'}
           >
-            Saved briefs
+            Saved ideation
           </Button>
         </div>
       </section>
@@ -340,12 +389,12 @@ export function LibraryPage({
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <section className="rounded-2xl border border-border bg-card p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Sessions
+              Media sets
             </p>
             <div className="mt-4 grid gap-3">
               {runGroups.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No saved sessions exist yet. Finished generations will appear here.
+                  No saved media sets exist yet. Finished generations will appear here.
                 </p>
               ) : null}
               {runGroups.map((run) => (
@@ -366,10 +415,17 @@ export function LibraryPage({
                       type="button"
                     >
                       <p className="font-medium text-foreground">
-                        {run.run.workspace === 'video' ? 'Video session' : 'Image session'}
+                        {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
                       </p>
+                      {accountTag ? (
+                        <p className="mt-1">
+                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            {accountTag}
+                          </span>
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {run.outputs.length} saved variation
+                        {run.outputs.length} saved media item
                         {run.outputs.length === 1 ? '' : 's'} ·{' '}
                         {formatLibraryTimestamp(
                           run.outputs[0]?.output.createdAt ?? run.run.createdAt,
@@ -377,22 +433,22 @@ export function LibraryPage({
                       </p>
                     </button>
                     <Button
-                      aria-label="Delete session"
+                      aria-label="Delete media set"
                       className="-mr-2 text-destructive hover:text-destructive"
                       disabled={isDeleting || isPending}
                       onClick={() => {
                         setDeleteTarget({
                           id: run.id,
+                          kind: 'session',
                           label:
                             run.run.workspace === 'video'
-                              ? 'Video session'
-                              : 'Image session',
+                              ? 'Video media set'
+                              : 'Image media set',
                           outputCount: run.outputs.length,
-                          type: 'session',
                         })
                       }}
                       size="icon"
-                      title="Delete session"
+                      title="Delete media set"
                       variant="ghost"
                     >
                       <Trash2 suppressHydrationWarning />
@@ -407,14 +463,14 @@ export function LibraryPage({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Session
+                  Media set
                 </p>
                 <h2 className="mt-2 text-lg font-semibold">
                   {activeRun
                     ? activeRun.run.workspace === 'video'
-                      ? 'Video session'
-                      : 'Image session'
-                    : 'No session selected'}
+                      ? 'Video media set'
+                      : 'Image media set'
+                    : 'No media set selected'}
                 </h2>
               </div>
             </div>
@@ -438,7 +494,7 @@ export function LibraryPage({
                     <div className="grid grid-cols-2 justify-center gap-3 self-center text-center text-sm sm:grid-cols-[repeat(2,88px)] lg:grid-cols-[repeat(2,88px)]">
                       <div className="flex min-h-24 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2">
                         <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                          Outputs
+                          Media
                         </p>
                         <p className="mt-1 font-semibold text-foreground">
                           {activeRun.outputs.length}
@@ -512,14 +568,41 @@ export function LibraryPage({
                               Download
                             </a>
                           </Button>
+                          {isImageMimeType(entry.output.mimeType) ? (
+                            <Button
+                              disabled={forwardingOutputId === entry.output.id}
+                              onClick={() => {
+                                void forwardOutputToVideo(entry.output.id, entry.run.id)
+                              }}
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                            >
+                              {forwardingOutputId === entry.output.id ? (
+                                <LoaderCircle
+                                  className="animate-spin"
+                                  data-icon="inline-start"
+                                  suppressHydrationWarning
+                                />
+                              ) : (
+                                <Forward
+                                  data-icon="inline-start"
+                                  suppressHydrationWarning
+                                />
+                              )}
+                              {forwardingOutputId === entry.output.id
+                                ? 'Forwarding...'
+                                : 'Forward to Video'}
+                            </Button>
+                          ) : null}
                           <Button
                             className="text-destructive hover:text-destructive"
                             disabled={isDeleting || isPending}
                             onClick={() => {
                               setDeleteTarget({
                                 id: entry.output.id,
+                                kind: 'output',
                                 label: entry.output.label,
-                                type: 'output',
                               })
                             }}
                             size="sm"
@@ -538,7 +621,7 @@ export function LibraryPage({
                 </div>
               ) : (
                 <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                  No saved outputs exist for this session yet.
+                  No saved media exists for this media set yet.
                 </p>
               )}
             </div>
@@ -548,33 +631,63 @@ export function LibraryPage({
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <section className="rounded-2xl border border-border bg-card p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Briefs
+              Ideation
             </p>
             <div className="mt-4 grid gap-3">
               {ideations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No saved ideation briefs exist yet.
+                  No saved ideation exists yet.
                 </p>
               ) : null}
               {ideations.map((ideation) => (
-                <button
+                <div
                   className={`rounded-xl border px-4 py-3 text-left transition-colors ${
                     ideation.id === activeIdeation?.id
                       ? 'border-foreground/35 bg-secondary'
                       : 'border-border bg-background hover:border-foreground/20'
                   }`}
                   key={ideation.id}
-                  onClick={() => setSelectedIdeationId(ideation.id)}
-                  type="button"
                 >
-                  <p className="font-medium text-foreground">Ideation brief</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {ideation.result.summary}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {formatLibraryTimestamp(ideation.createdAt)}
-                  </p>
-                </button>
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => setSelectedIdeationId(ideation.id)}
+                      type="button"
+                    >
+                      <p className="font-medium text-foreground">Ideation</p>
+                      {accountTag ? (
+                        <p className="mt-1">
+                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            {accountTag}
+                          </span>
+                        </p>
+                      ) : null}
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {ideation.result.summary}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {formatLibraryTimestamp(ideation.createdAt)}
+                      </p>
+                    </button>
+                    <Button
+                      aria-label="Delete brief"
+                      className="-mr-2 text-destructive hover:text-destructive"
+                      disabled={isDeleting || isPending}
+                      onClick={() => {
+                        setDeleteTarget({
+                          id: ideation.id,
+                          kind: 'ideation',
+                          label: 'this ideation brief',
+                        })
+                      }}
+                      size="icon"
+                      title="Delete brief"
+                      variant="ghost"
+                    >
+                      <Trash2 suppressHydrationWarning />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </section>
@@ -583,11 +696,18 @@ export function LibraryPage({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Brief
+                  Ideation
                 </p>
                 <h2 className="mt-2 text-lg font-semibold">
-                  {activeIdeation ? 'Saved ideation brief' : 'No brief selected'}
+                  {activeIdeation ? 'Saved ideation' : 'No ideation selected'}
                 </h2>
+                {activeIdeation && accountTag ? (
+                  <p className="mt-2">
+                    <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {accountTag}
+                    </span>
+                  </p>
+                ) : null}
               </div>
               {activeIdeation ? (
                 <Button
@@ -599,7 +719,7 @@ export function LibraryPage({
                   size="sm"
                   variant="secondary"
                 >
-                  Copy full brief
+                  Copy full ideation
                 </Button>
               ) : null}
             </div>
@@ -695,7 +815,7 @@ export function LibraryPage({
                 </>
               ) : (
                 <p className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                  No saved ideation briefs exist yet.
+                  No saved ideation exists yet.
                 </p>
               )}
             </div>
@@ -715,9 +835,11 @@ export function LibraryPage({
         onOpenChange={closeDeleteDialog}
         open={Boolean(deleteTarget)}
         title={
-          deleteTarget?.type === 'session'
-            ? 'Delete session?'
-            : 'Delete output?'
+          deleteTarget?.kind === 'session'
+            ? 'Delete media set?'
+            : deleteTarget?.kind === 'ideation'
+              ? 'Delete brief?'
+              : 'Delete media?'
         }
       />
     </main>
