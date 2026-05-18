@@ -12,6 +12,7 @@ import {
 } from '@/lib/generation/guided'
 import {
   getNanoBananaResolution,
+  getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
 } from '@/lib/generation/model-mapping'
@@ -476,7 +477,7 @@ function normalizeVideoAudioForModel(
   videoModel: VideoModelOption,
   videoAudio: VideoAudio,
 ): VideoAudio {
-  if (videoModel === 'seedance-1.5-pro') {
+  if (videoModel === 'seedance-1.5-pro' || videoModel === 'seedance-2') {
     return videoAudio
   }
 
@@ -864,6 +865,28 @@ function buildVideoPayload(input: {
     }
   }
 
+  if (input.videoModel === 'seedance-2') {
+    const inputUrls = orderedStartReferenceUrls
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'bytedance/seedance-2',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'bytedance/seedance-2',
+        input: {
+          prompt: input.prompt,
+          ...(inputUrls.length > 0 ? { input_urls: inputUrls } : null),
+          aspect_ratio: aspectRatio,
+          resolution: videoResolution,
+          duration: getSeedance2Duration(input.videoDuration),
+          generate_audio: input.videoAudio === 'with-audio',
+          nsfw_checker: false,
+        },
+      },
+    }
+  }
+
   throw new GenerationRequestError({
     code: 'invalid_input',
     message: `Unsupported video model: ${input.videoModel}`,
@@ -1060,6 +1083,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       ? readEnum(formData, 'videoModel', [
           'veo-3.1',
           'seedance-1.5-pro',
+          'seedance-2',
         ] as const)
       : 'veo-3.1'
   const outputQuality = readEnum(

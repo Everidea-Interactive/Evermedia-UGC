@@ -361,6 +361,7 @@ describe('StudioWorkspace', () => {
     )
 
     expect(videoModels.map((model) => model.value)).toEqual([
+      'seedance-2',
       'seedance-1.5-pro',
       'veo-3.1',
     ])

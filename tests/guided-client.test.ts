@@ -79,6 +79,31 @@ describe('guided generation client payloads', () => {
     expect(formData.get('cameraMovement')).toBe('macro')
   })
 
+  it('posts Seedance 2.0 as the guided video model', () => {
+    const heroAsset = createSlot(
+      'guided-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+
+    const { formData } = buildGuidedAnalysisFormData({
+      analysisModel: 'gemini-2.5-flash',
+      cameraMovement: null,
+      contentConcept: 'affiliate',
+      heroAsset,
+      productUrl: '',
+      shotCount: 3,
+      videoModel: 'seedance-2',
+      videoDuration: 'extended',
+      workspace: 'video',
+    })
+
+    expect(formData.get('workspace')).toBe('video')
+    expect(formData.get('shotCount')).toBe('1')
+    expect(formData.get('videoModel')).toBe('seedance-2')
+    expect(formData.get('videoDuration')).toBe('extended')
+  })
+
   it('keeps guided image generation payloads image-oriented by default', () => {
     const heroAsset = createSlot(
       'guided-hero',

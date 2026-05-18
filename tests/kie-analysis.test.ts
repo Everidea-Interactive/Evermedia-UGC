@@ -177,6 +177,25 @@ describe('KIE analysis adapters', () => {
     expect(userText).toContain('Target clip length: 8 seconds for Veo 3.1.')
   })
 
+  it('uses Seedance 2.0 clip length in guided video analysis prompts', () => {
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      productPage: null,
+      shotCount: 1,
+      videoDuration: 'extended',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Target clip length: 10 seconds for Seedance 2.0.')
+  })
+
   it('parses direct schema-shaped Gemini responses into a guided plan', () => {
     const plan = parseGuidedAnalysisPayload('gemini-2.5-flash', planPayload, 1)
 

@@ -38,7 +38,7 @@ describe('GuidedWorkspace', () => {
       (option) => option.textContent?.trim(),
     )
 
-    expect(options).toEqual(['Seedance 1.5 Pro', 'Veo 3.1'])
+    expect(options).toEqual(['Seedance 1.5 Pro', 'Seedance 2.0', 'Veo 3.1'])
     expect(options).not.toContain('Grok Imagine')
     expect(options).not.toContain('Kling')
   })

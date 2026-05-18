@@ -151,6 +151,17 @@ describe('KIE batch submission', () => {
     },
   )
 
+  it('accepts Seedance 2.0 video model submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'seedance-2')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.videoModel).toBe('seedance-2')
+  })
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })
@@ -850,6 +861,50 @@ describe('KIE batch submission', () => {
         duration: '12',
         fixed_lens: false,
         generate_audio: false,
+        input_urls: [
+          'https://files.example.com/product.png',
+        ],
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '1080p',
+      },
+    })
+  })
+
+  it('builds Seedance 2.0 video payloads with model-specific duration and audio', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(submission.endpoint).toContain('/api/v1/jobs/createTask')
+    expect(submission.modelName).toBe('bytedance/seedance-2')
+    expect(submission.provider).toBe('market')
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-2',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '10',
+        generate_audio: true,
         input_urls: [
           'https://files.example.com/product.png',
         ],

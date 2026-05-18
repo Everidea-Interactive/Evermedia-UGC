@@ -268,4 +268,43 @@ describe('video duration prompt wording', () => {
     expect(extendedPrompt).toContain('Clip intent: 12-second pacing.')
     expect(veoExtendedPrompt).toContain('Clip intent: 8-second pacing.')
   })
+
+  it('uses Seedance 2.0 clip lengths in video prompts', () => {
+    const basePrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    const extendedPrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'extended',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(basePrompt).toContain('Clip intent: 5-second pacing.')
+    expect(extendedPrompt).toContain('Clip intent: 10-second pacing.')
+  })
 })

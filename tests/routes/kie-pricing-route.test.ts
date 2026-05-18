@@ -199,20 +199,50 @@ function createPricingFetchMock() {
               modelDescription: 'bytedance/seedance-1.5-pro, 1080p no video input',
               usdPrice: '0.51',
             },
+            {
+              creditPrice: '25',
+              modelDescription: 'bytedance/seedance-2, 720p with video input',
+              usdPrice: '0.125',
+            },
+            {
+              creditPrice: '41',
+              modelDescription: 'bytedance/seedance-2, 720p no video input',
+              usdPrice: '0.205',
+            },
+            {
+              creditPrice: '62',
+              modelDescription: 'bytedance/seedance-2, 1080p with video input',
+              usdPrice: '0.31',
+            },
+            {
+              creditPrice: '102',
+              modelDescription: 'bytedance/seedance-2, 1080p no video input',
+              usdPrice: '0.51',
+            },
           ]),
         )
       case 'veo':
         return Promise.resolve(
           createPricingResponse([
             {
-              creditPrice: '60.0',
-              modelDescription: 'Google veo 3.1, image-to-video, Fast',
-              usdPrice: '0.3',
+              creditPrice: '65',
+              modelDescription: 'Google veo 3.1, image-to-video, Fast-1080p',
+              usdPrice: '0.325',
             },
             {
-              creditPrice: '60.0',
-              modelDescription: 'Google veo 3.1, text-to-video, Fast',
-              usdPrice: '0.3',
+              creditPrice: '60',
+              modelDescription: 'Google veo 3.1, image-to-video, Fast-720p',
+              usdPrice: '0.30',
+            },
+            {
+              creditPrice: '65',
+              modelDescription: 'Google veo 3.1, text-to-video, Fast-1080p',
+              usdPrice: '0.325',
+            },
+            {
+              creditPrice: '60',
+              modelDescription: 'Google veo 3.1, text-to-video, Fast-720p',
+              usdPrice: '0.30',
             },
           ]),
         )
@@ -247,6 +277,32 @@ describe('GET /api/kie/pricing', () => {
             }
           }
         }
+        video: {
+          'seedance-2': {
+            withReference: {
+              '1080p': {
+                'with-audio': {
+                  extended: {
+                    credits: number
+                    usd: number
+                  }
+                }
+              }
+            }
+          }
+          'veo-3.1': {
+            promptOnly: {
+              '1080p': {
+                credits: number
+                usd: number
+              }
+              '720p': {
+                credits: number
+                usd: number
+              }
+            }
+          }
+        }
       }
     }
 
@@ -260,6 +316,18 @@ describe('GET /api/kie/pricing', () => {
     expect(payload.matrix.image['nano-banana']['2K']).toEqual({
       credits: 12,
       usd: 0.06,
+    })
+    expect(payload.matrix.video['veo-3.1'].promptOnly['1080p']).toEqual({
+      credits: 65,
+      usd: 0.325,
+    })
+    expect(payload.matrix.video['veo-3.1'].promptOnly['720p']).toEqual({
+      credits: 60,
+      usd: 0.3,
+    })
+    expect(payload.matrix.video['seedance-2'].withReference['1080p']['with-audio'].extended).toEqual({
+      credits: 620,
+      usd: 3.1,
     })
   })
 
