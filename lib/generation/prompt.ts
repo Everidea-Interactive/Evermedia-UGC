@@ -14,6 +14,7 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import { getVideoDurationSeconds } from '@/lib/generation/model-mapping'
+import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
 
 type PromptVariantIndex = 1 | 2 | 3 | 4
 
@@ -236,11 +237,13 @@ export function compileGenerationPrompt(input: {
   }
 
   if (input.workspace === 'video') {
-    videoReferences.slice(0, 3).forEach((reference, index) => {
+    videoReferences
+      .slice(0, getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'))
+      .forEach((reference, index) => {
       promptParts.push(
         `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
       )
-    })
+      })
   } else {
     if (identityReference) {
       promptParts.push(

@@ -31,6 +31,7 @@ import type {
   VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
+import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
 
 export const productCategories: Array<{
   icon: LucideIcon
@@ -222,6 +223,10 @@ export function getVideoAudioLabel(videoAudio: VideoAudio) {
 
 export function supportsVideoAudioSelection(model: VideoModelOption) {
   return model === 'seedance-1.5-pro' || model === 'seedance-2'
+}
+
+export function supportsAdditionalVideoReferences(model: VideoModelOption) {
+  return getMaxVideoReferenceCount(model) > 1
 }
 
 export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {

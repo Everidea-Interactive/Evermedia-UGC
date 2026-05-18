@@ -915,6 +915,58 @@ describe('KIE batch submission', () => {
     })
   })
 
+  it('caps Seedance start references to the model-supported limit', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_2',
+          kind: 'product',
+          label: 'Reference 2',
+          order: 1,
+          productId: 'video-reference-2',
+          remoteUrl: 'https://files.example.com/ref-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_3',
+          kind: 'product',
+          label: 'Reference 3',
+          order: 2,
+          productId: 'video-reference-3',
+          remoteUrl: 'https://files.example.com/ref-3.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-1.5-pro',
+      input: {
+        input_urls: [
+          'https://files.example.com/ref-1.png',
+          'https://files.example.com/ref-2.png',
+        ],
+      },
+    })
+  })
+
   it('caps Veo references to ordered start frames and keeps end-frame guidance', () => {
     const submission = resolveSubmission({
       assets: [

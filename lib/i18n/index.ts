@@ -536,8 +536,8 @@ export const uiTranslations: Record<string, string> = {
   'Subject Configuration': 'Konfigurasi subjek',
   'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.':
     'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
-  'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.':
-    'Siapkan hingga tiga referensi frame awal di sini. Pertahankan urutannya agar model menerima arahan yang jelas dari Referensi 1 hingga Referensi 3.',
+  'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.':
+    'Siapkan referensi frame awal di sini. Mulai dari Referensi 1, lalu buka kartu berikutnya hanya jika model yang dipilih mendukung panduan visual tambahan.',
   'hero': 'hero',
   'Staged assets': 'Aset tersiap',
   'Style & Environment': 'Gaya & Lingkungan',

@@ -15,6 +15,7 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
+import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
 
 const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face1',
@@ -111,7 +112,9 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
   if (snapshot.activeTab === 'video') {
-    snapshot.videoReferences.forEach((reference, index) => {
+    snapshot.videoReferences
+      .slice(0, getMaxVideoReferenceCount(snapshot.videoModel))
+      .forEach((reference, index) => {
       if (!reference.file) {
         return
       }
@@ -125,7 +128,7 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
         productId: reference.id,
       })
       formData.append(fieldName, reference.file)
-    })
+      })
 
     const endFrame = snapshot.assets.endFrame
     if (endFrame.file) {

@@ -11,6 +11,7 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
+  getMaxVideoReferenceCount,
   getNanoBananaResolution,
   getSeedance2Duration,
   getSeedanceDuration,
@@ -801,11 +802,12 @@ function buildVideoPayload(input: {
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
   const videoResolution = getVideoResolution(input.outputQuality)
+  const maxReferenceCount = getMaxVideoReferenceCount(input.videoModel)
   const orderedStartReferenceUrls = collectVideoReferenceUrls(
     input.subjectMode,
     input.assets,
     {
-      max: 3,
+      max: maxReferenceCount,
     },
   )
 

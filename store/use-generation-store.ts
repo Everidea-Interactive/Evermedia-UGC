@@ -34,6 +34,7 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
+import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
@@ -351,6 +352,17 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
   }
 }
 
+function trimVideoReferenceSlots(
+  slots: AssetSlot[],
+  videoModel: VideoModelOption,
+) {
+  const maxReferenceCount = getMaxVideoReferenceCount(videoModel)
+
+  return slots.map((slot, index) =>
+    index < maxReferenceCount ? slot : setSlotFile(slot, null),
+  )
+}
+
 function resolveRunStatus(variants: GenerationVariant[]): GenerationRunStatus {
   if (variants.length === 0) {
     return 'idle'
@@ -491,8 +503,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   forwardManualImageResultToVideo: (file) =>
     set((state) => {
-      const nextVideoReferences = state.videoReferences.map((slot, index) =>
-        setSlotFile(slot, index === 0 ? file : null),
+      const nextVideoReferences = trimVideoReferenceSlots(
+        state.videoReferences.map((slot, index) =>
+          setSlotFile(slot, index === 0 ? file : null),
+        ),
+        state.videoModel,
       )
 
       return {
@@ -866,7 +881,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   setVideoAudio: (videoAudio) => set({ videoAudio }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
-  setVideoModel: (videoModel) => set({ videoModel }),
+  setVideoModel: (videoModel) =>
+    set((state) => ({
+      videoModel,
+      videoReferences: trimVideoReferenceSlots(state.videoReferences, videoModel),
+    })),
   updateGuidedShotPrompt: (slug, prompt) =>
     set((state) => ({
       guidedPlan: state.guidedPlan

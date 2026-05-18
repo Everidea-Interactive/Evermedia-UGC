@@ -71,6 +71,17 @@ export function getVideoResolution(outputQuality: OutputQuality): VideoResolutio
   return outputQuality === '1080p' ? '1080p' : '720p'
 }
 
+export function getMaxVideoReferenceCount(videoModel: VideoModelOption) {
+  switch (videoModel) {
+    case 'seedance-1.5-pro':
+    case 'seedance-2':
+      return 2
+    case 'veo-3.1':
+    default:
+      return 3
+  }
+}
+
 export function getKlingDuration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '5'
 }

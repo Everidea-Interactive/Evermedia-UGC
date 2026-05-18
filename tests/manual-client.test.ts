@@ -139,4 +139,38 @@ describe('manual generation client payloads', () => {
     expect(formData.get('video_reference_2')).toBe(snapshot.videoReferences[1]?.file)
     expect(formData.get('asset_endFrame')).toBe(endFrame.file)
   })
+
+  it('caps Seedance manual video references to the model-supported count', () => {
+    const snapshot = createSnapshot({
+      videoModel: 'seedance-1.5-pro',
+      videoReferences: [
+        createSlot(
+          'video-reference-1',
+          'Reference 1',
+          new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+        ),
+        createSlot(
+          'video-reference-2',
+          'Reference 2',
+          new File(['ref-2'], 'ref-2.png', { type: 'image/png' }),
+        ),
+        createSlot(
+          'video-reference-3',
+          'Reference 3',
+          new File(['ref-3'], 'ref-3.png', { type: 'image/png' }),
+        ),
+      ],
+    })
+
+    const { assetManifest, formData } = buildGenerationFormData(snapshot)
+
+    expect(assetManifest).toHaveLength(2)
+    expect(assetManifest.map((asset) => asset.fieldName)).toEqual([
+      'video_reference_1',
+      'video_reference_2',
+    ])
+    expect(formData.get('video_reference_1')).toBe(snapshot.videoReferences[0]?.file)
+    expect(formData.get('video_reference_2')).toBe(snapshot.videoReferences[1]?.file)
+    expect(formData.get('video_reference_3')).toBeNull()
+  })
 })
