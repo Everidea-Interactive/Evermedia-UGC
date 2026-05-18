@@ -205,6 +205,7 @@ function createAssets(overrides: Partial<NamedAssetSlots> = {}): NamedAssetSlots
   return {
     clothing: createSlot('clothing', 'Clothing'),
     endFrame: createSlot('endFrame', 'End Frame'),
+    firstFrame: createSlot('firstFrame', 'First Frame'),
     face1: createSlot('face1', 'Face 1'),
     face2: createSlot('face2', 'Face 2'),
     location: createSlot('location', 'Location'),
@@ -421,6 +422,50 @@ describe('generation pricing', () => {
       credits: 1020,
       reason: null,
       usd: 5.1,
+    })
+  })
+
+  it('does not treat end-frame-only staging as a Seedance 2.0 reference render', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        assets: createAssets({
+          endFrame: createSlot('endFrame', 'End Frame', true),
+        }),
+        outputQuality: '1080p',
+        videoDuration: 'extended',
+        videoModel: 'seedance-2',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 1020,
+      reason: null,
+      usd: 5.1,
+    })
+  })
+
+  it('treats a Seedance 2.0 first frame as a reference input for pricing', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        assets: createAssets({
+          firstFrame: createSlot('firstFrame', 'First Frame', true),
+        }),
+        outputQuality: '1080p',
+        videoDuration: 'extended',
+        videoModel: 'seedance-2',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 620,
+      reason: null,
+      usd: 3.1,
     })
   })
 

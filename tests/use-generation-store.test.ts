@@ -141,6 +141,30 @@ describe('useGenerationStore', () => {
     expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
   })
 
+  it('clears manual first and last frame staging when leaving Seedance 2.0', () => {
+    const store = useGenerationStore.getState()
+    const firstFrame = new File(['first-frame'], 'first-frame.png', {
+      type: 'image/png',
+    })
+    const endFrame = new File(['end-frame'], 'end-frame.png', {
+      type: 'image/png',
+    })
+
+    store.setVideoModel('seedance-2')
+    store.setNamedAssetFile('firstFrame', firstFrame)
+    store.setNamedAssetFile('endFrame', endFrame)
+
+    let state = useGenerationStore.getState()
+    expect(state.assets.firstFrame.file?.name).toBe('first-frame.png')
+    expect(state.assets.endFrame.file?.name).toBe('end-frame.png')
+
+    store.setVideoModel('seedance-1.5-pro')
+    state = useGenerationStore.getState()
+
+    expect(state.assets.firstFrame.file).toBeNull()
+    expect(state.assets.endFrame.file).toBeNull()
+  })
+
   it('forwards a manual image result into manual video staging with normalized settings', () => {
     const store = useGenerationStore.getState()
     const forwardedFile = new File(['manual-forward'], 'manual-forward.png', {

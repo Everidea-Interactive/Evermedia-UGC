@@ -90,6 +90,7 @@ export type NamedAssetKey =
   | 'face2'
   | 'clothing'
   | 'location'
+  | 'firstFrame'
   | 'endFrame'
 
 export type AssetSlot = {

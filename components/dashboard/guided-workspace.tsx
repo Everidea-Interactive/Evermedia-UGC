@@ -36,6 +36,7 @@ import {
   getGuidedCreativeStyleForConcept,
   kieAnalysisModels,
 } from '@/lib/generation/guided'
+import { supportsVideoEndFrameGuidance } from '@/lib/generation/model-mapping'
 import {
   getGenerationCostEstimate,
   getGenerationCreditValidation,
@@ -311,6 +312,16 @@ function createGuidedEstimateInput(input: {
       endFrame: {
         ...input.endFrameAsset,
         file: input.activeTab === 'video' ? input.endFrameAsset.file : null,
+      },
+      firstFrame: {
+        error: null,
+        file: null,
+        id: 'guided-first-frame',
+        label: 'First Frame',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
       },
       face1: {
         error: null,
@@ -1375,7 +1386,8 @@ function GuidedRunPanel({
               </Select>
             </FieldBlock>
 
-            {activeTab === 'video' ? (
+            {activeTab === 'video' &&
+            supportsVideoEndFrameGuidance(videoModel) ? (
               <GuidedEndFrameUploadCard slot={endFrameAsset} />
             ) : null}
           </div>

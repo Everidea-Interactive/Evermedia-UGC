@@ -446,6 +446,7 @@ export const uiTranslations: Record<string, string> = {
     'OpenAI GPT Image 2 dengan tier 1K / 2K / 4K',
   'Open product page': 'Buka halaman produk',
   'Optional End Frame': 'Frame Akhir Opsional',
+  'First Frame': 'Frame Pertama',
   'Optional enrichment for the page title, description, and product schema.':
     'Tambahan konteks opsional untuk judul halaman, deskripsi, dan schema produk.',
   'Only Veo uses end-frame guidance. Other models ignore this slot.':

@@ -338,6 +338,7 @@ describe('StudioWorkspace', () => {
     })
 
     expect(await screen.findByText('Reference 3')).toBeTruthy()
+    expect(screen.getAllByText('End Frame')).toHaveLength(1)
   })
 
   it('keeps Seedance manual video references capped to two visible cards', async () => {
@@ -377,6 +378,77 @@ describe('StudioWorkspace', () => {
     expect(screen.queryAllByText('Reference 1').length).toBeGreaterThan(0)
     expect(screen.queryAllByText('Reference 2').length).toBeGreaterThan(0)
     expect(screen.queryByText('Reference 3')).toBeNull()
+    expect(screen.queryByText('End Frame')).toBeNull()
+  })
+
+  it('shows the End Frame card for Seedance 2.0 manual video mode', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('seedance-2')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.queryAllByText('Reference 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('First Frame')).toHaveLength(1)
+    expect(screen.queryByText('End Frame')).toBeNull()
+  })
+
+  it('only reveals the Seedance 2.0 End Frame card after the First Frame is staged', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('seedance-2')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.getAllByText('First Frame')).toHaveLength(1)
+    expect(screen.queryByText('End Frame')).toBeNull()
+
+    await act(async () => {
+      useGenerationStore.getState().setNamedAssetFile(
+        'firstFrame',
+        new File(['first'], 'first.png', { type: 'image/png' }),
+      )
+    })
+
+    expect(await screen.findByText('End Frame')).toBeTruthy()
   })
 
   it('shows a single clip-length option for Veo 3.1', async () => {
@@ -554,11 +626,6 @@ describe('StudioWorkspace', () => {
     expect(
       screen.getByText(
         'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
-      ),
-    ).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Hanya Veo yang menggunakan panduan frame akhir. Model lain mengabaikan slot ini.',
       ),
     ).toBeTruthy()
 

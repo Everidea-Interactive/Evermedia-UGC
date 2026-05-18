@@ -23,6 +23,7 @@ function createNamedAssets(): NamedAssetSlots {
   return {
     clothing: createSlot('clothing', 'Clothing', null),
     endFrame: createSlot('endFrame', 'End Frame', null),
+    firstFrame: createSlot('firstFrame', 'First Frame', null),
     face1: createSlot('face1', 'Face 1', null),
     face2: createSlot('face2', 'Face 2', null),
     location: createSlot('location', 'Location', null),
@@ -172,5 +173,76 @@ describe('manual generation client payloads', () => {
     expect(formData.get('video_reference_1')).toBe(snapshot.videoReferences[0]?.file)
     expect(formData.get('video_reference_2')).toBe(snapshot.videoReferences[1]?.file)
     expect(formData.get('video_reference_3')).toBeNull()
+  })
+
+  it('includes end-frame uploads for Seedance 2.0 manual generation', () => {
+    const firstFrame = createSlot(
+      'firstFrame',
+      'First Frame',
+      new File(['first'], 'first.png', { type: 'image/png' }),
+    )
+    const endFrame = createSlot(
+      'endFrame',
+      'End Frame',
+      new File(['end'], 'end.png', { type: 'image/png' }),
+    )
+    const snapshot = createSnapshot({
+      assets: {
+        ...createNamedAssets(),
+        endFrame,
+        firstFrame,
+      },
+      videoModel: 'seedance-2',
+      videoReferences: [
+        createSlot(
+          'video-reference-1',
+          'Reference 1',
+          new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+        ),
+        createSlot('video-reference-2', 'Reference 2', null),
+        createSlot('video-reference-3', 'Reference 3', null),
+      ],
+    })
+
+    const { assetManifest, formData } = buildGenerationFormData(snapshot)
+
+    expect(assetManifest.map((asset) => asset.fieldName)).toEqual([
+      'asset_firstFrame',
+      'video_reference_1',
+      'asset_endFrame',
+    ])
+    expect(formData.get('asset_firstFrame')).toBe(firstFrame.file)
+    expect(formData.get('asset_endFrame')).toBe(endFrame.file)
+  })
+
+  it('omits end-frame uploads for models that do not support end-frame guidance', () => {
+    const endFrame = createSlot(
+      'endFrame',
+      'End Frame',
+      new File(['end'], 'end.png', { type: 'image/png' }),
+    )
+    const snapshot = createSnapshot({
+      assets: {
+        ...createNamedAssets(),
+        endFrame,
+      },
+      videoModel: 'seedance-1.5-pro',
+      videoReferences: [
+        createSlot(
+          'video-reference-1',
+          'Reference 1',
+          new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+        ),
+        createSlot('video-reference-2', 'Reference 2', null),
+        createSlot('video-reference-3', 'Reference 3', null),
+      ],
+    })
+
+    const { assetManifest, formData } = buildGenerationFormData(snapshot)
+
+    expect(assetManifest.map((asset) => asset.fieldName)).toEqual([
+      'video_reference_1',
+    ])
+    expect(formData.get('asset_endFrame')).toBeNull()
   })
 })

@@ -58,6 +58,10 @@ import type {
   VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
+import {
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -151,14 +155,23 @@ function RunControlPanel({
   const loadedAssets = useMemo(
     () => {
       if (activeTab === 'video') {
-        return [...videoReferences, assets.endFrame].filter((slot) => isSlotLoaded(slot))
+        const visibleVideoAssets = [
+          ...videoReferences,
+          ...(supportsVideoFirstLastFramePair(videoModel) ? [assets.firstFrame] : []),
+          ...(supportsVideoEndFrameGuidance(videoModel) &&
+          (!supportsVideoFirstLastFramePair(videoModel) || assets.firstFrame.file)
+            ? [assets.endFrame]
+            : []),
+        ]
+
+        return visibleVideoAssets.filter((slot) => isSlotLoaded(slot))
       }
 
       return [...Object.values(assets), ...products].filter((slot) =>
         isSlotLoaded(slot),
       )
     },
-    [activeTab, assets, products, videoReferences],
+    [activeTab, assets, products, videoModel, videoReferences],
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
@@ -524,6 +537,10 @@ function getPrimaryInputSummary({
   videoReferences: AssetSlot[]
 }) {
   if (activeTab === 'video') {
+    if (assets.firstFrame && isSlotLoaded(assets.firstFrame)) {
+      return assets.firstFrame.label
+    }
+
     const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
     if (firstReference) {
       return firstReference.label

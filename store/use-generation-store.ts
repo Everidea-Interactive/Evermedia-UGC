@@ -34,7 +34,11 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
-import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
+import {
+  getMaxVideoReferenceCount,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
@@ -283,6 +287,7 @@ function createInitialState(): GenerationStateShape {
     assets: {
       clothing: createSlot('clothing', 'Clothing'),
       endFrame: createSlot('endFrame', 'End Frame'),
+      firstFrame: createSlot('firstFrame', 'First Frame'),
       face1: createSlot('face1', 'Face 1'),
       face2: createSlot('face2', 'Face 2'),
       location: createSlot('location', 'Location'),
@@ -439,6 +444,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       assets: {
         ...state.assets,
+        ...(slot === 'firstFrame'
+          ? { endFrame: setSlotFile(state.assets.endFrame, null) }
+          : null),
         [slot]: setSlotFile(state.assets[slot], null),
       },
     })),
@@ -859,6 +867,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       assets: {
         ...state.assets,
+        ...(slot === 'firstFrame' && !file
+          ? { endFrame: setSlotFile(state.assets.endFrame, null) }
+          : null),
         [slot]: setSlotFile(state.assets[slot], file),
       },
     })),
@@ -883,6 +894,15 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setVideoDuration: (videoDuration) => set({ videoDuration }),
   setVideoModel: (videoModel) =>
     set((state) => ({
+      assets: {
+        ...state.assets,
+        firstFrame: supportsVideoFirstLastFramePair(videoModel)
+          ? state.assets.firstFrame
+          : setSlotFile(state.assets.firstFrame, null),
+        endFrame: supportsVideoEndFrameGuidance(videoModel)
+          ? state.assets.endFrame
+          : setSlotFile(state.assets.endFrame, null),
+      },
       videoModel,
       videoReferences: trimVideoReferenceSlots(state.videoReferences, videoModel),
     })),

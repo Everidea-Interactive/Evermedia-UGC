@@ -10,7 +10,7 @@ import type {
 } from '@/lib/generation/types'
 
 type PrimaryReferenceInput = {
-  assets: Pick<NamedAssetSlots, 'endFrame' | 'face1' | 'face2'>
+  assets: Pick<NamedAssetSlots, 'endFrame' | 'face1' | 'face2' | 'firstFrame'>
   products: AssetSlot[]
   subjectMode: SubjectMode
 }
@@ -80,6 +80,14 @@ export function getMaxVideoReferenceCount(videoModel: VideoModelOption) {
     default:
       return 3
   }
+}
+
+export function supportsVideoEndFrameGuidance(videoModel: VideoModelOption) {
+  return videoModel === 'veo-3.1' || videoModel === 'seedance-2'
+}
+
+export function supportsVideoFirstLastFramePair(videoModel: VideoModelOption) {
+  return videoModel === 'seedance-2'
 }
 
 export function getKlingDuration(videoDuration: VideoDuration) {

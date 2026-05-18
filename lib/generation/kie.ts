@@ -4,6 +4,7 @@ import {
   buildVariantPromptSet,
   compileGenerationPrompt,
   chooseEndFrameReference,
+  chooseFirstFrameReference,
   choosePrimaryReference,
 } from '@/lib/generation/prompt'
 import {
@@ -16,6 +17,7 @@ import {
   getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
+  supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
@@ -58,7 +60,7 @@ const KIE_COMMON_DOWNLOAD_URL_ENDPOINT = `${KIE_API_BASE_URL}/api/v1/common/down
 export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
-const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'endFrame'] as const
+const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'firstFrame', 'endFrame'] as const
 const kieCreditSources: Array<{
   endpoint: string
   source: KieStatusSource
@@ -578,6 +580,7 @@ function collectImageReferenceAssets(
 ) {
   const orderedAssets = assets
     .filter((asset) => !isEndFrameAsset(asset))
+    .filter((asset) => !(asset.kind === 'named' && asset.key === 'firstFrame'))
     .filter((asset) => asset.remoteUrl.length > 0)
     .slice()
     .sort((left, right) => left.order - right.order)
@@ -799,6 +802,7 @@ function buildVideoPayload(input: {
   videoModel: VideoModelOption
 }) {
   const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
+  const firstFrameReference = chooseFirstFrameReference(input.assets)
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
   const videoResolution = getVideoResolution(input.outputQuality)
@@ -868,7 +872,10 @@ function buildVideoPayload(input: {
   }
 
   if (input.videoModel === 'seedance-2') {
-    const inputUrls = orderedStartReferenceUrls
+    const hasFirstFrame =
+      supportsVideoFirstLastFramePair(input.videoModel) &&
+      Boolean(firstFrameReference?.remoteUrl)
+    const hasLastFrame = hasFirstFrame && Boolean(endFrameReference?.remoteUrl)
 
     return {
       endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
@@ -878,7 +885,15 @@ function buildVideoPayload(input: {
         model: 'bytedance/seedance-2',
         input: {
           prompt: input.prompt,
-          ...(inputUrls.length > 0 ? { input_urls: inputUrls } : null),
+          ...(hasFirstFrame
+            ? { first_frame_url: firstFrameReference?.remoteUrl }
+            : null),
+          ...(hasLastFrame
+            ? { last_frame_url: endFrameReference?.remoteUrl }
+            : null),
+          ...(orderedStartReferenceUrls.length > 0
+            ? { reference_image_urls: orderedStartReferenceUrls }
+            : null),
           aspect_ratio: aspectRatio,
           resolution: videoResolution,
           duration: getSeedance2Duration(input.videoDuration),

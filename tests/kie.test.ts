@@ -905,11 +905,68 @@ describe('KIE batch submission', () => {
         aspect_ratio: '16:9',
         duration: '10',
         generate_audio: true,
-        input_urls: [
+        reference_image_urls: [
           'https://files.example.com/product.png',
         ],
         nsfw_checker: false,
         prompt: 'Create a polished product motion clip.',
+        resolution: '1080p',
+      },
+    })
+  })
+
+  it('builds Seedance 2.0 first-and-last-frame payloads when an end frame is present', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_firstFrame',
+          key: 'firstFrame',
+          kind: 'named',
+          label: 'First Frame',
+          order: 90,
+          remoteUrl: 'https://files.example.com/first-frame.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          kind: 'named',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-2',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '10',
+        first_frame_url: 'https://files.example.com/first-frame.png',
+        generate_audio: true,
+        last_frame_url: 'https://files.example.com/end-frame.png',
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        reference_image_urls: ['https://files.example.com/ref-1.png'],
         resolution: '1080p',
       },
     })

@@ -138,7 +138,63 @@ describe('guided generation client payloads', () => {
     ])
   })
 
-  it('sends guided video settings and optional end frame in the generation payload', () => {
+  it('sends guided Seedance 2.0 video settings and optional end frame in the generation payload', () => {
+    const heroAsset = createSlot(
+      'guided-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+    const endFrameAsset = createSlot(
+      'guided-end-frame',
+      'End Frame',
+      new File(['end'], 'end.png', { type: 'image/png' }),
+    )
+
+    const { assetManifest, formData } = buildGuidedGenerationFormData({
+      analysisModel: 'gemini-2.5-flash',
+      cameraMovement: 'dolly',
+      contentConcept: 'driven-ads',
+      endFrameAsset,
+      heroAsset,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      plan: multiShotGuidedPlan,
+      productUrl: 'https://example.com/product',
+      videoDuration: 'extended',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(formData.get('workspace')).toBe('video')
+    expect(formData.get('videoModel')).toBe('seedance-2')
+    expect(formData.get('videoDuration')).toBe('extended')
+    expect(formData.get('videoAudio')).toBe('with-audio')
+    expect(formData.get('cameraMovement')).toBe('dolly')
+    expect(formData.get('batchSize')).toBe('1')
+    expect(JSON.parse(String(formData.get('guidedShots')))).toEqual([
+      guidedPlan.shots[0],
+    ])
+    expect(formData.get('asset_endFrame')).toBe(endFrameAsset.file)
+    expect(assetManifest).toEqual([
+      {
+        fieldName: 'asset_endFrame',
+        key: 'endFrame',
+        kind: 'named',
+        label: 'End Frame',
+        order: 4,
+      },
+      {
+        fieldName: 'product_guided_hero',
+        kind: 'product',
+        label: 'Hero Product',
+        order: 100,
+        productId: 'guided-hero',
+      },
+    ])
+  })
+
+  it('omits guided end-frame payloads for unsupported video models', () => {
     const heroAsset = createSlot(
       'guided-hero',
       'Hero Product',
@@ -166,24 +222,8 @@ describe('guided generation client payloads', () => {
       workspace: 'video',
     })
 
-    expect(formData.get('workspace')).toBe('video')
-    expect(formData.get('videoModel')).toBe('seedance-1.5-pro')
-    expect(formData.get('videoDuration')).toBe('extended')
-    expect(formData.get('videoAudio')).toBe('with-audio')
-    expect(formData.get('cameraMovement')).toBe('dolly')
-    expect(formData.get('batchSize')).toBe('1')
-    expect(JSON.parse(String(formData.get('guidedShots')))).toEqual([
-      guidedPlan.shots[0],
-    ])
-    expect(formData.get('asset_endFrame')).toBe(endFrameAsset.file)
+    expect(formData.get('asset_endFrame')).toBeNull()
     expect(assetManifest).toEqual([
-      {
-        fieldName: 'asset_endFrame',
-        key: 'endFrame',
-        kind: 'named',
-        label: 'End Frame',
-        order: 4,
-      },
       {
         fieldName: 'product_guided_hero',
         kind: 'product',

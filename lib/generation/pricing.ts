@@ -6,6 +6,8 @@ import {
   getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import type {
   GenerationCostEstimate,
@@ -720,9 +722,21 @@ export function getGenerationCostEstimate(
     return unavailableEstimate('Live pricing unavailable.')
   }
 
-  const hasManualVideoReference =
-    snapshot.videoReferences.some((slot) => Boolean(slot.file || slot.previewUrl)) ||
+  const hasManualVideoStartReference = snapshot.videoReferences.some((slot) =>
+    Boolean(slot.file || slot.previewUrl),
+  )
+  const hasSupportedFirstFrame =
+    supportsVideoFirstLastFramePair(snapshot.videoModel) &&
+    Boolean(snapshot.assets.firstFrame.file || snapshot.assets.firstFrame.previewUrl)
+  const hasSupportedEndFrame =
+    supportsVideoEndFrameGuidance(snapshot.videoModel) &&
+    (!supportsVideoFirstLastFramePair(snapshot.videoModel) ||
+      Boolean(snapshot.assets.firstFrame.file || snapshot.assets.firstFrame.previewUrl)) &&
     Boolean(snapshot.assets.endFrame.file || snapshot.assets.endFrame.previewUrl)
+  const hasManualVideoReference =
+    snapshot.videoModel === 'seedance-2'
+      ? hasManualVideoStartReference || hasSupportedFirstFrame || hasSupportedEndFrame
+      : hasManualVideoStartReference || hasSupportedEndFrame
 
   let perTaskRate: GenerationCostRate | null = null
 

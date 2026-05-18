@@ -1,12 +1,9 @@
 'use client'
 
-import { ScanLine } from 'lucide-react'
-
 import { cameraMovements } from '@/components/dashboard/manual-workspace-config'
 import {
   ControlGroup,
   panelClassName,
-  ReferenceCard,
   SectionHeader,
   tileClassName,
 } from '@/components/dashboard/manual-workspace-ui'
@@ -20,9 +17,6 @@ export function MotionControlsSection({ className }: { className?: string }) {
   const setCameraMovement = useGenerationStore(
     (state) => state.setCameraMovement,
   )
-  const endFrame = useGenerationStore((state) => state.assets.endFrame)
-  const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
-  const setNamedAssetFile = useGenerationStore((state) => state.setNamedAssetFile)
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -57,20 +51,6 @@ export function MotionControlsSection({ className }: { className?: string }) {
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
-          </ControlGroup>
-
-          <ControlGroup
-            description="Only Veo uses end-frame guidance. Other models ignore this slot."
-            title="End frame reference"
-          >
-            <ReferenceCard
-              className="w-full self-start sm:max-w-[20rem]"
-              icon={ScanLine}
-              inputId="asset-end-frame"
-              onClear={() => clearNamedAsset('endFrame')}
-              onSelect={(file) => setNamedAssetFile('endFrame', file)}
-              slot={endFrame}
-            />
           </ControlGroup>
         </div>
       </div>

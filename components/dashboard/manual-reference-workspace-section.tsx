@@ -1,12 +1,16 @@
 'use client'
 
-import { Image, Package2 } from 'lucide-react'
+import { Image, Package2, ScanLine } from 'lucide-react'
 
 import {
   peopleReferenceCards,
   styleReferenceCards,
 } from '@/components/dashboard/manual-workspace-config'
-import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
+import {
+  getMaxVideoReferenceCount,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import {
   panelClassName,
   ReferenceCard,
@@ -38,6 +42,10 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   )
   const productSlots = products.slice(0, 2)
   const videoReferenceLimit = getMaxVideoReferenceCount(videoModel)
+  const showDedicatedFramePair = supportsVideoFirstLastFramePair(videoModel)
+  const showEndFrameReference =
+    supportsVideoEndFrameGuidance(videoModel) &&
+    (!showDedicatedFramePair || Boolean(assets.firstFrame.file))
   const visibleVideoReferenceCount = Math.min(
     videoReferenceLimit,
     Math.max(
@@ -81,6 +89,24 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
                 slot={referenceSlot}
               />
             ))}
+            {showDedicatedFramePair ? (
+              <ReferenceCard
+                icon={Image}
+                inputId="asset-first-frame"
+                onClear={() => clearNamedAsset('firstFrame')}
+                onSelect={(file) => setNamedAssetFile('firstFrame', file)}
+                slot={assets.firstFrame}
+              />
+            ) : null}
+            {showEndFrameReference ? (
+              <ReferenceCard
+                icon={ScanLine}
+                inputId="asset-end-frame"
+                onClear={() => clearNamedAsset('endFrame')}
+                onSelect={(file) => setNamedAssetFile('endFrame', file)}
+                slot={assets.endFrame}
+              />
+            ) : null}
           </ReferenceCardGroup>
         ) : (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-x-6">
