@@ -84,6 +84,57 @@ const SEEDANCE_15_HARDCODED_PRICING: SeedanceDurationPricing = {
   },
 }
 
+const KLING_30_HARDCODED_PRICING: SeedanceDurationPricing = {
+  // Kling 3.0 pricing from https://kie.ai/kling-3-0
+  // Standard (720p): no-audio 14 credits ($0.07)/s, with-audio 20 credits ($0.10)/s
+  // Pro (1080p): no-audio 18 credits ($0.09)/s, with-audio 27 credits ($0.135)/s
+  // 4K mode not supported
+  promptOnly: {
+    '720p': {
+      'no-audio': {
+        base: { credits: 70, usd: 0.35 },
+        extended: { credits: 140, usd: 0.70 },
+      },
+      'with-audio': {
+        base: { credits: 100, usd: 0.50 },
+        extended: { credits: 200, usd: 1.00 },
+      },
+    },
+    '1080p': {
+      'no-audio': {
+        base: { credits: 90, usd: 0.45 },
+        extended: { credits: 180, usd: 0.90 },
+      },
+      'with-audio': {
+        base: { credits: 135, usd: 0.675 },
+        extended: { credits: 270, usd: 1.35 },
+      },
+    },
+  },
+  withReference: {
+    '720p': {
+      'no-audio': {
+        base: { credits: 70, usd: 0.35 },
+        extended: { credits: 140, usd: 0.70 },
+      },
+      'with-audio': {
+        base: { credits: 100, usd: 0.50 },
+        extended: { credits: 200, usd: 1.00 },
+      },
+    },
+    '1080p': {
+      'no-audio': {
+        base: { credits: 90, usd: 0.45 },
+        extended: { credits: 180, usd: 0.90 },
+      },
+      'with-audio': {
+        base: { credits: 135, usd: 0.675 },
+        extended: { credits: 270, usd: 1.35 },
+      },
+    },
+  },
+}
+
 let cachedPricingEntry: CachedPricingEntry | null = null
 
 function normalizeDescription(value: string) {
@@ -335,6 +386,7 @@ export async function getKiePricing() {
     ])
 
     const seedance15Override = SEEDANCE_15_HARDCODED_PRICING
+    const kling30Override = KLING_30_HARDCODED_PRICING
 
     const expiresAtMs = now + KIE_PRICING_TTL_MS
     const data: KiePricingResponse = {
@@ -345,6 +397,7 @@ export async function getKiePricing() {
         gptImageRecords,
         grokRecords,
         klingRecords,
+        kling30Override,
         nanoRecords,
         seedance15Override,
         seedanceRecords,

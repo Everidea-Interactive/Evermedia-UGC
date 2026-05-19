@@ -166,6 +166,11 @@ export const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
+    helper: 'Kuaishou 5s or 10s video generation with native audio',
+    label: 'Kling 3.0',
+    value: 'kling-3.0',
+  },
+  {
     helper: 'ByteDance 5s or 10s video generation',
     label: 'Seedance 2.0',
     value: 'seedance-2',
@@ -194,6 +199,13 @@ const videoDurationConfig: Record<
     options: VideoDuration[]
   }
 > = {
+  'kling-3.0': {
+    labels: {
+      base: 'Base (5s)',
+      extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
   'seedance-2': {
     labels: {
       base: 'Base (5s)',
@@ -222,7 +234,7 @@ export function getVideoAudioLabel(videoAudio: VideoAudio) {
 }
 
 export function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'seedance-1.5-pro' || model === 'seedance-2'
+  return model === 'seedance-1.5-pro' || model === 'seedance-2' || model === 'kling-3.0'
 }
 
 export function supportsAdditionalVideoReferences(model: VideoModelOption) {

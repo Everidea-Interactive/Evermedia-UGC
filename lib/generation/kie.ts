@@ -13,6 +13,7 @@ import {
 } from '@/lib/generation/guided'
 import {
   getMaxVideoReferenceCount,
+  getKling3Duration,
   getNanoBananaResolution,
   getSeedance2Duration,
   getSeedanceDuration,
@@ -904,6 +905,38 @@ function buildVideoPayload(input: {
     }
   }
 
+  if (input.videoModel === 'kling-3.0') {
+    const hasFirstFrame = Boolean(firstFrameReference?.remoteUrl)
+    const hasLastFrame = hasFirstFrame && Boolean(endFrameReference?.remoteUrl)
+
+    const imageUrls: string[] = []
+    if (hasFirstFrame) {
+      imageUrls.push(firstFrameReference!.remoteUrl)
+    }
+    if (hasLastFrame) {
+      imageUrls.push(endFrameReference!.remoteUrl)
+    }
+
+    const mode = videoResolution === '1080p' ? 'pro' : 'std'
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'kling-3.0/video',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'kling-3.0/video',
+        input: {
+          prompt: input.prompt,
+          ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+          aspect_ratio: '16:9',
+          sound: input.videoAudio === 'with-audio',
+          duration: getKling3Duration(input.videoDuration),
+          mode: mode,
+        },
+      },
+    }
+  }
+
   throw new GenerationRequestError({
     code: 'invalid_input',
     message: `Unsupported video model: ${input.videoModel}`,
@@ -1101,6 +1134,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
           'veo-3.1',
           'seedance-1.5-pro',
           'seedance-2',
+          'kling-3.0',
         ] as const)
       : 'veo-3.1'
   const outputQuality = readEnum(

@@ -2,6 +2,7 @@ import {
   getImageResolution,
   getGrokDuration,
   getGrokResolution,
+  getKling3Duration,
   getKlingDuration,
   getSeedance2Duration,
   getSeedanceDuration,
@@ -115,6 +116,10 @@ export function buildKiePricingMatrix(input: {
   grokRecords: KiePricingApiRecord[]
   gptImageRecords?: KiePricingApiRecord[]
   klingRecords: KiePricingApiRecord[]
+  kling30Override?: {
+    promptOnly: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
+    withReference: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
+  } | null
   nanoRecords: KiePricingApiRecord[]
   seedance15Override?: {
     promptOnly: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
@@ -472,6 +477,10 @@ export function buildKiePricingMatrix(input: {
     promptOnly: {} as KiePricingMatrix['video']['seedance-2']['promptOnly'],
     withReference: {} as KiePricingMatrix['video']['seedance-2']['withReference'],
   }
+  const kling30Matrix = {
+    promptOnly: {} as KiePricingMatrix['video']['kling-3.0']['promptOnly'],
+    withReference: {} as KiePricingMatrix['video']['kling-3.0']['withReference'],
+  }
 
   if (!input.seedance15Override && seedanceRatesByInput) {
     for (const duration of videoDurations) {
@@ -616,6 +625,61 @@ export function buildKiePricingMatrix(input: {
     }
   }
 
+  // Kling 3.0 uses hardcoded pricing (similar to Seedance 1.5 Pro).
+  if (input.kling30Override) {
+    for (const duration of videoDurations) {
+      for (const quality of ['720p', '1080p'] as const) {
+        // Kling 3.0 hardcoded pricing already contains final totals (no multiplication needed)
+        const promptOnlyRate = input.kling30Override.promptOnly[quality]
+        const withReferenceRate = input.kling30Override.withReference[quality]
+
+        kling30Matrix.promptOnly[quality] = {
+          'no-audio': {
+            ...(kling30Matrix.promptOnly[quality]?.['no-audio'] ?? {}),
+            [duration]: promptOnlyRate['no-audio'][duration],
+          },
+          'with-audio': {
+            ...(kling30Matrix.promptOnly[quality]?.['with-audio'] ?? {}),
+            [duration]: promptOnlyRate['with-audio'][duration],
+          },
+        }
+        kling30Matrix.withReference[quality] = {
+          'no-audio': {
+            ...(kling30Matrix.withReference[quality]?.['no-audio'] ?? {}),
+            [duration]: withReferenceRate['no-audio'][duration],
+          },
+          'with-audio': {
+            ...(kling30Matrix.withReference[quality]?.['with-audio'] ?? {}),
+            [duration]: withReferenceRate['with-audio'][duration],
+          },
+        }
+      }
+    }
+  } else {
+    for (const quality of ['720p', '1080p'] as const) {
+      kling30Matrix.promptOnly[quality] = {
+        'no-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+        'with-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+      }
+      kling30Matrix.withReference[quality] = {
+        'no-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+        'with-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+      }
+    }
+  }
+
   return {
     image: {
       'grok-imagine': {
@@ -635,6 +699,7 @@ export function buildKiePricingMatrix(input: {
     video: {
       'grok-imagine': grokVideoMatrix,
       kling: klingMatrix,
+      'kling-3.0': kling30Matrix,
       'veo-3.1': {
         promptOnly: veoRates['text-to-video'],
         withReference: veoRates['image-to-video'],
@@ -734,7 +799,7 @@ export function getGenerationCostEstimate(
       Boolean(snapshot.assets.firstFrame.file || snapshot.assets.firstFrame.previewUrl)) &&
     Boolean(snapshot.assets.endFrame.file || snapshot.assets.endFrame.previewUrl)
   const hasManualVideoReference =
-    snapshot.videoModel === 'seedance-2'
+    snapshot.videoModel === 'seedance-2' || snapshot.videoModel === 'kling-3.0'
       ? hasManualVideoStartReference || hasSupportedFirstFrame || hasSupportedEndFrame
       : hasManualVideoStartReference || hasSupportedEndFrame
 
@@ -768,6 +833,17 @@ export function getGenerationCostEstimate(
           snapshot.videoAudio
         ][snapshot.videoDuration]
       : pricingMatrix.video['seedance-2'].promptOnly[videoResolution][
+          snapshot.videoAudio
+        ][snapshot.videoDuration]
+  } else if (snapshot.videoModel === 'kling-3.0') {
+    const videoResolution = getVideoResolution(snapshot.outputQuality)
+    const hasReference = hasManualVideoReference
+
+    perTaskRate = hasReference
+      ? pricingMatrix.video['kling-3.0'].withReference[videoResolution][
+          snapshot.videoAudio
+        ][snapshot.videoDuration]
+      : pricingMatrix.video['kling-3.0'].promptOnly[videoResolution][
           snapshot.videoAudio
         ][snapshot.videoDuration]
   }

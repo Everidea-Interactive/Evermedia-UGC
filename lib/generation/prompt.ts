@@ -312,6 +312,12 @@ export function compileGenerationPrompt(input: {
     )
   }
 
+  if (input.workspace === 'video' && input.videoModel === 'kling-3.0') {
+    promptParts.push(
+      'Describe subject motion, camera behavior, and scene composition explicitly for best temporal coherence.',
+    )
+  }
+
   if (
     endFrame &&
     input.workspace === 'video' &&

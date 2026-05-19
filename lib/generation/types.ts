@@ -45,6 +45,7 @@ export type VideoModelOption =
   | 'veo-3.1'
   | 'seedance-1.5-pro'
   | 'seedance-2'
+  | 'kling-3.0'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'
   | 'claude-sonnet-4-6'
@@ -274,6 +275,16 @@ export type KiePricingMatrix = {
     kling: {
       promptOnly: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       withReference: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+    }
+    'kling-3.0': {
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
     }
     'veo-3.1': {
       promptOnly: Record<VideoResolution, GenerationCostRate>
