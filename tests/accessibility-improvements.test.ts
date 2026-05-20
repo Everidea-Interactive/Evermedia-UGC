@@ -122,3 +122,46 @@ test.describe('Phase 2 accessibility improvements', () => {
     expect(rootBorderVar.length).toBeGreaterThan(0)
   })
 })
+
+test.describe('Phase 3 accessibility improvements', () => {
+  test.describe('responsive breakpoint transitions', () => {
+    test.beforeEach(async ({ page }) => {
+      await signIn(page)
+      // Go to dashboard/studio page
+      await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' })
+    })
+
+    test('maintains content visibility at intermediate 1100px width', async ({ page }) => {
+      await page.setViewportSize({ width: 1100, height: 768 })
+
+      // Main content should not be compressed
+      const mainContent = page.locator('main').first()
+      await expect(mainContent).toBeVisible()
+
+      // Check no horizontal scroll
+      const bodyWidth = await page.evaluate(() => document.body.scrollWidth)
+      const viewportWidth = await page.evaluate(() => window.innerWidth)
+      expect(bodyWidth).toBeLessThanOrEqual(viewportWidth)
+    })
+
+    test('shows responsive layout at 1024px without overflow', async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 768 })
+
+      // Verify page loads without horizontal overflow
+      const hasHorizontalScroll = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > document.documentElement.clientWidth
+      })
+      expect(hasHorizontalScroll).toBe(false)
+    })
+
+    test('shows responsive layout at 1280px without overflow', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 })
+
+      // Verify page loads without horizontal overflow
+      const hasHorizontalScroll = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > document.documentElement.clientWidth
+      })
+      expect(hasHorizontalScroll).toBe(false)
+    })
+  })
+})
