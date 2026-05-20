@@ -119,10 +119,18 @@ export function UpdatePasswordForm({
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div
+          aria-live="assertive"
+          className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+          role="alert"
+        >
           {error}
         </div>
       ) : null}
+
+      <p aria-live="polite" className="sr-only">
+        {disabled ? copy.updatePasswordBusy : ''}
+      </p>
 
       <Button disabled={disabled} type="submit">
         {disabled ? copy.updatePasswordBusy : copy.updatePassword}

@@ -200,6 +200,7 @@ function RunControlPanel({
     activeTab,
   )
   const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
+  const generationHelperText = getGenerateButtonLabel(generationRun, batchSize)
 
   useEffect(() => {
     if (activeTab === 'video' && batchSize !== 1) {
@@ -506,8 +507,11 @@ function RunControlPanel({
                   ) : (
                     <WandSparkles data-icon="inline-start" suppressHydrationWarning />
                   )}
-                  {getGenerateButtonLabel(generationRun, batchSize)}
+                  {generationHelperText}
                 </Button>
+                <p aria-live="polite" className="text-sm text-muted-foreground">
+                  {generationHelperText}
+                </p>
               </div>
             </div>
           </div>
