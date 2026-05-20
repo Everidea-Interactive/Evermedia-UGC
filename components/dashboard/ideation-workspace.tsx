@@ -827,8 +827,8 @@ export function IdeationWorkspace() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-      <div className="flex flex-col gap-3 xl:col-start-1">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+      <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
         <Tabs
           className="flex flex-col gap-3"
           onValueChange={(value) => setIdeationSection(value as 'analyze' | 'results')}
@@ -872,20 +872,22 @@ export function IdeationWorkspace() {
         </Tabs>
       </div>
 
-      <IdeationControlPanel
-        canAnalyze={canAnalyze}
-        hasError={Boolean(ideationError)}
-        hasHero={hasHero}
-        hasResult={hasResult}
-        ideationInput={ideationInput}
-        ideationStatus={ideationStatus}
-        onAnalyze={() => {
-          void handleAnalyze()
-        }}
-        setIdeationAnalysisModel={setIdeationAnalysisModel}
-        setIdeationContentFormat={setIdeationContentFormat}
-        setIdeationOutputLanguage={setIdeationOutputLanguage}
-      />
+      <div className="min-w-0 lg:col-start-2">
+        <IdeationControlPanel
+          canAnalyze={canAnalyze}
+          hasError={Boolean(ideationError)}
+          hasHero={hasHero}
+          hasResult={hasResult}
+          ideationInput={ideationInput}
+          ideationStatus={ideationStatus}
+          onAnalyze={() => {
+            void handleAnalyze()
+          }}
+          setIdeationAnalysisModel={setIdeationAnalysisModel}
+          setIdeationContentFormat={setIdeationContentFormat}
+          setIdeationOutputLanguage={setIdeationOutputLanguage}
+        />
+      </div>
     </div>
   )
 }

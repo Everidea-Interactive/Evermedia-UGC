@@ -1967,8 +1967,8 @@ export function GuidedWorkspace({
           }
           value={guidedSection}
         >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-            <div className="flex flex-col gap-3 xl:col-start-1">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+            <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
               <TabsList aria-label="Guided Sections" className="w-full grid-cols-3 p-1.5">
                 <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="analyze">
                   Analyze
@@ -2016,34 +2016,36 @@ export function GuidedWorkspace({
               </TabsContent>
             </div>
 
-            <GuidedRunPanel
-              activeTab={activeTab}
-              activeRunInGuidedMode={activeRunInGuidedMode}
-              canGenerate={canGenerate}
-              endFrameAsset={guidedInput.endFrameAsset}
-              estimate={estimate}
-              generateHelperText={generateHelperText}
-              generationRun={generationRun}
-              imageModel={imageModel}
-              isPricingLoading={isPricingLoading}
-              onCancel={() => {
-                void handleCancel()
-              }}
-              onGenerate={() => {
-                void handleGenerate()
-              }}
-              outputQuality={outputQuality}
-              plan={guidedPlan}
-              setImageModel={setImageModel}
-              setOutputQuality={setOutputQuality}
-              setVideoDuration={setVideoDuration}
-              setVideoAudio={setVideoAudio}
-              setVideoModel={setVideoModel}
-              videoAudio={videoAudio}
-              videoDuration={videoDuration}
-              videoModel={videoModel}
-              kiePricing={kiePricing}
-            />
+            <div className="min-w-0 lg:col-start-2">
+              <GuidedRunPanel
+                activeTab={activeTab}
+                activeRunInGuidedMode={activeRunInGuidedMode}
+                canGenerate={canGenerate}
+                endFrameAsset={guidedInput.endFrameAsset}
+                estimate={estimate}
+                generateHelperText={generateHelperText}
+                generationRun={generationRun}
+                imageModel={imageModel}
+                isPricingLoading={isPricingLoading}
+                onCancel={() => {
+                  void handleCancel()
+                }}
+                onGenerate={() => {
+                  void handleGenerate()
+                }}
+                outputQuality={outputQuality}
+                plan={guidedPlan}
+                setImageModel={setImageModel}
+                setOutputQuality={setOutputQuality}
+                setVideoDuration={setVideoDuration}
+                setVideoAudio={setVideoAudio}
+                setVideoModel={setVideoModel}
+                videoAudio={videoAudio}
+                videoDuration={videoDuration}
+                videoModel={videoModel}
+                kiePricing={kiePricing}
+              />
+            </div>
           </div>
         </Tabs>
       </div>

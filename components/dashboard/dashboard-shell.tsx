@@ -123,8 +123,8 @@ export function DashboardShell({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)] xl:items-start">
-        <div className="flex flex-col gap-3 xl:col-start-1">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.92fr)]">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
           <Tabs
             className="flex flex-col gap-3"
             onValueChange={(value) => setManualSection(value as ManualSection)}
@@ -146,7 +146,7 @@ export function DashboardShell({
             </TabsList>
           </Tabs>
 
-          <div>
+          <div className="min-w-0">
             {visibleManualSection === 'references' ? <ReferenceWorkspaceSection /> : null}
             {visibleManualSection === 'preset' ? <RefineRenderSection /> : null}
             {visibleManualSection === 'motion' ? <MotionControlsSection /> : null}
@@ -155,7 +155,7 @@ export function DashboardShell({
         </div>
 
         <ManualRunControlPanelShell
-          className="xl:col-start-2 xl:sticky xl:top-6 xl:self-start"
+          className="lg:col-start-2 lg:sticky lg:top-6 lg:self-start"
           isPricingLoading={isPricingLoading}
           kiePricing={kiePricing}
           kiePricingError={kiePricingError}

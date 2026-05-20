@@ -221,7 +221,7 @@ function RunControlPanel({
   }, [activeTab, videoAudio, videoModel, setVideoAudio])
 
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
+    <section className={cn(panelClassName, 'min-w-0 p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
