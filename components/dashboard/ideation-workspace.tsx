@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type KeyboardEvent,
 } from 'react'
 import {
   BadgeCheck,
@@ -102,18 +101,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function isSlotLoaded(slot: AssetSlot) {
@@ -239,16 +226,14 @@ function IdeationHeroUploadCard({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button asChild size="sm" variant="secondary">
-                    <label
-                      htmlFor={inputId}
-                      onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <Upload data-icon="inline-start" suppressHydrationWarning />
-                      Replace
-                    </label>
+                  <Button
+                    onClick={() => document.getElementById(inputId)?.click()}
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <Upload data-icon="inline-start" suppressHydrationWarning />
+                    Replace
                   </Button>
                   <Button
                     aria-label="Clear ideation hero image"
@@ -277,16 +262,14 @@ function IdeationHeroUploadCard({
               visible packaging, texture, or styling.
             </p>
           </div>
-          <Button asChild size="sm" variant="secondary">
-            <label
-              htmlFor={inputId}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-              role="button"
-              tabIndex={0}
-            >
-              <Upload data-icon="inline-start" suppressHydrationWarning />
-              Upload Image
-            </label>
+          <Button
+            onClick={() => document.getElementById(inputId)?.click()}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            Upload Image
           </Button>
         </div>
       )}

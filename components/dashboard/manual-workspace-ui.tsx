@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { type ChangeEvent, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { LoaderCircle, Upload, X } from 'lucide-react'
 
@@ -34,18 +34,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function getReferenceCardErrorLabel(slot: AssetSlot) {
@@ -219,7 +207,7 @@ export function ReferenceCard({
     >
       <input
         accept={assetAccept}
-        className="hidden"
+        className="sr-only"
         id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}
         type="file"
@@ -252,12 +240,11 @@ export function ReferenceCard({
           />
         )
       ) : (
-        <label
-          className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-3 px-4 text-center"
-          htmlFor={inputId}
-          onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-          role="button"
-          tabIndex={0}
+        <Button
+          className="absolute inset-0 flex h-auto w-auto flex-col items-center justify-center gap-3 px-4 text-center"
+          onClick={() => document.getElementById(inputId)?.click()}
+          type="button"
+          variant="ghost"
         >
           <div className="flex size-12 items-center justify-center rounded-full border border-border bg-secondary/70 text-foreground">
             <Icon className="size-5" suppressHydrationWarning />
@@ -272,7 +259,7 @@ export function ReferenceCard({
             <Upload className="size-3.5" suppressHydrationWarning />
             Choose file
           </div>
-        </label>
+        </Button>
       )}
 
       {showFooterMeta ? (

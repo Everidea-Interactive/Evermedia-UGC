@@ -1,7 +1,7 @@
 'use client'
 
 import { startTransition, useEffect, useMemo, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
+import type { ChangeEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
@@ -164,18 +164,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function isSlotLoaded(slot: AssetSlot) {
@@ -524,16 +512,14 @@ function GuidedHeroUploadCard({
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2">
-              <Button asChild size="sm" variant="secondary">
-                <label
-                  htmlFor={inputId}
-                  onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <Upload data-icon="inline-start" suppressHydrationWarning />
-                  Replace
-                </label>
+              <Button
+                onClick={() => document.getElementById(inputId)?.click()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Upload data-icon="inline-start" suppressHydrationWarning />
+                Replace
               </Button>
               <Button
                 aria-label="Clear guided hero image"
@@ -565,16 +551,14 @@ function GuidedHeroUploadCard({
                 : 'Guided mode uses one product image as the visual anchor for shot planning and final rendering.'}
             </p>
           </div>
-          <Button asChild size="sm" variant="secondary">
-            <label
-              htmlFor={inputId}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-              role="button"
-              tabIndex={0}
-            >
-              <Upload data-icon="inline-start" suppressHydrationWarning />
-              Upload Image
-            </label>
+          <Button
+            onClick={() => document.getElementById(inputId)?.click()}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            Upload Image
           </Button>
         </div>
       )}
@@ -645,16 +629,14 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="secondary">
-          <label
-            htmlFor={inputId}
-            onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-            role="button"
-            tabIndex={0}
-          >
-            <Upload data-icon="inline-start" suppressHydrationWarning />
-            {previewUrl ? 'Replace' : 'Upload End Frame'}
-          </label>
+        <Button
+          onClick={() => document.getElementById(inputId)?.click()}
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <Upload data-icon="inline-start" suppressHydrationWarning />
+          {previewUrl ? 'Replace' : 'Upload End Frame'}
         </Button>
         {previewUrl ? (
           <Button
