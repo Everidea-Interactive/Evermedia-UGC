@@ -947,6 +947,16 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     }),
 }))
 
+export function isGenerationInProgress(
+  state: ReturnType<typeof useGenerationStore.getState>,
+): boolean {
+  return (
+    state.generationRun.status === 'rendering' ||
+    state.analysisStatus === 'analyzing' ||
+    state.ideationStatus === 'analyzing'
+  )
+}
+
 export type {
   AssetSlot,
   BatchSize,

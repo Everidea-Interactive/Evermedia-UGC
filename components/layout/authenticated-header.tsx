@@ -3,12 +3,14 @@
 import { useId, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { LogOut, Menu, X } from 'lucide-react'
 
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useLocale } from '@/components/i18n/locale-provider'
 import { LanguageSelector } from '@/components/i18n/language-selector'
 import { KieCreditsChip } from '@/components/layout/kie-credits-chip'
+import { useGenerationStore } from '@/store/use-generation-store'
 import type { AuthenticatedUserSummary } from '@/lib/persistence/types'
 
 const desktopNavLinkClass =
@@ -28,9 +30,18 @@ type AuthenticatedHeaderProps = {
 export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
   const { dictionary } = useLocale()
   const pathname = usePathname()
+  const router = useRouter()
   const copy = dictionary.shared
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
   const mobileMenuId = useId()
+  const isGenerationBusy = useGenerationStore((s) =>
+    s.generationRun.status === 'rendering' ||
+      s.analysisStatus === 'analyzing' ||
+      s.ideationStatus === 'analyzing',
+  )
+
   const primaryNavItems = [
     { href: '/', label: copy.nav.studio },
     { href: '/library', label: copy.nav.library },
@@ -39,6 +50,22 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
 
   function closeMobileMenu() {
     setIsMobileMenuOpen(false)
+  }
+
+  function handleNavClick(href: string, event: React.MouseEvent) {
+    if (isGenerationBusy) {
+      event.preventDefault()
+      setPendingHref(href)
+      setIsLeaveDialogOpen(true)
+    }
+  }
+
+  function handleConfirmLeave() {
+    setIsLeaveDialogOpen(false)
+    if (pendingHref) {
+      router.push(pendingHref)
+      setPendingHref(null)
+    }
   }
 
   return (
@@ -72,6 +99,7 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
                     className={desktopNavLinkClass}
                     href={item.href}
                     key={item.href}
+                    onClick={(event) => handleNavClick(item.href, event)}
                   >
                     {item.label}
                   </Link>
@@ -141,7 +169,10 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
                       className={mobileNavLinkClass}
                       href={item.href}
                       key={`mobile-${item.href}`}
-                      onClick={closeMobileMenu}
+                      onClick={(event) => {
+                        closeMobileMenu()
+                        handleNavClick(item.href, event)
+                      }}
                     >
                       {item.label}
                     </Link>
@@ -173,7 +204,19 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
             </div>
           </div>
         ) : null}
+
       </div>
+
+      <ConfirmDialog
+        cancelLabel="Stay"
+        confirmLabel="Leave Anyway"
+        confirmVariant="destructive"
+        description="Generation in progress. Leaving may interrupt your workflow."
+        onConfirm={handleConfirmLeave}
+        onOpenChange={setIsLeaveDialogOpen}
+        open={isLeaveDialogOpen}
+        title="Generation in Progress"
+      />
     </header>
   )
 }
