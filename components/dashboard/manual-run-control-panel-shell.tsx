@@ -484,9 +484,6 @@ function RunControlPanel({
                   )}
                   {generationHelperText}
                 </Button>
-                <p aria-live="polite" className="text-sm text-muted-foreground">
-                  {generationHelperText}
-                </p>
               </div>
             </div>
           </div>

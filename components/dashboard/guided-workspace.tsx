@@ -381,7 +381,7 @@ function getGuidedRunStatusCopy(run: GenerationRun, hasPlan: boolean) {
         badgeVariant: 'secondary' as const,
         label: 'Partial',
         title: `${completed} ready, ${failed} failed`,
-        body: 'Completed results are ready below. Adjust any weak prompts before generating again.',
+        body: 'Completed results are ready below. Adjust any weak prompts as needed.',
       }
     case 'error':
       return {
@@ -390,14 +390,14 @@ function getGuidedRunStatusCopy(run: GenerationRun, hasPlan: boolean) {
         title: total > 0 ? 'No usable outputs in this batch' : 'Generation did not complete',
         body:
           run.error ??
-          'The provider rejected the guided batch. Adjust the prompts or render settings and try again.',
+          'The provider rejected the guided batch. Adjust the prompts or render settings.',
       }
     case 'cancelled':
       return {
         badgeVariant: 'secondary' as const,
         label: 'Cancelled',
         title: 'Guided batch cancelled',
-        body: 'Any completed results remain available below. Update the prompts or settings before running again.',
+        body: 'Any completed results remain available below. Update the prompts or settings as needed.',
       }
     default:
       if (hasPlan) {

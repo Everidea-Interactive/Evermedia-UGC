@@ -560,8 +560,7 @@ export const uiTranslations: Record<string, string> = {
     'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
   'The provider rejected this request.':
     'Provider menolak permintaan ini.',
-  'The provider rejected the guided batch. Adjust the prompts or render settings and try again.':
-    'Provider menolak batch terpandu. Sesuaikan prompt atau pengaturan render lalu coba lagi.',
+
   'The available hero image, product page context, and written brief are being converted into a fresh three-concept ideation brief.':
     'Gambar hero yang tersedia, konteks halaman produk, dan brief tertulis sedang diubah menjadi brief ideasi baru berisi tiga konsep.',
   'The current guided batch is still rendering. Cancel it first if you need to restart.':
@@ -628,8 +627,7 @@ export const uiTranslations: Record<string, string> = {
     'Anda dapat mengganti gambar hero sebelum menganalisis ulang atau merender lagi.',
   'You can analyze with a hero image, a product URL, or both together.':
     'Anda dapat menganalisis dengan gambar hero, URL produk, atau keduanya sekaligus.',
-  'You can replace the hero image before analyzing again.':
-    'Anda dapat mengganti gambar hero sebelum menganalisis ulang.',
+
   'Waiting for Analysis': 'Menunggu Analisis',
   'Rendering': 'Merender',
   'Partial': 'Parsial',
@@ -641,10 +639,8 @@ export const uiTranslations: Record<string, string> = {
   'Analyze the hero product first. The prompt set and render controls will stay coordinated here.':
     'Analisis produk hero terlebih dahulu. Set prompt dan kontrol render akan tetap terkoordinasi di sini.',
   'Guided batch cancelled': 'Batch terpandu dibatalkan',
-  'Any completed results remain available below. Update the prompts or settings before running again.':
-    'Hasil yang sudah selesai tetap tersedia di bawah. Perbarui prompt atau pengaturan sebelum menjalankan lagi.',
-  'Completed results are ready below. Adjust any weak prompts before generating again.':
-    'Hasil yang selesai sudah siap di bawah. Sesuaikan prompt yang lemah sebelum menghasilkan lagi.',
+
+
   'Review the saved outputs below or adjust the prompts and generate another batch.':
     'Tinjau output tersimpan di bawah atau sesuaikan prompt dan buat batch lain.',
   'Checking estimate': 'Memeriksa estimasi',

@@ -276,7 +276,7 @@ function IdeationHeroUploadCard({
 
       <p className="text-sm leading-6 text-muted-foreground">
         {slot.previewUrl
-          ? 'You can replace the hero image before analyzing again.'
+          ? 'You can replace the hero image to refresh the analysis.'
           : 'You can analyze with a hero image, a product URL, or both together.'}
       </p>
     </div>
