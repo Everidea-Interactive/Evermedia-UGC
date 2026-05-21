@@ -9,6 +9,7 @@ import { AuthenticatedHeader } from '@/components/layout/authenticated-header'
 const refreshMock = vi.fn()
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
   useRouter: () => ({
     refresh: refreshMock,
   }),

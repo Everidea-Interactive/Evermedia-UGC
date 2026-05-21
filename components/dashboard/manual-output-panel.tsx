@@ -305,7 +305,7 @@ function OutputPendingCard({ variant }: { variant: GenerationVariant }) {
         <p className="text-sm font-medium text-muted-foreground">#{variant.index}</p>
       </div>
       <div className="flex aspect-square items-center justify-center rounded-md bg-secondary/20 text-center text-sm text-muted-foreground">
-        <div className="grid gap-2 px-4">
+        <div aria-live="polite" className="grid gap-2 px-4">
           {variant.status === 'rendering' ? (
             <LoaderCircle className="mx-auto size-6 animate-spin" suppressHydrationWarning />
           ) : (

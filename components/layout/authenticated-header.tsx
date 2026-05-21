@@ -3,6 +3,7 @@
 import { useId, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LogOut, Menu, X } from 'lucide-react'
 
 import { useLocale } from '@/components/i18n/locale-provider'
@@ -18,7 +19,7 @@ const mobileNavLinkClass =
 
 const desktopSectionDividerClass = 'hidden lg:flex lg:items-center lg:border-l lg:border-border/70 lg:pl-4'
 const signOutIconButtonClass =
-  'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 hover:text-foreground'
+  'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
 
 type AuthenticatedHeaderProps = {
   user: AuthenticatedUserSummary
@@ -26,6 +27,7 @@ type AuthenticatedHeaderProps = {
 
 export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
   const { dictionary } = useLocale()
+  const pathname = usePathname()
   const copy = dictionary.shared
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const mobileMenuId = useId()
@@ -61,11 +63,20 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
             </Link>
 
             <nav className="hidden items-center gap-2.5 lg:flex">
-              {primaryNavItems.map((item) => (
-                <Link className={desktopNavLinkClass} href={item.href} key={item.href}>
-                  {item.label}
-                </Link>
-              ))}
+              {primaryNavItems.map((item) => {
+                const isCurrent = pathname === item.href
+
+                return (
+                  <Link
+                    aria-current={isCurrent ? 'page' : undefined}
+                    className={desktopNavLinkClass}
+                    href={item.href}
+                    key={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
             </nav>
           </div>
 
@@ -99,7 +110,7 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
               aria-controls={mobileMenuId}
               aria-expanded={isMobileMenuOpen}
               aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 lg:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
               onClick={() => {
                 setIsMobileMenuOpen((current) => !current)
               }}
@@ -121,16 +132,21 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
               </div>
 
               <nav className="flex flex-col gap-2">
-                {primaryNavItems.map((item) => (
-                  <Link
-                    className={mobileNavLinkClass}
-                    href={item.href}
-                    key={`mobile-${item.href}`}
-                    onClick={closeMobileMenu}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {primaryNavItems.map((item) => {
+                  const isCurrent = pathname === item.href
+
+                  return (
+                    <Link
+                      aria-current={isCurrent ? 'page' : undefined}
+                      className={mobileNavLinkClass}
+                      href={item.href}
+                      key={`mobile-${item.href}`}
+                      onClick={closeMobileMenu}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
               </nav>
 
               <div className="rounded-2xl border border-border/80 px-4 py-3">

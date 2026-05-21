@@ -1,7 +1,7 @@
 'use client'
 
 import { startTransition, useEffect, useMemo, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
+import type { ChangeEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
@@ -164,18 +164,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function isSlotLoaded(slot: AssetSlot) {
@@ -524,16 +512,14 @@ function GuidedHeroUploadCard({
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2">
-              <Button asChild size="sm" variant="secondary">
-                <label
-                  htmlFor={inputId}
-                  onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <Upload data-icon="inline-start" suppressHydrationWarning />
-                  Replace
-                </label>
+              <Button
+                onClick={() => document.getElementById(inputId)?.click()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Upload data-icon="inline-start" suppressHydrationWarning />
+                Replace
               </Button>
               <Button
                 aria-label="Clear guided hero image"
@@ -565,16 +551,14 @@ function GuidedHeroUploadCard({
                 : 'Guided mode uses one product image as the visual anchor for shot planning and final rendering.'}
             </p>
           </div>
-          <Button asChild size="sm" variant="secondary">
-            <label
-              htmlFor={inputId}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-              role="button"
-              tabIndex={0}
-            >
-              <Upload data-icon="inline-start" suppressHydrationWarning />
-              Upload Image
-            </label>
+          <Button
+            onClick={() => document.getElementById(inputId)?.click()}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            Upload Image
           </Button>
         </div>
       )}
@@ -645,16 +629,14 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="secondary">
-          <label
-            htmlFor={inputId}
-            onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-            role="button"
-            tabIndex={0}
-          >
-            <Upload data-icon="inline-start" suppressHydrationWarning />
-            {previewUrl ? 'Replace' : 'Upload End Frame'}
-          </label>
+        <Button
+          onClick={() => document.getElementById(inputId)?.click()}
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <Upload data-icon="inline-start" suppressHydrationWarning />
+          {previewUrl ? 'Replace' : 'Upload End Frame'}
         </Button>
         {previewUrl ? (
           <Button
@@ -1985,8 +1967,8 @@ export function GuidedWorkspace({
           }
           value={guidedSection}
         >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-            <div className="flex flex-col gap-3 xl:col-start-1">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+            <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
               <TabsList aria-label="Guided Sections" className="w-full grid-cols-3 p-1.5">
                 <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="analyze">
                   Analyze
@@ -2034,34 +2016,36 @@ export function GuidedWorkspace({
               </TabsContent>
             </div>
 
-            <GuidedRunPanel
-              activeTab={activeTab}
-              activeRunInGuidedMode={activeRunInGuidedMode}
-              canGenerate={canGenerate}
-              endFrameAsset={guidedInput.endFrameAsset}
-              estimate={estimate}
-              generateHelperText={generateHelperText}
-              generationRun={generationRun}
-              imageModel={imageModel}
-              isPricingLoading={isPricingLoading}
-              onCancel={() => {
-                void handleCancel()
-              }}
-              onGenerate={() => {
-                void handleGenerate()
-              }}
-              outputQuality={outputQuality}
-              plan={guidedPlan}
-              setImageModel={setImageModel}
-              setOutputQuality={setOutputQuality}
-              setVideoDuration={setVideoDuration}
-              setVideoAudio={setVideoAudio}
-              setVideoModel={setVideoModel}
-              videoAudio={videoAudio}
-              videoDuration={videoDuration}
-              videoModel={videoModel}
-              kiePricing={kiePricing}
-            />
+            <div className="min-w-0 lg:col-start-2">
+              <GuidedRunPanel
+                activeTab={activeTab}
+                activeRunInGuidedMode={activeRunInGuidedMode}
+                canGenerate={canGenerate}
+                endFrameAsset={guidedInput.endFrameAsset}
+                estimate={estimate}
+                generateHelperText={generateHelperText}
+                generationRun={generationRun}
+                imageModel={imageModel}
+                isPricingLoading={isPricingLoading}
+                onCancel={() => {
+                  void handleCancel()
+                }}
+                onGenerate={() => {
+                  void handleGenerate()
+                }}
+                outputQuality={outputQuality}
+                plan={guidedPlan}
+                setImageModel={setImageModel}
+                setOutputQuality={setOutputQuality}
+                setVideoDuration={setVideoDuration}
+                setVideoAudio={setVideoAudio}
+                setVideoModel={setVideoModel}
+                videoAudio={videoAudio}
+                videoDuration={videoDuration}
+                videoModel={videoModel}
+                kiePricing={kiePricing}
+              />
+            </div>
           </div>
         </Tabs>
       </div>
