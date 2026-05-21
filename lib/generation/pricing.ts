@@ -2,7 +2,7 @@ import {
   getImageResolution,
   getGrokDuration,
   getGrokResolution,
-  getKling3Duration,
+
   getKlingDuration,
   getSeedance2Duration,
   getSeedanceDuration,
