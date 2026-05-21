@@ -1168,7 +1168,6 @@ function GuidedRunPanel({
   generationRun,
   imageModel,
   isPricingLoading,
-  onCancel,
   onGenerate,
   outputQuality,
   plan,
@@ -1191,7 +1190,6 @@ function GuidedRunPanel({
   generationRun: GenerationRun
   imageModel: ImageModelOption
   isPricingLoading: boolean
-  onCancel: () => void
   onGenerate: () => void
   outputQuality: OutputQuality
   plan: GuidedAnalysisPlan | null
@@ -1405,12 +1403,6 @@ function GuidedRunPanel({
           </div>
 
           <div className="grid gap-2">
-            {activeRunInGuidedMode ? (
-              <Button onClick={onCancel} variant="ghost">
-                Cancel Guided Run
-              </Button>
-            ) : null}
-
             <Button
               className="min-h-12 text-base"
               disabled={!canGenerate}
@@ -1914,37 +1906,6 @@ export function GuidedWorkspace({
     }
   }
 
-  const handleCancel = async () => {
-    if (!generationRun.runId) {
-      return
-    }
-
-    try {
-      const response = await fetch(
-        `/api/generation/runs/${encodeURIComponent(generationRun.runId)}/cancel`,
-        {
-          method: 'POST',
-        },
-      )
-      const payload = (await response.json()) as
-        | {
-            error?: string
-            run?: GenerationRun
-          }
-        | null
-
-      if (!response.ok || !payload?.run) {
-        throw new Error(payload?.error ?? 'Unable to cancel the guided run.')
-      }
-
-      hydrateGenerationRun(payload.run)
-    } catch (error) {
-      setGenerationError(
-        error instanceof Error ? error.message : 'Unable to cancel the guided run.',
-      )
-    }
-  }
-
   return (
     <>
       <ConfirmDialog
@@ -2027,9 +1988,6 @@ export function GuidedWorkspace({
                 generationRun={generationRun}
                 imageModel={imageModel}
                 isPricingLoading={isPricingLoading}
-                onCancel={() => {
-                  void handleCancel()
-                }}
                 onGenerate={() => {
                   void handleGenerate()
                 }}

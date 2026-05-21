@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { CircleSlash, LoaderCircle, WandSparkles } from 'lucide-react'
+import { LoaderCircle, WandSparkles } from 'lucide-react'
 
 import {
   batchSizes,
@@ -35,7 +35,6 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { getGenerateButtonLabel } from '@/lib/generation/run-copy'
-import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import type {
   AssetSlot,
   BatchSize,
@@ -45,7 +44,6 @@ import type {
   CreativeStyle,
   FigureArtDirection,
   GenerationCostEstimate,
-  GenerationRun,
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
@@ -94,7 +92,6 @@ export function ManualRunControlPanelShell({
       isBusy={controller.isBusy}
       isPricingLoading={isPricingLoading}
       kiePricing={kiePricing}
-      onCancelRun={controller.handleCancel}
       onGenerate={controller.handleGenerate}
     />
   )
@@ -108,7 +105,6 @@ function RunControlPanel({
   isBusy,
   isPricingLoading,
   kiePricing,
-  onCancelRun,
   onGenerate,
 }: {
   canGenerate: boolean
@@ -118,7 +114,6 @@ function RunControlPanel({
   isBusy: boolean
   isPricingLoading: boolean
   kiePricing: KiePricingResponse | null
-  onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
@@ -194,12 +189,6 @@ function RunControlPanel({
     figureArtDirection,
     subjectMode,
   })
-  const runMatchesWorkspace = isRunVisibleForExperience(
-    generationRun,
-    'manual',
-    activeTab,
-  )
-  const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
   const generationHelperText = getGenerateButtonLabel(generationRun, batchSize)
 
   useEffect(() => {
@@ -477,20 +466,6 @@ function RunControlPanel({
                   reason={generationCostReason}
                 />
 
-                {activeRunInWorkspace ? (
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      void onCancelRun()
-                    }}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <CircleSlash data-icon="inline-start" suppressHydrationWarning />
-                    Cancel Run
-                  </Button>
-                ) : null}
-
                 <Button
                   className="min-h-12 w-full text-base font-medium"
                   disabled={isBusy || !canGenerate}
@@ -575,10 +550,6 @@ function getPrimaryInputSummary({
 
 function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
-}
-
-function hasActiveGeneration(run: GenerationRun) {
-  return run.status === 'rendering'
 }
 
 function getImageModelLabel(model: ImageModelOption) {

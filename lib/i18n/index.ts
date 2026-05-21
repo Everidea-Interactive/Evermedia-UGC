@@ -266,8 +266,7 @@ export const uiTranslations: Record<string, string> = {
   'Camera movement is treated as a structured prompt modifier.':
     'Pergerakan kamera diperlakukan sebagai pengubah prompt terstruktur.',
   'Cancel': 'Batal',
-  'Cancel Run': 'Batalkan Run',
-  'Cancel Guided Run': 'Batalkan Run Terpandu',
+
   'Casting': 'Casting',
   'Character Demographics (Auto-Prompt)': 'Demografi karakter (Auto-Prompt)',
   'Choose the figure styling direction.': 'Pilih arah styling figur.',

@@ -549,50 +549,6 @@ export async function syncGenerationRunStatus(runId: string) {
   return mapRun(updatedRun, variantRows.map(mapVariant))
 }
 
-export async function requestGenerationRunCancellation(input: {
-  runId: string
-  userId: string
-}): Promise<GenerationRunBundle | null> {
-  const db = getDatabase()
-  const [runRow] = await db
-    .select()
-    .from(generationRuns)
-    .where(and(eq(generationRuns.userId, input.userId), eq(generationRuns.id, input.runId)))
-    .limit(1)
-
-  if (!runRow) {
-    return null
-  }
-
-  if (runRow.status === 'rendering') {
-    const now = new Date()
-
-    await db
-      .update(generationVariants)
-      .set({
-        completedAt: now,
-        error: 'Run cancelled.',
-        status: 'cancelled',
-      })
-      .where(
-        and(
-          eq(generationVariants.runId, input.runId),
-          eq(generationVariants.status, 'rendering'),
-        ),
-      )
-
-    await db
-      .update(generationRuns)
-      .set({
-        completedAt: now,
-        status: 'cancelled',
-      })
-      .where(eq(generationRuns.id, input.runId))
-  }
-
-  return getGenerationRunBundleForUser(input.userId, input.runId)
-}
-
 export async function deleteSavedOutputForUser(input: {
   outputId: string
   userId: string

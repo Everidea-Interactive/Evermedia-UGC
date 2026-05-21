@@ -331,37 +331,6 @@ export function useManualGenerationController(input: {
     }
   }
 
-  const handleCancel = async () => {
-    if (!generationRun.runId) {
-      return
-    }
-
-    try {
-      const response = await fetch(
-        `/api/generation/runs/${encodeURIComponent(generationRun.runId)}/cancel`,
-        {
-          method: 'POST',
-        },
-      )
-      const payload = (await response.json()) as
-        | {
-            error?: string
-            run?: GenerationRun
-          }
-        | null
-
-      if (!response.ok || !payload?.run) {
-        throw new Error(payload?.error ?? 'Unable to cancel the active run.')
-      }
-
-      hydrateGenerationRun(payload.run)
-    } catch (error) {
-      setGenerationError(
-        error instanceof Error ? error.message : 'Unable to cancel the active run.',
-      )
-    }
-  }
-
   return {
     canGenerate:
       enabled && !isSubmittingGeneration
@@ -371,7 +340,6 @@ export function useManualGenerationController(input: {
     generationCostEstimate,
     generationCostReason:
       pricingError ?? generationCostEstimate.reason ?? 'Live pricing unavailable.',
-    handleCancel,
     handleGenerate,
     isBusy,
   }
