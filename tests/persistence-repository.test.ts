@@ -251,6 +251,20 @@ describe('ideation persistence repository', () => {
     expect(records[1]?.id).toBe('ideation-1')
   })
 
+  it('returns an empty ideation history when the saved ideations table is missing', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    selectOrderBy.mockRejectedValueOnce({
+      code: '42P01',
+      message: 'relation "saved_ideations" does not exist',
+    })
+
+    await expect(listSavedIdeationHistoryForUser('user-1')).resolves.toEqual([])
+    expect(warnSpy).toHaveBeenCalledOnce()
+
+    warnSpy.mockRestore()
+  })
+
   it('deletes a saved ideation entry owned by the user', async () => {
     selectLimit.mockResolvedValue([
       {

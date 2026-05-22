@@ -1,6 +1,22 @@
 export type WorkspaceTab = 'image' | 'video'
 export type GenerationExperience = 'manual' | 'guided' | 'ideation'
 export type ContentConcept = 'driven-ads' | 'affiliate'
+export type CreativeGoal = 'awareness' | 'consideration' | 'conversion'
+export type AudiencePreset =
+  | 'broad'
+  | 'gen-z'
+  | 'young-professionals'
+  | 'beauty-shoppers'
+  | 'parents'
+  | 'fitness-shoppers'
+export type PlatformPreset =
+  | 'tiktok'
+  | 'instagram-reels'
+  | 'youtube-shorts'
+  | 'meta-ads'
+  | 'shopee'
+  | 'tokopedia'
+export type CreativePlanningStatus = 'idle' | 'planning' | 'ready' | 'error'
 export type ContentFormat = 'video' | 'photos'
 
 export type ProductCategory =
@@ -123,6 +139,43 @@ export type GuidedAnalysisPlan = {
   summary: string
 }
 
+export type CreativeBrief = {
+  audience: AudiencePreset
+  goal: CreativeGoal
+  platform: PlatformPreset
+  productHighlights: string
+  tone: string
+}
+
+export type CtaOption = {
+  id: string
+  label: string
+  placement: 'closing-shot' | 'caption' | 'voiceover'
+  rationale: string
+}
+
+export type StoryboardShot = GuidedAnalysisShot & {
+  ctaText: string
+  durationSeconds: number
+  environmentPrompt: string
+  objective: string
+  renderPrompt: string
+  soundPrompt: string
+  visualPrompt: string
+  voiceoverLine: string
+}
+
+export type CreativePlan = {
+  ctaOptions: CtaOption[]
+  environmentDirectionSummary: string
+  messageAngle: string
+  selectedCtaId: string | null
+  soundDirectionSummary: string
+  storyboard: StoryboardShot[]
+  visualDirectionSummary: string
+  voiceoverScript: string
+}
+
 export type GuidedAnalysisStatus = 'idle' | 'analyzing' | 'ready' | 'error'
 
 export type IdeationConceptCard = {
@@ -142,6 +195,8 @@ export type IdeationResult = {
 
 export type GuidedGenerationConfig = {
   analysisModel: KieAnalysisModel
+  creativeBrief?: CreativeBrief | null
+  creativePlan?: CreativePlan | null
   contentConcept: ContentConcept
   productUrl: string
   shots: GuidedAnalysisShot[]

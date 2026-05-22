@@ -156,6 +156,8 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     guided: input.guided
       ? {
           analysisModel: input.guided.analysisModel,
+          creativeBrief: input.guided.creativeBrief ?? null,
+          creativePlan: input.guided.creativePlan ?? null,
           contentConcept: input.guided.contentConcept,
           productUrl: input.guided.productUrl,
           shots: input.guided.shots,

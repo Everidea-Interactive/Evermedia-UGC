@@ -22,6 +22,8 @@ import {
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
+  CreativeBrief,
+  CreativePlan,
   BatchSize,
   CameraMovement,
   CharacterAgeGroup,
@@ -88,6 +90,8 @@ export type ParsedGenerationRequest = {
   figureArtDirection: FigureArtDirection
   guided: {
     analysisModel: KieAnalysisModel
+    creativeBrief: CreativeBrief | null
+    creativePlan: CreativePlan | null
     contentConcept: ContentConcept
     productUrl: string
     shots: GuidedAnalysisShot[]
@@ -222,6 +226,73 @@ function safeJsonParse(value: string) {
     return JSON.parse(value) as unknown
   } catch {
     return null
+  }
+}
+
+function normalizeCreativeBrief(value: unknown): CreativeBrief | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+
+  if (
+    typeof record.audience !== 'string' ||
+    typeof record.goal !== 'string' ||
+    typeof record.platform !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    audience: record.audience as CreativeBrief['audience'],
+    goal: record.goal as CreativeBrief['goal'],
+    platform: record.platform as CreativeBrief['platform'],
+    productHighlights:
+      typeof record.productHighlights === 'string' ? record.productHighlights : '',
+    tone: typeof record.tone === 'string' ? record.tone : '',
+  }
+}
+
+function normalizeCreativePlan(value: unknown): CreativePlan | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+
+  if (!Array.isArray(record.storyboard)) {
+    return null
+  }
+
+  return {
+    ctaOptions: Array.isArray(record.ctaOptions)
+      ? record.ctaOptions.filter(
+          (option): option is CreativePlan['ctaOptions'][number] =>
+            Boolean(option) && typeof option === 'object',
+        )
+      : [],
+    environmentDirectionSummary:
+      typeof record.environmentDirectionSummary === 'string'
+        ? record.environmentDirectionSummary
+        : '',
+    messageAngle: typeof record.messageAngle === 'string' ? record.messageAngle : '',
+    selectedCtaId:
+      typeof record.selectedCtaId === 'string' ? record.selectedCtaId : null,
+    soundDirectionSummary:
+      typeof record.soundDirectionSummary === 'string'
+        ? record.soundDirectionSummary
+        : '',
+    storyboard: record.storyboard.filter(
+      (shot): shot is CreativePlan['storyboard'][number] =>
+        Boolean(shot) && typeof shot === 'object',
+    ),
+    visualDirectionSummary:
+      typeof record.visualDirectionSummary === 'string'
+        ? record.visualDirectionSummary
+        : '',
+    voiceoverScript:
+      typeof record.voiceoverScript === 'string' ? record.voiceoverScript : '',
   }
 }
 
@@ -1186,6 +1257,12 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       })
     }
     const productUrl = readOptionalString(formData, 'productUrl') ?? ''
+    const creativeBrief = normalizeCreativeBrief(
+      safeJsonParse(readOptionalString(formData, 'creativeBrief') ?? 'null'),
+    )
+    const creativePlan = normalizeCreativePlan(
+      safeJsonParse(readOptionalString(formData, 'creativePlan') ?? 'null'),
+    )
     const parsedGuidedShots = safeJsonParse(guidedShotsValue)
     const normalizedPlan = normalizeGuidedAnalysisPlan(
       {
@@ -1222,6 +1299,8 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
 
     return {
       analysisModel,
+      creativeBrief,
+      creativePlan,
       contentConcept: guidedContentConcept,
       productUrl,
       shots: normalizedPlan.shots,
