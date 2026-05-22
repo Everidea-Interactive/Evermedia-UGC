@@ -468,14 +468,12 @@ export const uiTranslations: Record<string, string> = {
     'Mode terpandu memakai satu gambar produk sebagai acuan utama untuk menyusun shot dan render akhir.',
   'Guided video mode uses one staged image as the start-frame anchor for analysis and final rendering.':
     'Mode video terpandu memakai satu gambar yang sudah disiapkan sebagai acuan start frame untuk analisis dan render akhir.',
-  'Indoor': 'Indoor',
   'indoor': 'indoor',
   'Indoor or outdoor context.': 'Konteks indoor atau outdoor.',
   'Inputs are ready': 'Input siap',
   'Jewelry': 'Perhiasan',
   'Lifestyle presets can bias cast attributes without changing the reference board.':
     'Preset lifestyle dapat mengarahkan atribut talent tanpa mengubah papan referensi.',
-  'Lifestyle': 'Lifestyle',
   'Lifestyle image with a person naturally interacting with the product.':
     'Visual lifestyle dengan seseorang yang berinteraksi alami dengan produk.',
   'lifestyle': 'lifestyle',
@@ -551,7 +549,6 @@ export const uiTranslations: Record<string, string> = {
   'Outputs': 'Output',
   'Media': 'Media',
   'Orbit': 'Orbit',
-  'Outdoor': 'Outdoor',
   'outdoor': 'outdoor',
   'People': 'Orang',
   'Pick the commercial framing before analysis.':
@@ -564,7 +561,6 @@ export const uiTranslations: Record<string, string> = {
   'Preset': 'Preset',
   'Primary input': 'Input utama',
   'Products': 'Produk',
-  'Product Only': 'Produk Saja',
   'product-only': 'produk saja',
   'Product URL': 'URL Produk',
   'Product Category': 'Kategori produk',
