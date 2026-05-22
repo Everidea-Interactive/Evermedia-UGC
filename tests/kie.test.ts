@@ -1082,6 +1082,87 @@ describe('KIE batch submission', () => {
     })
   })
 
+  it('builds Kling 3.0 single-shot payloads with an explicit multi_shots flag', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_firstFrame',
+          key: 'firstFrame',
+          kind: 'named',
+          label: 'First Frame',
+          order: 90,
+          remoteUrl: 'https://files.example.com/first-frame.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          kind: 'named',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'with-audio',
+      videoModel: 'kling-3.0',
+      workspace: 'video',
+    })
+
+    expect(submission.endpoint).toContain('/api/v1/jobs/createTask')
+    expect(submission.modelName).toBe('kling-3.0/video')
+    expect(submission.provider).toBe('market')
+    expect(submission.requestBody).toMatchObject({
+      model: 'kling-3.0/video',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '5',
+        image_urls: [
+          'https://files.example.com/first-frame.png',
+          'https://files.example.com/end-frame.png',
+        ],
+        mode: 'pro',
+        multi_shots: false,
+        prompt: 'Create a polished product motion clip.',
+        sound: true,
+      },
+    })
+  })
+
+  it('builds Kling 3.0 lifestyle payloads with the computed vertical aspect ratio', () => {
+    const submission = resolveSubmission({
+      assets: [],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished lifestyle motion clip.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoAudio: 'with-audio',
+      videoModel: 'kling-3.0',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'kling-3.0/video',
+      input: {
+        aspect_ratio: '9:16',
+        mode: 'pro',
+        multi_shots: false,
+        prompt: 'Create a polished lifestyle motion clip.',
+        sound: true,
+      },
+    })
+  })
+
   it('uses Nano Banana 2 image inputs for uploaded supporting references', () => {
     const submission = resolveSubmission({
       assets: [

@@ -999,10 +999,11 @@ function buildVideoPayload(input: {
         input: {
           prompt: input.prompt,
           ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
-          aspect_ratio: '16:9',
+          aspect_ratio: aspectRatio,
           sound: input.videoAudio === 'with-audio',
           duration: getKling3Duration(input.videoDuration),
           mode: mode,
+          multi_shots: false,
         },
       },
     }

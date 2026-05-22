@@ -42,6 +42,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   )
   const productSlots = products.slice(0, 2)
   const videoReferenceLimit = getMaxVideoReferenceCount(videoModel)
+  const isKlingVideoModel = videoModel === 'kling-3.0'
   const showDedicatedFramePair = supportsVideoFirstLastFramePair(videoModel)
   const showEndFrameReference =
     supportsVideoEndFrameGuidance(videoModel) &&
@@ -62,7 +63,9 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
           <SectionHeader
             description={
               activeTab === 'video'
-                ? 'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.'
+                ? isKlingVideoModel
+                  ? 'Kling 3.0 supports first-frame and optional end-frame guidance here. Generic Reference 1/2/3 cards are hidden because Kling does not use them in this flow.'
+                  : 'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.'
                 : 'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.'
             }
             eyebrow="Reference board"
@@ -79,16 +82,18 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
 
         {activeTab === 'video' ? (
           <ReferenceCardGroup title="References">
-            {visibleVideoReferences.map((referenceSlot) => (
-              <ReferenceCard
-                icon={Image}
-                inputId={referenceSlot.id}
-                key={referenceSlot.id}
-                onClear={() => clearVideoReference(referenceSlot.id)}
-                onSelect={(file) => setVideoReferenceFile(referenceSlot.id, file)}
-                slot={referenceSlot}
-              />
-            ))}
+            {isKlingVideoModel
+              ? null
+              : visibleVideoReferences.map((referenceSlot) => (
+                  <ReferenceCard
+                    icon={Image}
+                    inputId={referenceSlot.id}
+                    key={referenceSlot.id}
+                    onClear={() => clearVideoReference(referenceSlot.id)}
+                    onSelect={(file) => setVideoReferenceFile(referenceSlot.id, file)}
+                    slot={referenceSlot}
+                  />
+                ))}
             {showDedicatedFramePair ? (
               <ReferenceCard
                 icon={Image}

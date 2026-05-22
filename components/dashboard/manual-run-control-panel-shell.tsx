@@ -181,6 +181,7 @@ function RunControlPanel({
     products,
     subjectMode,
     textPrompt,
+    videoModel,
     videoReferences,
   })
   const characterPresetLabel = getCharacterPresetSummary({
@@ -503,6 +504,7 @@ function getPrimaryInputSummary({
   products,
   subjectMode,
   textPrompt,
+  videoModel,
   videoReferences,
 }: {
   activeTab: 'image' | 'video'
@@ -510,6 +512,7 @@ function getPrimaryInputSummary({
   products: AssetSlot[]
   subjectMode: SubjectMode
   textPrompt: string
+  videoModel: VideoModelOption
   videoReferences: AssetSlot[]
 }) {
   if (activeTab === 'video') {
@@ -517,9 +520,11 @@ function getPrimaryInputSummary({
       return assets.firstFrame.label
     }
 
-    const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
-    if (firstReference) {
-      return firstReference.label
+    if (videoModel !== 'kling-3.0') {
+      const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
+      if (firstReference) {
+        return firstReference.label
+      }
     }
   }
 
