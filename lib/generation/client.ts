@@ -41,6 +41,10 @@ function getPrimaryReference(snapshot: GenerationSnapshot) {
       return snapshot.assets.firstFrame
     }
 
+    if (snapshot.videoModel === 'kling-3.0') {
+      return null
+    }
+
     return snapshot.videoReferences.find((slot) => slot.file) ?? null
   }
 
@@ -89,7 +93,9 @@ export function getGenerationValidation(snapshot: GenerationSnapshot) {
       canGenerate: false,
       reason:
         snapshot.activeTab === 'video'
-          ? 'Add a start-frame reference or describe the motion prompt first.'
+          ? snapshot.videoModel === 'kling-3.0'
+            ? 'Add a First Frame image or describe the motion prompt first.'
+            : 'Add a start-frame reference or describe the motion prompt first.'
           : 'Add a reference image or describe the image prompt first.',
     }
   }

@@ -412,6 +412,37 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByText('End Frame')).toBeNull()
   })
 
+  it('shows only first-frame guidance cards for Kling 3.0 manual video mode', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('kling-3.0')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.queryByText('Reference 1')).toBeNull()
+    expect(screen.getAllByText('First Frame')).toHaveLength(1)
+    expect(screen.queryByText('End Frame')).toBeNull()
+  })
+
   it('only reveals the Seedance 2.0 End Frame card after the First Frame is staged', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
     const { useGenerationStore } = await import('@/store/use-generation-store')
