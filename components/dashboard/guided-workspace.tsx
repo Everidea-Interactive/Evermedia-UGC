@@ -1,7 +1,7 @@
 'use client'
 
 import { startTransition, useEffect, useMemo, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
+import type { ChangeEvent, ReactNode } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
@@ -17,6 +17,7 @@ import {
 
 import { CreativePlanningPanel } from '@/components/dashboard/creative-planning-panel'
 import { StoryboardPlanner } from '@/components/dashboard/storyboard-planner'
+import { useLocale } from '@/components/i18n/locale-provider'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ import {
   getGuidedCreativeStyleForConcept,
   kieAnalysisModels,
 } from '@/lib/generation/guided'
+import { supportsVideoEndFrameGuidance } from '@/lib/generation/model-mapping'
 import {
   getGenerationCostEstimate,
   getGenerationCreditValidation,
@@ -85,7 +87,7 @@ const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'seedance-1.5-pro'
+  return model === 'seedance-1.5-pro' || model === 'seedance-2'
 }
 
 function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
@@ -115,6 +117,7 @@ const imageModelLabels = {
 } as const
 
 const videoModelLabels = {
+  'seedance-2': 'Seedance 2.0',
   'seedance-1.5-pro': 'Seedance 1.5 Pro',
   'veo-3.1': 'Veo 3.1',
 } as const
@@ -166,18 +169,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function isSlotLoaded(slot: AssetSlot) {
@@ -334,6 +325,16 @@ function createGuidedEstimateInput(input: {
         ...input.endFrameAsset,
         file: input.activeTab === 'video' ? input.endFrameAsset.file : null,
       },
+      firstFrame: {
+        error: null,
+        file: null,
+        id: 'guided-first-frame',
+        label: 'First Frame',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
       face1: {
         error: null,
         file: null,
@@ -404,7 +405,7 @@ function getGuidedRunStatusCopy(run: GenerationRun, hasPlan: boolean) {
         badgeVariant: 'secondary' as const,
         label: 'Partial',
         title: `${completed} ready, ${failed} failed`,
-        body: 'Completed results are ready below. Adjust any weak prompts before generating again.',
+        body: 'Completed results are ready below. Adjust any weak prompts as needed.',
       }
     case 'error':
       return {
@@ -413,14 +414,14 @@ function getGuidedRunStatusCopy(run: GenerationRun, hasPlan: boolean) {
         title: total > 0 ? 'No usable outputs in this batch' : 'Generation did not complete',
         body:
           run.error ??
-          'The provider rejected the guided batch. Adjust the prompts or render settings and try again.',
+          'The provider rejected the guided batch. Adjust the prompts or render settings.',
       }
     case 'cancelled':
       return {
         badgeVariant: 'secondary' as const,
         label: 'Cancelled',
         title: 'Guided batch cancelled',
-        body: 'Any completed results remain available below. Update the prompts or settings before running again.',
+        body: 'Any completed results remain available below. Update the prompts or settings as needed.',
       }
     default:
       if (hasPlan) {
@@ -546,16 +547,14 @@ function GuidedHeroUploadCard({
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2">
-              <Button asChild size="sm" variant="secondary">
-                <label
-                  htmlFor={inputId}
-                  onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <Upload data-icon="inline-start" suppressHydrationWarning />
-                  Replace
-                </label>
+              <Button
+                onClick={() => document.getElementById(inputId)?.click()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Upload data-icon="inline-start" suppressHydrationWarning />
+                Replace
               </Button>
               <Button
                 aria-label="Clear guided hero image"
@@ -587,16 +586,14 @@ function GuidedHeroUploadCard({
                 : 'Guided mode uses one product image as the visual anchor for shot planning and final rendering.'}
             </p>
           </div>
-          <Button asChild size="sm" variant="secondary">
-            <label
-              htmlFor={inputId}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-              role="button"
-              tabIndex={0}
-            >
-              <Upload data-icon="inline-start" suppressHydrationWarning />
-              Upload Image
-            </label>
+          <Button
+            onClick={() => document.getElementById(inputId)?.click()}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            Upload Image
           </Button>
         </div>
       )}
@@ -667,16 +664,14 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="secondary">
-          <label
-            htmlFor={inputId}
-            onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-            role="button"
-            tabIndex={0}
-          >
-            <Upload data-icon="inline-start" suppressHydrationWarning />
-            {previewUrl ? 'Replace' : 'Upload End Frame'}
-          </label>
+        <Button
+          onClick={() => document.getElementById(inputId)?.click()}
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <Upload data-icon="inline-start" suppressHydrationWarning />
+          {previewUrl ? 'Replace' : 'Upload End Frame'}
         </Button>
         {previewUrl ? (
           <Button
@@ -1209,7 +1204,6 @@ function GuidedRunPanel({
   generationRun,
   imageModel,
   isPricingLoading,
-  onCancel,
   onGenerate,
   outputQuality,
   plan,
@@ -1234,7 +1228,6 @@ function GuidedRunPanel({
   generationRun: GenerationRun
   imageModel: ImageModelOption
   isPricingLoading: boolean
-  onCancel: () => void
   onGenerate: () => void
   outputQuality: OutputQuality
   plan: GuidedAnalysisPlan | null
@@ -1476,7 +1469,8 @@ function GuidedRunPanel({
               </Select>
             </FieldBlock>
 
-            {activeTab === 'video' ? (
+            {activeTab === 'video' &&
+            supportsVideoEndFrameGuidance(videoModel) ? (
               <GuidedEndFrameUploadCard slot={endFrameAsset} />
             ) : null}
           </div>
@@ -1512,12 +1506,6 @@ function GuidedRunPanel({
           </div>
 
           <div className="grid gap-2">
-            {activeRunInGuidedMode ? (
-              <Button onClick={onCancel} variant="ghost">
-                Cancel Guided Run
-              </Button>
-            ) : null}
-
             <Button
               className="min-h-12 text-base"
               disabled={!canGenerate}
@@ -1650,6 +1638,7 @@ export function GuidedWorkspace({
   kiePricingError: string | null
   kieStatus: KieStatusResponse
 }) {
+  const { locale } = useLocale()
   const [isReanalyzeDialogOpen, setIsReanalyzeDialogOpen] = useState(false)
   const [guidedSection, setGuidedSection] = useState<
     'analyze' | 'plan' | 'results'
@@ -1988,6 +1977,7 @@ export function GuidedWorkspace({
 
       const { formData } = buildCreativePlanningFormData({
         brief: creativeBrief,
+        outputLanguage: locale,
         plan: guidedPlan,
       })
       const response = await fetch('/api/guided/creative-plan', {
@@ -2102,37 +2092,6 @@ export function GuidedWorkspace({
     }
   }
 
-  const handleCancel = async () => {
-    if (!generationRun.runId) {
-      return
-    }
-
-    try {
-      const response = await fetch(
-        `/api/generation/runs/${encodeURIComponent(generationRun.runId)}/cancel`,
-        {
-          method: 'POST',
-        },
-      )
-      const payload = (await response.json()) as
-        | {
-            error?: string
-            run?: GenerationRun
-          }
-        | null
-
-      if (!response.ok || !payload?.run) {
-        throw new Error(payload?.error ?? 'Unable to cancel the guided run.')
-      }
-
-      hydrateGenerationRun(payload.run)
-    } catch (error) {
-      setGenerationError(
-        error instanceof Error ? error.message : 'Unable to cancel the guided run.',
-      )
-    }
-  }
-
   return (
     <>
       <ConfirmDialog
@@ -2155,8 +2114,8 @@ export function GuidedWorkspace({
           }
           value={guidedSection}
         >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-            <div className="flex flex-col gap-3 xl:col-start-1">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+            <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
               <TabsList aria-label="Guided Sections" className="w-full grid-cols-3 p-1.5">
                 <TabsTrigger className="min-h-[3.15rem] px-3 py-2" value="analyze">
                   Analyze
@@ -2224,36 +2183,35 @@ export function GuidedWorkspace({
               </TabsContent>
             </div>
 
-            <GuidedRunPanel
-              activeTab={activeTab}
-              activeRunInGuidedMode={activeRunInGuidedMode}
-              analysisStatus={analysisStatus}
-              canGenerate={canGenerate}
-              creativePlan={creativePlan}
-              endFrameAsset={guidedInput.endFrameAsset}
-              estimate={estimate}
-              generateHelperText={generateHelperText}
-              generationRun={generationRun}
-              imageModel={imageModel}
-              isPricingLoading={isPricingLoading}
-              onCancel={() => {
-                void handleCancel()
-              }}
-              onGenerate={() => {
-                void handleGenerate()
-              }}
-              outputQuality={outputQuality}
-              plan={guidedPlan}
-              setImageModel={setImageModel}
-              setOutputQuality={setOutputQuality}
-              setVideoDuration={setVideoDuration}
-              setVideoAudio={setVideoAudio}
-              setVideoModel={setVideoModel}
-              videoAudio={videoAudio}
-              videoDuration={videoDuration}
-              videoModel={videoModel}
-              kiePricing={kiePricing}
-            />
+            <div className="min-w-0 lg:col-start-2">
+              <GuidedRunPanel
+                activeTab={activeTab}
+                activeRunInGuidedMode={activeRunInGuidedMode}
+                analysisStatus={analysisStatus}
+                canGenerate={canGenerate}
+                creativePlan={creativePlan}
+                endFrameAsset={guidedInput.endFrameAsset}
+                estimate={estimate}
+                generateHelperText={generateHelperText}
+                generationRun={generationRun}
+                imageModel={imageModel}
+                isPricingLoading={isPricingLoading}
+                onGenerate={() => {
+                  void handleGenerate()
+                }}
+                outputQuality={outputQuality}
+                plan={guidedPlan}
+                setImageModel={setImageModel}
+                setOutputQuality={setOutputQuality}
+                setVideoDuration={setVideoDuration}
+                setVideoAudio={setVideoAudio}
+                setVideoModel={setVideoModel}
+                videoAudio={videoAudio}
+                videoDuration={videoDuration}
+                videoModel={videoModel}
+                kiePricing={kiePricing}
+              />
+            </div>
           </div>
         </Tabs>
       </div>

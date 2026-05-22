@@ -13,7 +13,12 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
-import { getVideoDurationSeconds } from '@/lib/generation/model-mapping'
+import {
+  getMaxVideoReferenceCount,
+  getVideoDurationSeconds,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 
 type PromptVariantIndex = 1 | 2 | 3 | 4
 
@@ -103,9 +108,23 @@ function getOrderedProductReferences(assets: UploadedAssetDescriptor[]) {
 
 function getOrderedVideoStartReferences(assets: UploadedAssetDescriptor[]) {
   return assets
-    .filter((asset) => !(asset.kind === 'named' && asset.key === 'endFrame'))
+    .filter(
+      (asset) =>
+        !(
+          asset.kind === 'named' &&
+          (asset.key === 'firstFrame' || asset.key === 'endFrame')
+        ),
+    )
     .slice()
     .sort((left, right) => left.order - right.order)
+}
+
+export function chooseFirstFrameReference(assets: UploadedAssetDescriptor[]) {
+  return (
+    assets.find(
+      (asset) => asset.kind === 'named' && asset.key === 'firstFrame',
+    ) ?? null
+  )
 }
 
 export function choosePrimaryReference(
@@ -151,6 +170,7 @@ export function compileGenerationPrompt(input: {
   videoModel?: VideoModelOption
   workspace: WorkspaceTab
 }) {
+  const firstFrame = chooseFirstFrameReference(input.assets)
   const endFrame = chooseEndFrameReference(input.assets)
   const named = getNamedReferenceMap(input.assets)
   const products = getOrderedProductReferences(input.assets)
@@ -163,7 +183,9 @@ export function compileGenerationPrompt(input: {
   const clothingReference = named.get('clothing') ?? null
   const locationReference = named.get('location') ?? null
   const explicitlyDescribedFieldNames = new Set<string>(
-    [endFrame?.fieldName].filter((value): value is string => Boolean(value)),
+    [firstFrame?.fieldName, endFrame?.fieldName].filter(
+      (value): value is string => Boolean(value),
+    ),
   )
 
   if (input.workspace === 'video') {
@@ -236,11 +258,22 @@ export function compileGenerationPrompt(input: {
   }
 
   if (input.workspace === 'video') {
-    videoReferences.slice(0, 3).forEach((reference, index) => {
+    if (
+      firstFrame &&
+      supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1')
+    ) {
+      promptParts.push(
+        `First frame: ${firstFrame.label}. Treat this as the required opening frame anchor and preserve its exact composition, subject identity, and scene setup at the start of the clip.`,
+      )
+    }
+
+    videoReferences
+      .slice(0, getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'))
+      .forEach((reference, index) => {
       promptParts.push(
         `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
       )
-    })
+      })
   } else {
     if (identityReference) {
       promptParts.push(
@@ -279,7 +312,19 @@ export function compileGenerationPrompt(input: {
     )
   }
 
-  if (endFrame && input.workspace === 'video') {
+  if (input.workspace === 'video' && input.videoModel === 'kling-3.0') {
+    promptParts.push(
+      'Describe subject motion, camera behavior, and scene composition explicitly for best temporal coherence.',
+    )
+  }
+
+  if (
+    endFrame &&
+    input.workspace === 'video' &&
+    supportsVideoEndFrameGuidance(input.videoModel ?? 'veo-3.1') &&
+    (!supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1') ||
+      firstFrame)
+  ) {
     promptParts.push(`Use ${endFrame.label} as the end-frame guidance when supported.`)
   }
 

@@ -57,14 +57,7 @@ export default async function SignInPage({
   const isSupabaseReady = isSupabaseConfigured()
 
   return (
-    <main
-      className="auth-screen"
-      style={{
-        backgroundColor: '#101217',
-        color: '#ebedf2',
-        minHeight: '100vh',
-      }}
-    >
+    <main className="auth-screen">
       <section className="auth-shell">
         <input
           className="auth-mode-input"

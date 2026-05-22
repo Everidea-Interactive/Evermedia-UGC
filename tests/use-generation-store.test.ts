@@ -100,10 +100,11 @@ describe('useGenerationStore', () => {
     expect(state.figureArtDirection).toBe('none')
   })
 
-  it('maintains fixed manual video reference slots and resets them cleanly', () => {
+  it('trims staged manual video references when the selected model supports fewer inputs', () => {
     const store = useGenerationStore.getState()
     const ref1 = new File(['ref-1'], 'ref-1.png', { type: 'image/png' })
     const ref2 = new File(['ref-2'], 'ref-2.png', { type: 'image/png' })
+    const ref3 = new File(['ref-3'], 'ref-3.png', { type: 'image/png' })
 
     expect(store.videoReferences.map((slot) => slot.label)).toEqual([
       'Reference 1',
@@ -113,10 +114,19 @@ describe('useGenerationStore', () => {
 
     store.setVideoReferenceFile('video-reference-1', ref1)
     store.setVideoReferenceFile('video-reference-2', ref2)
+    store.setVideoReferenceFile('video-reference-3', ref3)
 
     let state = useGenerationStore.getState()
     expect(state.videoReferences[0]?.file?.name).toBe('ref-1.png')
     expect(state.videoReferences[1]?.file?.name).toBe('ref-2.png')
+    expect(state.videoReferences[2]?.file?.name).toBe('ref-3.png')
+
+    store.setVideoModel('seedance-1.5-pro')
+    state = useGenerationStore.getState()
+
+    expect(state.videoReferences[0]?.file?.name).toBe('ref-1.png')
+    expect(state.videoReferences[1]?.file?.name).toBe('ref-2.png')
+    expect(state.videoReferences[2]?.file).toBeNull()
 
     const stagedPreview = state.videoReferences[0]?.previewUrl
     store.clearVideoReference('video-reference-1')
@@ -129,6 +139,30 @@ describe('useGenerationStore', () => {
     store.resetGenerationState()
     state = useGenerationStore.getState()
     expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
+  })
+
+  it('clears manual first and last frame staging when leaving Seedance 2.0', () => {
+    const store = useGenerationStore.getState()
+    const firstFrame = new File(['first-frame'], 'first-frame.png', {
+      type: 'image/png',
+    })
+    const endFrame = new File(['end-frame'], 'end-frame.png', {
+      type: 'image/png',
+    })
+
+    store.setVideoModel('seedance-2')
+    store.setNamedAssetFile('firstFrame', firstFrame)
+    store.setNamedAssetFile('endFrame', endFrame)
+
+    let state = useGenerationStore.getState()
+    expect(state.assets.firstFrame.file?.name).toBe('first-frame.png')
+    expect(state.assets.endFrame.file?.name).toBe('end-frame.png')
+
+    store.setVideoModel('seedance-1.5-pro')
+    state = useGenerationStore.getState()
+
+    expect(state.assets.firstFrame.file).toBeNull()
+    expect(state.assets.endFrame.file).toBeNull()
   })
 
   it('forwards a manual image result into manual video staging with normalized settings', () => {

@@ -4,6 +4,7 @@ import {
   buildVariantPromptSet,
   compileGenerationPrompt,
   chooseEndFrameReference,
+  chooseFirstFrameReference,
   choosePrimaryReference,
 } from '@/lib/generation/prompt'
 import {
@@ -11,9 +12,13 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
+  getMaxVideoReferenceCount,
+  getKling3Duration,
   getNanoBananaResolution,
+  getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
+  supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
@@ -58,7 +63,7 @@ const KIE_COMMON_DOWNLOAD_URL_ENDPOINT = `${KIE_API_BASE_URL}/api/v1/common/down
 export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
-const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'endFrame'] as const
+const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'firstFrame', 'endFrame'] as const
 const kieCreditSources: Array<{
   endpoint: string
   source: KieStatusSource
@@ -547,7 +552,7 @@ function normalizeVideoAudioForModel(
   videoModel: VideoModelOption,
   videoAudio: VideoAudio,
 ): VideoAudio {
-  if (videoModel === 'seedance-1.5-pro') {
+  if (videoModel === 'seedance-1.5-pro' || videoModel === 'seedance-2') {
     return videoAudio
   }
 
@@ -647,6 +652,7 @@ function collectImageReferenceAssets(
 ) {
   const orderedAssets = assets
     .filter((asset) => !isEndFrameAsset(asset))
+    .filter((asset) => !(asset.kind === 'named' && asset.key === 'firstFrame'))
     .filter((asset) => asset.remoteUrl.length > 0)
     .slice()
     .sort((left, right) => left.order - right.order)
@@ -868,14 +874,16 @@ function buildVideoPayload(input: {
   videoModel: VideoModelOption
 }) {
   const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
+  const firstFrameReference = chooseFirstFrameReference(input.assets)
   const endFrameReference = chooseEndFrameReference(input.assets)
   const aspectRatio = getVideoAspectRatio(input.subjectMode)
   const videoResolution = getVideoResolution(input.outputQuality)
+  const maxReferenceCount = getMaxVideoReferenceCount(input.videoModel)
   const orderedStartReferenceUrls = collectVideoReferenceUrls(
     input.subjectMode,
     input.assets,
     {
-      max: 3,
+      max: maxReferenceCount,
     },
   )
 
@@ -930,6 +938,71 @@ function buildVideoPayload(input: {
           fixed_lens: false,
           generate_audio: input.videoAudio === 'with-audio',
           nsfw_checker: false,
+        },
+      },
+    }
+  }
+
+  if (input.videoModel === 'seedance-2') {
+    const hasFirstFrame =
+      supportsVideoFirstLastFramePair(input.videoModel) &&
+      Boolean(firstFrameReference?.remoteUrl)
+    const hasLastFrame = hasFirstFrame && Boolean(endFrameReference?.remoteUrl)
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'bytedance/seedance-2',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'bytedance/seedance-2',
+        input: {
+          prompt: input.prompt,
+          ...(hasFirstFrame
+            ? { first_frame_url: firstFrameReference?.remoteUrl }
+            : null),
+          ...(hasLastFrame
+            ? { last_frame_url: endFrameReference?.remoteUrl }
+            : null),
+          ...(orderedStartReferenceUrls.length > 0
+            ? { reference_image_urls: orderedStartReferenceUrls }
+            : null),
+          aspect_ratio: aspectRatio,
+          resolution: videoResolution,
+          duration: getSeedance2Duration(input.videoDuration),
+          generate_audio: input.videoAudio === 'with-audio',
+          nsfw_checker: false,
+        },
+      },
+    }
+  }
+
+  if (input.videoModel === 'kling-3.0') {
+    const hasFirstFrame = Boolean(firstFrameReference?.remoteUrl)
+    const hasLastFrame = hasFirstFrame && Boolean(endFrameReference?.remoteUrl)
+
+    const imageUrls: string[] = []
+    if (hasFirstFrame) {
+      imageUrls.push(firstFrameReference!.remoteUrl)
+    }
+    if (hasLastFrame) {
+      imageUrls.push(endFrameReference!.remoteUrl)
+    }
+
+    const mode = videoResolution === '1080p' ? 'pro' : 'std'
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'kling-3.0/video',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'kling-3.0/video',
+        input: {
+          prompt: input.prompt,
+          ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+          aspect_ratio: '16:9',
+          sound: input.videoAudio === 'with-audio',
+          duration: getKling3Duration(input.videoDuration),
+          mode: mode,
         },
       },
     }
@@ -1131,6 +1204,8 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       ? readEnum(formData, 'videoModel', [
           'veo-3.1',
           'seedance-1.5-pro',
+          'seedance-2',
+          'kling-3.0',
         ] as const)
       : 'veo-3.1'
   const outputQuality = readEnum(

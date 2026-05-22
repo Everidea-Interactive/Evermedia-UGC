@@ -38,6 +38,11 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
+import {
+  getMaxVideoReferenceCount,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 
@@ -306,13 +311,22 @@ function createSubjectModeState(subjectMode: SubjectMode) {
 }
 
 function composeStoryboardRenderPrompt(shot: StoryboardShot) {
+  const escapedVoiceover = shot.voiceoverLine.replace(/"/g, '\\"').trim()
+  const escapedCta = shot.ctaText.replace(/"/g, '\\"').trim()
   const segments = [
     shot.visualPrompt,
     shot.environmentPrompt,
-    shot.ctaText
-      ? 'End on a decisive purchase-intent visual payoff without rendering any on-screen CTA text.'
+    escapedVoiceover
+      ? `Include clear spoken voiceover that says exactly: "${escapedVoiceover}".`
       : '',
-    'No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.',
+    shot.soundPrompt,
+    escapedCta
+      ? `End with a spoken CTA that says exactly: "${escapedCta}".`
+      : '',
+    escapedCta
+      ? `If any readable on-screen CTA text appears, it must be exactly "${escapedCta}" in Latin letters only. Do not translate or replace it.`
+      : 'Do not show subtitles, captions, or any readable on-screen text.',
+    'Avoid foreign-language characters, translated captions, extra UI text, logos, or watermarks.',
   ]
 
   return segments
@@ -330,6 +344,7 @@ function createInitialState(): GenerationStateShape {
     assets: {
       clothing: createSlot('clothing', 'Clothing'),
       endFrame: createSlot('endFrame', 'End Frame'),
+      firstFrame: createSlot('firstFrame', 'First Frame'),
       face1: createSlot('face1', 'Face 1'),
       face2: createSlot('face2', 'Face 2'),
       location: createSlot('location', 'Location'),
@@ -401,6 +416,17 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
     size: file?.size ?? null,
     uploadStatus: file ? 'staged' : 'idle',
   }
+}
+
+function trimVideoReferenceSlots(
+  slots: AssetSlot[],
+  videoModel: VideoModelOption,
+) {
+  const maxReferenceCount = getMaxVideoReferenceCount(videoModel)
+
+  return slots.map((slot, index) =>
+    index < maxReferenceCount ? slot : setSlotFile(slot, null),
+  )
 }
 
 function resolveRunStatus(variants: GenerationVariant[]): GenerationRunStatus {
@@ -479,6 +505,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       assets: {
         ...state.assets,
+        ...(slot === 'firstFrame'
+          ? { endFrame: setSlotFile(state.assets.endFrame, null) }
+          : null),
         [slot]: setSlotFile(state.assets[slot], null),
       },
     })),
@@ -543,8 +572,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   forwardManualImageResultToVideo: (file) =>
     set((state) => {
-      const nextVideoReferences = state.videoReferences.map((slot, index) =>
-        setSlotFile(slot, index === 0 ? file : null),
+      const nextVideoReferences = trimVideoReferenceSlots(
+        state.videoReferences.map((slot, index) =>
+          setSlotFile(slot, index === 0 ? file : null),
+        ),
+        state.videoModel,
       )
 
       return {
@@ -950,6 +982,9 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       assets: {
         ...state.assets,
+        ...(slot === 'firstFrame' && !file
+          ? { endFrame: setSlotFile(state.assets.endFrame, null) }
+          : null),
         [slot]: setSlotFile(state.assets[slot], file),
       },
     })),
@@ -972,7 +1007,20 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   setVideoAudio: (videoAudio) => set({ videoAudio }),
   setVideoDuration: (videoDuration) => set({ videoDuration }),
-  setVideoModel: (videoModel) => set({ videoModel }),
+  setVideoModel: (videoModel) =>
+    set((state) => ({
+      assets: {
+        ...state.assets,
+        firstFrame: supportsVideoFirstLastFramePair(videoModel)
+          ? state.assets.firstFrame
+          : setSlotFile(state.assets.firstFrame, null),
+        endFrame: supportsVideoEndFrameGuidance(videoModel)
+          ? state.assets.endFrame
+          : setSlotFile(state.assets.endFrame, null),
+      },
+      videoModel,
+      videoReferences: trimVideoReferenceSlots(state.videoReferences, videoModel),
+    })),
   selectCreativePlanCta: (ctaId) =>
     set((state) => {
       if (!state.creativePlan) {
@@ -989,13 +1037,14 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         }
 
         const ctaText = selectedCta?.label ?? shot.ctaText
-        const renderPrompt = shot.renderPrompt.replace(
-          /End with CTA text:.*?(?=\.|$)/,
-          `End with CTA text: ${ctaText}`,
-        )
+        const nextShot = {
+          ...shot,
+          ctaText,
+        }
+        const renderPrompt = composeStoryboardRenderPrompt(nextShot)
 
         return {
-          ...shot,
+          ...nextShot,
           ctaText,
           prompt: renderPrompt,
           renderPrompt,
@@ -1142,6 +1191,16 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       }
     }),
 }))
+
+export function isGenerationInProgress(
+  state: ReturnType<typeof useGenerationStore.getState>,
+): boolean {
+  return (
+    state.generationRun.status === 'rendering' ||
+    state.analysisStatus === 'analyzing' ||
+    state.ideationStatus === 'analyzing'
+  )
+}
 
 export type {
   AssetSlot,

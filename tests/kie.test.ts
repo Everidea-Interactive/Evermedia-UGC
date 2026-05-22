@@ -151,6 +151,17 @@ describe('KIE batch submission', () => {
     },
   )
 
+  it('accepts Seedance 2.0 video model submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'seedance-2')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.videoModel).toBe('seedance-2')
+  })
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })
@@ -856,6 +867,159 @@ describe('KIE batch submission', () => {
         nsfw_checker: false,
         prompt: 'Create a polished product motion clip.',
         resolution: '1080p',
+      },
+    })
+  })
+
+  it('builds Seedance 2.0 video payloads with model-specific duration and audio', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(submission.endpoint).toContain('/api/v1/jobs/createTask')
+    expect(submission.modelName).toBe('bytedance/seedance-2')
+    expect(submission.provider).toBe('market')
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-2',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '10',
+        generate_audio: true,
+        reference_image_urls: [
+          'https://files.example.com/product.png',
+        ],
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '1080p',
+      },
+    })
+  })
+
+  it('builds Seedance 2.0 first-and-last-frame payloads when an end frame is present', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_firstFrame',
+          key: 'firstFrame',
+          kind: 'named',
+          label: 'First Frame',
+          order: 90,
+          remoteUrl: 'https://files.example.com/first-frame.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          kind: 'named',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'extended',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-2',
+      input: {
+        aspect_ratio: '16:9',
+        duration: '10',
+        first_frame_url: 'https://files.example.com/first-frame.png',
+        generate_audio: true,
+        last_frame_url: 'https://files.example.com/end-frame.png',
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        reference_image_urls: ['https://files.example.com/ref-1.png'],
+        resolution: '1080p',
+      },
+    })
+  })
+
+  it('caps Seedance start references to the model-supported limit', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_2',
+          kind: 'product',
+          label: 'Reference 2',
+          order: 1,
+          productId: 'video-reference-2',
+          remoteUrl: 'https://files.example.com/ref-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_3',
+          kind: 'product',
+          label: 'Reference 3',
+          order: 2,
+          productId: 'video-reference-3',
+          remoteUrl: 'https://files.example.com/ref-3.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-1.5-pro',
+      input: {
+        input_urls: [
+          'https://files.example.com/ref-1.png',
+          'https://files.example.com/ref-2.png',
+        ],
       },
     })
   })

@@ -31,6 +31,7 @@ import type {
   VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
+import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
 
 export const productCategories: Array<{
   icon: LucideIcon
@@ -165,6 +166,16 @@ export const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
+    helper: 'Kuaishou 5s or 10s video generation with native audio',
+    label: 'Kling 3.0',
+    value: 'kling-3.0',
+  },
+  {
+    helper: 'ByteDance 5s or 10s video generation',
+    label: 'Seedance 2.0',
+    value: 'seedance-2',
+  },
+  {
     helper: 'ByteDance 8s or 12s pro video generation',
     label: 'Seedance 1.5 Pro',
     value: 'seedance-1.5-pro',
@@ -188,6 +199,20 @@ const videoDurationConfig: Record<
     options: VideoDuration[]
   }
 > = {
+  'kling-3.0': {
+    labels: {
+      base: 'Base (5s)',
+      extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
+  'seedance-2': {
+    labels: {
+      base: 'Base (5s)',
+      extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
   'seedance-1.5-pro': {
     labels: {
       base: 'Base (8s)',
@@ -209,7 +234,11 @@ export function getVideoAudioLabel(videoAudio: VideoAudio) {
 }
 
 export function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'seedance-1.5-pro'
+  return model === 'seedance-1.5-pro' || model === 'seedance-2' || model === 'kling-3.0'
+}
+
+export function supportsAdditionalVideoReferences(model: VideoModelOption) {
+  return getMaxVideoReferenceCount(model) > 1
 }
 
 export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {

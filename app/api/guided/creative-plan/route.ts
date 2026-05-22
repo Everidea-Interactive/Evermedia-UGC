@@ -4,6 +4,7 @@ import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { createCreativePlan } from '@/lib/generation/creative-planning'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
 import type { CreativeBrief, GuidedAnalysisPlan } from '@/lib/generation/types'
+import { normalizeLocale, type Locale } from '@/lib/i18n'
 
 export const runtime = 'nodejs'
 
@@ -72,6 +73,10 @@ function readGuidedPlan(formData: FormData): GuidedAnalysisPlan {
   })
 }
 
+function readOutputLanguage(formData: FormData): Locale {
+  return normalizeLocale(readString(formData, 'outputLanguage'))
+}
+
 export async function POST(request: Request) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -83,8 +88,10 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const brief = readCreativeBrief(formData)
     const plan = readGuidedPlan(formData)
+    const outputLanguage = readOutputLanguage(formData)
     const creativePlan = createCreativePlan({
       brief,
+      outputLanguage,
       plan,
     })
 

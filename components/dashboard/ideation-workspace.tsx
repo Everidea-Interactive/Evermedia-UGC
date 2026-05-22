@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type KeyboardEvent,
 } from 'react'
 import {
   BadgeCheck,
@@ -102,18 +101,6 @@ function handleFileInput(
 
   onSelect(file)
   event.target.value = ''
-}
-
-function handleFileTriggerKeyDown(
-  event: KeyboardEvent<HTMLLabelElement>,
-  inputId: string,
-) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  event.preventDefault()
-  document.getElementById(inputId)?.click()
 }
 
 function isSlotLoaded(slot: AssetSlot) {
@@ -239,16 +226,14 @@ function IdeationHeroUploadCard({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button asChild size="sm" variant="secondary">
-                    <label
-                      htmlFor={inputId}
-                      onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <Upload data-icon="inline-start" suppressHydrationWarning />
-                      Replace
-                    </label>
+                  <Button
+                    onClick={() => document.getElementById(inputId)?.click()}
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <Upload data-icon="inline-start" suppressHydrationWarning />
+                    Replace
                   </Button>
                   <Button
                     aria-label="Clear ideation hero image"
@@ -277,23 +262,21 @@ function IdeationHeroUploadCard({
               visible packaging, texture, or styling.
             </p>
           </div>
-          <Button asChild size="sm" variant="secondary">
-            <label
-              htmlFor={inputId}
-              onKeyDown={(event) => handleFileTriggerKeyDown(event, inputId)}
-              role="button"
-              tabIndex={0}
-            >
-              <Upload data-icon="inline-start" suppressHydrationWarning />
-              Upload Image
-            </label>
+          <Button
+            onClick={() => document.getElementById(inputId)?.click()}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Upload data-icon="inline-start" suppressHydrationWarning />
+            Upload Image
           </Button>
         </div>
       )}
 
       <p className="text-sm leading-6 text-muted-foreground">
         {slot.previewUrl
-          ? 'You can replace the hero image before analyzing again.'
+          ? 'You can replace the hero image to refresh the analysis.'
           : 'You can analyze with a hero image, a product URL, or both together.'}
       </p>
     </div>
@@ -844,8 +827,8 @@ export function IdeationWorkspace() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)] xl:items-start">
-      <div className="flex flex-col gap-3 xl:col-start-1">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.95fr)] lg:items-start xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.9fr)]">
+      <div className="flex min-w-0 flex-col gap-3 lg:col-start-1">
         <Tabs
           className="flex flex-col gap-3"
           onValueChange={(value) => setIdeationSection(value as 'analyze' | 'results')}
@@ -889,20 +872,22 @@ export function IdeationWorkspace() {
         </Tabs>
       </div>
 
-      <IdeationControlPanel
-        canAnalyze={canAnalyze}
-        hasError={Boolean(ideationError)}
-        hasHero={hasHero}
-        hasResult={hasResult}
-        ideationInput={ideationInput}
-        ideationStatus={ideationStatus}
-        onAnalyze={() => {
-          void handleAnalyze()
-        }}
-        setIdeationAnalysisModel={setIdeationAnalysisModel}
-        setIdeationContentFormat={setIdeationContentFormat}
-        setIdeationOutputLanguage={setIdeationOutputLanguage}
-      />
+      <div className="min-w-0 lg:col-start-2">
+        <IdeationControlPanel
+          canAnalyze={canAnalyze}
+          hasError={Boolean(ideationError)}
+          hasHero={hasHero}
+          hasResult={hasResult}
+          ideationInput={ideationInput}
+          ideationStatus={ideationStatus}
+          onAnalyze={() => {
+            void handleAnalyze()
+          }}
+          setIdeationAnalysisModel={setIdeationAnalysisModel}
+          setIdeationContentFormat={setIdeationContentFormat}
+          setIdeationOutputLanguage={setIdeationOutputLanguage}
+        />
+      </div>
     </div>
   )
 }

@@ -353,8 +353,7 @@ export const uiTranslations: Record<string, string> = {
   'Camera movement is treated as a structured prompt modifier.':
     'Pergerakan kamera diperlakukan sebagai pengubah prompt terstruktur.',
   'Cancel': 'Batal',
-  'Cancel Run': 'Batalkan Run',
-  'Cancel Guided Run': 'Batalkan Run Terpandu',
+
   'Casting': 'Casting',
   'Character Demographics (Auto-Prompt)': 'Demografi karakter (Auto-Prompt)',
   'Choose the figure styling direction.': 'Pilih arah styling figur.',
@@ -533,6 +532,7 @@ export const uiTranslations: Record<string, string> = {
     'OpenAI GPT Image 2 dengan tier 1K / 2K / 4K',
   'Open product page': 'Buka halaman produk',
   'Optional End Frame': 'Frame Akhir Opsional',
+  'First Frame': 'Frame Pertama',
   'Optional enrichment for the page title, description, and product schema.':
     'Tambahan konteks opsional untuk judul halaman, deskripsi, dan schema produk.',
   'Only Veo uses end-frame guidance. Other models ignore this slot.':
@@ -623,8 +623,8 @@ export const uiTranslations: Record<string, string> = {
   'Subject Configuration': 'Konfigurasi subjek',
   'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.':
     'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
-  'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.':
-    'Siapkan hingga tiga referensi frame awal di sini. Pertahankan urutannya agar model menerima arahan yang jelas dari Referensi 1 hingga Referensi 3.',
+  'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.':
+    'Siapkan referensi frame awal di sini. Mulai dari Referensi 1, lalu buka kartu berikutnya hanya jika model yang dipilih mendukung panduan visual tambahan.',
   'hero': 'hero',
   'Staged assets': 'Aset tersiap',
   'Style & Environment': 'Gaya & Lingkungan',
@@ -647,8 +647,7 @@ export const uiTranslations: Record<string, string> = {
     'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
   'The provider rejected this request.':
     'Provider menolak permintaan ini.',
-  'The provider rejected the guided batch. Adjust the prompts or render settings and try again.':
-    'Provider menolak batch terpandu. Sesuaikan prompt atau pengaturan render lalu coba lagi.',
+
   'The available hero image, product page context, and written brief are being converted into a fresh three-concept ideation brief.':
     'Gambar hero yang tersedia, konteks halaman produk, dan brief tertulis sedang diubah menjadi brief ideasi baru berisi tiga konsep.',
   'The current guided batch is still rendering. Cancel it first if you need to restart.':
@@ -715,8 +714,7 @@ export const uiTranslations: Record<string, string> = {
     'Anda dapat mengganti gambar hero sebelum menganalisis ulang atau merender lagi.',
   'You can analyze with a hero image, a product URL, or both together.':
     'Anda dapat menganalisis dengan gambar hero, URL produk, atau keduanya sekaligus.',
-  'You can replace the hero image before analyzing again.':
-    'Anda dapat mengganti gambar hero sebelum menganalisis ulang.',
+
   'Waiting for Analysis': 'Menunggu Analisis',
   'Rendering': 'Merender',
   'Partial': 'Parsial',
@@ -728,10 +726,8 @@ export const uiTranslations: Record<string, string> = {
   'Analyze the hero product first. The prompt set and render controls will stay coordinated here.':
     'Analisis produk hero terlebih dahulu. Set prompt dan kontrol render akan tetap terkoordinasi di sini.',
   'Guided batch cancelled': 'Batch terpandu dibatalkan',
-  'Any completed results remain available below. Update the prompts or settings before running again.':
-    'Hasil yang sudah selesai tetap tersedia di bawah. Perbarui prompt atau pengaturan sebelum menjalankan lagi.',
-  'Completed results are ready below. Adjust any weak prompts before generating again.':
-    'Hasil yang selesai sudah siap di bawah. Sesuaikan prompt yang lemah sebelum menghasilkan lagi.',
+
+
   'Review the saved outputs below or adjust the prompts and generate another batch.':
     'Tinjau output tersimpan di bawah atau sesuaikan prompt dan buat batch lain.',
   'Checking estimate': 'Memeriksa estimasi',

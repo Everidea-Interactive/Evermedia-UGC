@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { CircleSlash, LoaderCircle, WandSparkles } from 'lucide-react'
+import { LoaderCircle, WandSparkles } from 'lucide-react'
 
 import {
   batchSizes,
@@ -35,7 +35,6 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { getGenerateButtonLabel } from '@/lib/generation/run-copy'
-import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import type {
   AssetSlot,
   BatchSize,
@@ -45,7 +44,6 @@ import type {
   CreativeStyle,
   FigureArtDirection,
   GenerationCostEstimate,
-  GenerationRun,
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
@@ -58,6 +56,10 @@ import type {
   VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
+import {
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -90,7 +92,6 @@ export function ManualRunControlPanelShell({
       isBusy={controller.isBusy}
       isPricingLoading={isPricingLoading}
       kiePricing={kiePricing}
-      onCancelRun={controller.handleCancel}
       onGenerate={controller.handleGenerate}
     />
   )
@@ -104,7 +105,6 @@ function RunControlPanel({
   isBusy,
   isPricingLoading,
   kiePricing,
-  onCancelRun,
   onGenerate,
 }: {
   canGenerate: boolean
@@ -114,7 +114,6 @@ function RunControlPanel({
   isBusy: boolean
   isPricingLoading: boolean
   kiePricing: KiePricingResponse | null
-  onCancelRun: () => Promise<void>
   onGenerate: () => Promise<void>
 }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
@@ -151,14 +150,23 @@ function RunControlPanel({
   const loadedAssets = useMemo(
     () => {
       if (activeTab === 'video') {
-        return [...videoReferences, assets.endFrame].filter((slot) => isSlotLoaded(slot))
+        const visibleVideoAssets = [
+          ...videoReferences,
+          ...(supportsVideoFirstLastFramePair(videoModel) ? [assets.firstFrame] : []),
+          ...(supportsVideoEndFrameGuidance(videoModel) &&
+          (!supportsVideoFirstLastFramePair(videoModel) || assets.firstFrame.file)
+            ? [assets.endFrame]
+            : []),
+        ]
+
+        return visibleVideoAssets.filter((slot) => isSlotLoaded(slot))
       }
 
       return [...Object.values(assets), ...products].filter((slot) =>
         isSlotLoaded(slot),
       )
     },
-    [activeTab, assets, products, videoReferences],
+    [activeTab, assets, products, videoModel, videoReferences],
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
@@ -181,12 +189,7 @@ function RunControlPanel({
     figureArtDirection,
     subjectMode,
   })
-  const runMatchesWorkspace = isRunVisibleForExperience(
-    generationRun,
-    'manual',
-    activeTab,
-  )
-  const activeRunInWorkspace = runMatchesWorkspace && hasActiveGeneration(generationRun)
+  const generationHelperText = getGenerateButtonLabel(generationRun, batchSize)
 
   useEffect(() => {
     if (activeTab === 'video' && batchSize !== 1) {
@@ -207,7 +210,7 @@ function RunControlPanel({
   }, [activeTab, videoAudio, videoModel, setVideoAudio])
 
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
+    <section className={cn(panelClassName, 'min-w-0 p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -463,20 +466,6 @@ function RunControlPanel({
                   reason={generationCostReason}
                 />
 
-                {activeRunInWorkspace ? (
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      void onCancelRun()
-                    }}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <CircleSlash data-icon="inline-start" suppressHydrationWarning />
-                    Cancel Run
-                  </Button>
-                ) : null}
-
                 <Button
                   className="min-h-12 w-full text-base font-medium"
                   disabled={isBusy || !canGenerate}
@@ -493,7 +482,7 @@ function RunControlPanel({
                   ) : (
                     <WandSparkles data-icon="inline-start" suppressHydrationWarning />
                   )}
-                  {getGenerateButtonLabel(generationRun, batchSize)}
+                  {generationHelperText}
                 </Button>
               </div>
             </div>
@@ -524,6 +513,10 @@ function getPrimaryInputSummary({
   videoReferences: AssetSlot[]
 }) {
   if (activeTab === 'video') {
+    if (assets.firstFrame && isSlotLoaded(assets.firstFrame)) {
+      return assets.firstFrame.label
+    }
+
     const firstReference = videoReferences.find((slot) => isSlotLoaded(slot))
     if (firstReference) {
       return firstReference.label
@@ -554,10 +547,6 @@ function getPrimaryInputSummary({
 
 function getLoadedAssetLabel(count: number) {
   return `${count} Loaded`
-}
-
-function hasActiveGeneration(run: GenerationRun) {
-  return run.status === 'rendering'
 }
 
 function getImageModelLabel(model: ImageModelOption) {

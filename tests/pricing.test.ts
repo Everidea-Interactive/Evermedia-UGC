@@ -122,6 +122,29 @@ const veoRecords: KiePricingApiRecord[] = [
   },
 ]
 
+const currentVeoRecords: KiePricingApiRecord[] = [
+  {
+    creditPrice: '65',
+    modelDescription: 'Google veo 3.1, image-to-video, Fast-1080p',
+    usdPrice: '0.325',
+  },
+  {
+    creditPrice: '60',
+    modelDescription: 'Google veo 3.1, image-to-video, Fast-720p',
+    usdPrice: '0.30',
+  },
+  {
+    creditPrice: '65',
+    modelDescription: 'Google veo 3.1, text-to-video, Fast-1080p',
+    usdPrice: '0.325',
+  },
+  {
+    creditPrice: '60',
+    modelDescription: 'Google veo 3.1, text-to-video, Fast-720p',
+    usdPrice: '0.30',
+  },
+]
+
 const seedanceRecords: KiePricingApiRecord[] = [
   {
     creditPrice: '20',
@@ -143,6 +166,26 @@ const seedanceRecords: KiePricingApiRecord[] = [
     modelDescription: 'bytedance/seedance-1.5-pro, 1080p no video input',
     usdPrice: '0.51',
   },
+  {
+    creditPrice: '25',
+    modelDescription: 'bytedance/seedance-2, 720p with video input',
+    usdPrice: '0.125',
+  },
+  {
+    creditPrice: '41',
+    modelDescription: 'bytedance/seedance-2, 720p no video input',
+    usdPrice: '0.205',
+  },
+  {
+    creditPrice: '62',
+    modelDescription: 'bytedance/seedance-2, 1080p with video input',
+    usdPrice: '0.31',
+  },
+  {
+    creditPrice: '102',
+    modelDescription: 'bytedance/seedance-2, 1080p no video input',
+    usdPrice: '0.51',
+  },
 ]
 
 function createSlot(id: string, label: string, loaded = false): AssetSlot {
@@ -162,6 +205,7 @@ function createAssets(overrides: Partial<NamedAssetSlots> = {}): NamedAssetSlots
   return {
     clothing: createSlot('clothing', 'Clothing'),
     endFrame: createSlot('endFrame', 'End Frame'),
+    firstFrame: createSlot('firstFrame', 'First Frame'),
     face1: createSlot('face1', 'Face 1'),
     face2: createSlot('face2', 'Face 2'),
     location: createSlot('location', 'Location'),
@@ -232,7 +276,11 @@ describe('generation pricing', () => {
       credits: 55,
       usd: 0.275,
     })
-    expect(pricingMatrix.video['veo-3.1'].withReference).toEqual({
+    expect(pricingMatrix.video['veo-3.1'].withReference['1080p']).toEqual({
+      credits: 60,
+      usd: 0.3,
+    })
+    expect(pricingMatrix.video['veo-3.1'].withReference['720p']).toEqual({
       credits: 60,
       usd: 0.3,
     })
@@ -351,6 +399,105 @@ describe('generation pricing', () => {
       credits: 744,
       reason: null,
       usd: 3.72,
+    })
+  })
+
+  it('estimates Seedance 2.0 prompt-only video cost from the live pricing rows', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        outputQuality: '1080p',
+        videoDuration: 'extended',
+        videoModel: 'seedance-2',
+      }),
+      pricingMatrix,
+    )
+
+    expect(pricingMatrix.video['seedance-2'].promptOnly['1080p']['no-audio'].extended).toEqual({
+      credits: 1020,
+      usd: 5.1,
+    })
+    expect(estimate).toEqual({
+      available: true,
+      credits: 1020,
+      reason: null,
+      usd: 5.1,
+    })
+  })
+
+  it('does not treat end-frame-only staging as a Seedance 2.0 reference render', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        assets: createAssets({
+          endFrame: createSlot('endFrame', 'End Frame', true),
+        }),
+        outputQuality: '1080p',
+        videoDuration: 'extended',
+        videoModel: 'seedance-2',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 1020,
+      reason: null,
+      usd: 5.1,
+    })
+  })
+
+  it('treats a Seedance 2.0 first frame as a reference input for pricing', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        assets: createAssets({
+          firstFrame: createSlot('firstFrame', 'First Frame', true),
+        }),
+        outputQuality: '1080p',
+        videoDuration: 'extended',
+        videoModel: 'seedance-2',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 620,
+      reason: null,
+      usd: 3.1,
+    })
+  })
+
+  it('parses current Veo 3.1 and Seedance 2.0 pricing rows from the live KIE format', () => {
+    const currentPricingMatrix = buildKiePricingMatrix({
+      gptImageRecords,
+      grokRecords,
+      klingRecords,
+      nanoRecords,
+      seedanceRecords,
+      veoRecords: currentVeoRecords,
+    })
+
+    expect(currentPricingMatrix.video['veo-3.1'].promptOnly['1080p']).toEqual({
+      credits: 65,
+      usd: 0.325,
+    })
+    expect(currentPricingMatrix.video['veo-3.1'].withReference['720p']).toEqual({
+      credits: 60,
+      usd: 0.3,
+    })
+    expect(
+      currentPricingMatrix.video['seedance-2'].withReference['1080p']['with-audio'].extended,
+    ).toEqual({
+      credits: 620,
+      usd: 3.1,
+    })
+    expect(
+      currentPricingMatrix.video['seedance-2'].promptOnly['720p']['no-audio'].base,
+    ).toEqual({
+      credits: 205,
+      usd: 1.025,
     })
   })
 

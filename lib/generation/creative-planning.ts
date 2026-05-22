@@ -7,6 +7,7 @@ import type {
   ProductCategory,
   StoryboardShot,
 } from '@/lib/generation/types'
+import type { Locale } from '@/lib/i18n'
 
 const audienceLabels: Record<CreativeBrief['audience'], string> = {
   broad: 'broad online shoppers',
@@ -62,20 +63,147 @@ function normalizeSentence(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
-function pickVoiceoverBenefit(highlight: string) {
+function escapeQuotedPromptValue(value: string) {
+  return value.replace(/"/g, '\\"').trim()
+}
+
+function sanitizeAnalyzedSummary(summary: string) {
+  return normalizeSentence(summary)
+    .replace(/^single shot\s+/i, '')
+    .replace(/^this shot\s+/i, '')
+    .replace(/\s+to drive trust and conversion\.?$/i, '')
+    .replace(/\s+to drive trust and conversion$/i, '')
+    .trim()
+}
+
+function extractAnalyzedBenefit(summary: string) {
+  const sanitized = sanitizeAnalyzedSummary(summary)
+
+  if (!sanitized) {
+    return ''
+  }
+
+  const firstSentence = sanitized.split(/[.!?]/)[0]?.trim() ?? sanitized
+  const concise = firstSentence
+    .replace(/^show\s+/i, '')
+    .replace(/^highlight\s+/i, '')
+    .replace(/^focus on\s+/i, '')
+    .trim()
+
+  if (
+    /(hook to cta|trust and conversion|shot summary|prompt set)/i.test(concise) ||
+    /^(show)\s+(the\s+)?product benefit/i.test(concise) ||
+    /^(the\s+)?product benefit\b/i.test(concise) ||
+    /^tampilkan manfaat produk/i.test(concise)
+  ) {
+    return ''
+  }
+
+  return concise
+}
+
+function buildVoiceoverLanguageDirection(outputLanguage: Locale) {
+  return outputLanguage === 'id'
+    ? 'Spoken narration language: Bahasa Indonesia only, with natural Indonesian pronunciation. Keep brand names and model names in their original form.'
+    : 'Spoken narration language: English only, with natural English pronunciation. Keep brand names and model names in their original form.'
+}
+
+function stripInstructionalLead(value: string) {
+  return value
+    .replace(/^(show|highlight|focus on|mention|explain|tell|describe)\s+/i, '')
+    .replace(/^(tampilkan|sorot|fokus pada|jelaskan|sampaikan)\s+/i, '')
+    .replace(/^(and|or)\s+/i, '')
+    .replace(/^(dan|atau)\s+/i, '')
+    .trim()
+}
+
+function formatFeaturePhrase(value: string) {
+  return value
+    .split(/\s+/)
+    .map((token) => {
+      if (!token) {
+        return token
+      }
+
+      if (/^(?:\d+[A-Za-z]+|[A-Z0-9&/-]{2,})$/.test(token)) {
+        return token.toUpperCase()
+      }
+
+      if (/^[A-Z][a-z0-9&/-]*$/.test(token) || /^[a-z0-9&/-]+$/.test(token)) {
+        return token
+      }
+
+      const lower = token.toLowerCase()
+
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
+function summarizeProductHighlights(highlight: string) {
   const normalized = normalizeSentence(highlight).replace(/[.!?]+$/, '')
 
   if (!normalized) {
-    return 'the clearest product benefit'
+    return ''
   }
 
   const looksInstructional =
-    normalized.split(' ').length > 10 ||
     /(audience|bahasa|caption|cta|explain|instruction|jelas|jelaskan|mention|pengguna|prompt|sampaikan|show|tell|voiceover|yakinkan)/i.test(
       normalized,
     )
 
-  return looksInstructional ? 'the clearest product benefit' : normalized
+  if (looksInstructional) {
+    return ''
+  }
+
+  const featureParts = normalized
+    .split(/[,\n;|]+/)
+    .map((part) =>
+      stripInstructionalLead(
+        part
+          .replace(/[()]/g, ' ')
+          .replace(/\s*&\s*/g, ' and ')
+          .replace(/\s{2,}/g, ' ')
+          .trim(),
+      ),
+    )
+    .filter(Boolean)
+    .filter(
+      (part) =>
+        part.length >= 4 &&
+        !/(hook|cta|prompt|voiceover|subtitle|caption|audience)/i.test(part),
+    )
+
+  if (featureParts.length >= 2) {
+    const selected = featureParts.slice(0, 3).map((part) => formatFeaturePhrase(part))
+
+    if (selected.length === 2) {
+      return `${selected[0]} and ${selected[1]}`
+    }
+
+    return `${selected.slice(0, -1).join(', ')}, and ${selected.at(-1)}`
+  }
+
+  if (featureParts.length === 1) {
+    return formatFeaturePhrase(featureParts[0]!)
+  }
+
+  return normalized.split(' ').length > 12 ? '' : normalized
+}
+
+function selectVoiceoverBenefit(input: {
+  productHighlights: string
+  summary: string
+}) {
+  const highlightBenefit = summarizeProductHighlights(input.productHighlights)
+
+  if (highlightBenefit) {
+    return highlightBenefit
+  }
+
+  const analyzedBenefit = extractAnalyzedBenefit(input.summary)
+
+  return analyzedBenefit || 'the clearest product benefit'
 }
 
 function buildMessageAngle(input: {
@@ -134,12 +262,38 @@ function buildSoundDirectionSummary(input: { brief: CreativeBrief }) {
 
 function buildVoiceoverScript(input: {
   brief: CreativeBrief
+  outputLanguage: Locale
   plan: GuidedAnalysisPlan
 }) {
-  const benefitFocus = pickVoiceoverBenefit(input.brief.productHighlights)
+  const benefitFocus = selectVoiceoverBenefit({
+    productHighlights: input.brief.productHighlights,
+    summary: input.plan.summary,
+  })
 
   return input.plan.shots
     .map((shot, index) => {
+      if (input.outputLanguage === 'id') {
+        if (index === 0) {
+          return normalizeSentence(
+            `Inilah produk yang menghadirkan ${benefitFocus}.`,
+          )
+        }
+
+        if (index === input.plan.shots.length - 1) {
+          return normalizeSentence(
+            input.brief.goal === 'conversion'
+              ? 'Coba lihat lebih dekat dan tentukan apakah ini cocok untuk Anda.'
+              : 'Lihat hasilnya dengan jelas dan tentukan apakah ini sesuai kebutuhan Anda.',
+          )
+        }
+
+        return normalizeSentence(
+          input.brief.goal === 'consideration'
+            ? `Produk ini membantu menjaga fokus pada ${benefitFocus} dengan cara yang terasa mudah dipercaya.`
+            : `Produk ini menjaga fokus pada ${benefitFocus} dengan hasil yang jelas dan mudah dipahami.`,
+        )
+      }
+
       if (index === 0) {
         return normalizeSentence(
           `Here is the product that delivers ${benefitFocus}.`,
@@ -163,8 +317,34 @@ function buildVoiceoverScript(input: {
     .join('\n')
 }
 
-function buildCtaOptions(input: { brief: CreativeBrief }): CtaOption[] {
+function buildCtaOptions(input: {
+  brief: CreativeBrief
+  outputLanguage: Locale
+}): CtaOption[] {
   const platform = platformLabels[input.brief.platform]
+
+  if (input.outputLanguage === 'id') {
+    return [
+      {
+        id: 'cta-shop-now',
+        label: `Belanja sekarang di ${platform}`,
+        placement: 'closing-shot',
+        rationale: 'Paling cocok untuk penutupan yang fokus konversi dan lockup produk terakhir.',
+      },
+      {
+        id: 'cta-check-details',
+        label: 'Lihat detail dan variannya',
+        placement: 'caption',
+        rationale: 'Cocok saat audiens masih butuh dorongan kecil sebelum klik.',
+      },
+      {
+        id: 'cta-try-it',
+        label: 'Coba dan rasakan bedanya',
+        placement: 'voiceover',
+        rationale: 'Bagus untuk penutupan ala creator yang lebih halus tapi tetap persuasif.',
+      },
+    ]
+  }
 
   return [
     {
@@ -191,6 +371,7 @@ function buildCtaOptions(input: { brief: CreativeBrief }): CtaOption[] {
 function buildStoryboardShot(input: {
   cta: CtaOption
   index: number
+  outputLanguage: Locale
   plan: GuidedAnalysisPlan
   brief: CreativeBrief
   messageAngle: string
@@ -215,11 +396,23 @@ function buildStoryboardShot(input: {
     })}`,
   )
   const ctaText = input.index === input.plan.shots.length - 1 ? input.cta.label : ''
-  const endingVisualDirection = ctaText
-    ? 'End on a decisive purchase-intent visual payoff without rendering any on-screen CTA text.'
+  const spokenVoiceoverDirection = input.voiceoverLine
+    ? `Include clear spoken voiceover that says exactly: "${escapeQuotedPromptValue(
+        input.voiceoverLine,
+      )}".`
     : ''
+  const spokenCtaDirection = ctaText
+    ? `End with a spoken CTA that says exactly: "${escapeQuotedPromptValue(ctaText)}".`
+    : ''
+  const visibleCtaDirection = ctaText
+    ? `If any readable on-screen CTA text appears, it must be exactly "${escapeQuotedPromptValue(
+        ctaText,
+      )}" in Latin letters only. Do not translate or replace it.`
+    : 'Do not show subtitles, captions, or any readable on-screen text.'
   const renderPrompt = normalizeSentence(
-    `${visualPrompt} ${environmentPrompt} ${endingVisualDirection} No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.`,
+    `${visualPrompt} ${environmentPrompt} ${buildVoiceoverLanguageDirection(
+      input.outputLanguage,
+    )} ${spokenVoiceoverDirection} ${soundPrompt} ${spokenCtaDirection} ${visibleCtaDirection} Avoid foreign-language characters, translated captions, extra UI text, logos, or watermarks.`,
   )
 
   return {
@@ -238,11 +431,15 @@ function buildStoryboardShot(input: {
 
 export function createCreativePlan(input: {
   brief: CreativeBrief
+  outputLanguage: Locale
   plan: GuidedAnalysisPlan
 }): CreativePlan {
   const messageAngle = buildMessageAngle(input)
   const voiceoverScript = buildVoiceoverScript(input)
-  const ctaOptions = buildCtaOptions(input)
+  const ctaOptions = buildCtaOptions({
+    brief: input.brief,
+    outputLanguage: input.outputLanguage,
+  })
   const selectedCta = ctaOptions[0]
   const voiceoverLines = voiceoverScript
     .split('\n')
@@ -254,10 +451,13 @@ export function createCreativePlan(input: {
       cta: selectedCta,
       index,
       messageAngle,
+      outputLanguage: input.outputLanguage,
       plan: input.plan,
       voiceoverLine:
         voiceoverLines[index] ??
-        'Keep the voiceover natural, concise, and focused on the product benefit.',
+        (input.outputLanguage === 'id'
+          ? 'Sampaikan manfaat produk dengan bahasa yang natural, singkat, dan jelas.'
+          : 'Keep the voiceover natural, concise, and focused on the product benefit.'),
     }),
   )
 

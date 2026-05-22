@@ -5,8 +5,8 @@ const authCriticalCss = `
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: #101217;
-  color: #ebedf2;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   font-family: var(--font-sans), Manrope, "Segoe UI", sans-serif;
 }
 
@@ -18,9 +18,9 @@ const authCriticalCss = `
 
 .auth-card {
   width: 100%;
-  border: 1px solid #313745;
+  border: 1px solid hsl(var(--border));
   border-radius: 1rem;
-  background: #181c23;
+  background: hsl(var(--card));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.36);
   padding: 1.5rem;
 }
@@ -64,7 +64,7 @@ const authCriticalCss = `
 
 .auth-eyebrow {
   margin: 0;
-  color: #8f97a8;
+  color: hsl(var(--muted-foreground));
   font-size: 0.72rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -72,7 +72,7 @@ const authCriticalCss = `
 
 .auth-title {
   margin: 0.75rem 0 0;
-  color: #f4f6f9;
+  color: hsl(var(--foreground));
   font-family: var(--font-display), "Space Grotesk", var(--font-sans), system-ui,
     sans-serif;
   font-size: 1.6rem;
@@ -82,7 +82,7 @@ const authCriticalCss = `
 
 .auth-copy {
   margin: 0.65rem 0 0;
-  color: #a1a8b8;
+  color: hsl(var(--muted-foreground));
   font-size: 0.96rem;
   line-height: 1.6;
 }
@@ -98,13 +98,13 @@ const authCriticalCss = `
 .auth-banner-error {
   border: 1px solid rgba(223, 91, 91, 0.4);
   background: rgba(111, 28, 28, 0.28);
-  color: #ffb4b4;
+  color: hsl(var(--destructive-foreground));
 }
 
 .auth-banner-info {
-  border: 1px solid #2e3442;
-  background: #12161d;
-  color: #c7cedc;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
 }
 
 .auth-field {
@@ -113,7 +113,7 @@ const authCriticalCss = `
 }
 
 .auth-label {
-  color: #eef1f5;
+  color: hsl(var(--foreground));
   font-size: 0.92rem;
   font-weight: 600;
 }
@@ -121,22 +121,22 @@ const authCriticalCss = `
 .auth-input {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid #313745;
+  border: 1px solid hsl(var(--input));
   border-radius: 0.75rem;
-  background: #101217;
-  color: #eef1f5;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   padding: 0.72rem 0.9rem;
   font: inherit;
   outline: none;
 }
 
 .auth-input::placeholder {
-  color: #7d8596;
+  color: hsl(var(--muted-foreground));
 }
 
 .auth-input:focus {
-  border-color: #d8dde8;
-  box-shadow: 0 0 0 2px rgba(216, 221, 232, 0.16);
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.16);
 }
 
 .auth-input-with-action {
@@ -156,7 +156,7 @@ const authCriticalCss = `
   justify-content: center;
   border: 0;
   background: transparent;
-  color: #8f97a8;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   padding: 0;
   transform: translateY(-50%);
@@ -164,7 +164,7 @@ const authCriticalCss = `
 
 .auth-input-action:hover,
 .auth-input-action:focus-visible {
-  color: #eef1f5;
+  color: hsl(var(--foreground));
 }
 
 .auth-input-action:focus-visible {
@@ -175,8 +175,8 @@ const authCriticalCss = `
   appearance: none;
   border: 0;
   border-radius: 0.75rem;
-  background: #eceef2;
-  color: #101217;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   cursor: pointer;
   font: inherit;
   font-weight: 700;
@@ -190,24 +190,24 @@ const authCriticalCss = `
 
 .auth-switch-link {
   width: fit-content;
-  color: #eef1f5;
+  color: hsl(var(--foreground));
   cursor: pointer;
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: #394053;
+  text-decoration-color: hsl(var(--border));
   text-underline-offset: 4px;
 }
 
 .auth-switch-link:hover {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .auth-inline-code {
-  border: 1px solid #394053;
+  border: 1px solid hsl(var(--border));
   border-radius: 0.45rem;
-  background: #101217;
-  color: #f3f5f8;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   padding: 0.08rem 0.34rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.86em;

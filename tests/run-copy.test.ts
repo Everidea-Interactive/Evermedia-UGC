@@ -31,15 +31,15 @@ describe('run copy helpers', () => {
   it('keeps terminal CTA labels neutral', () => {
     expect(
       getGenerateButtonLabel(createRun({ status: 'partial-success' }), 2),
-    ).toBe('Generate Again')
+    ).toBe('Generate')
     expect(getGenerateButtonLabel(createRun({ status: 'error' }), 2)).toBe(
-      'Generate Again',
+      'Generate',
     )
     expect(getGenerateButtonLabel(createRun({ status: 'cancelled' }), 2)).toBe(
-      'Generate Again',
+      'Generate',
     )
     expect(getGenerateButtonLabel(createRun({ status: 'success' }), 2)).toBe(
-      'Generate Again',
+      'Generate',
     )
   })
 

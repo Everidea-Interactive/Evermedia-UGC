@@ -288,7 +288,7 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Location')).toHaveLength(1)
   })
 
-  it('shows exactly three generic reference slots in manual video mode', async () => {
+  it('reveals manual video reference cards progressively up to the selected model limit', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
     const { useGenerationStore } = await import('@/store/use-generation-store')
 
@@ -314,11 +314,141 @@ describe('StudioWorkspace', () => {
     await screen.findByText('Build the input set')
 
     expect(screen.getAllByText('Reference 1')).toHaveLength(1)
-    expect(screen.getAllByText('Reference 2')).toHaveLength(1)
-    expect(screen.getAllByText('Reference 3')).toHaveLength(1)
+    expect(screen.queryByText('Reference 2')).toBeNull()
+    expect(screen.queryByText('Reference 3')).toBeNull()
     expect(screen.queryByText('People')).toBeNull()
     expect(screen.queryByText('Style & Environment')).toBeNull()
     expect(screen.queryByText('Products')).toBeNull()
+
+    await act(async () => {
+      useGenerationStore.getState().setVideoReferenceFile(
+        'video-reference-1',
+        new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+      )
+    })
+
+    expect(await screen.findByText('Reference 2')).toBeTruthy()
+    expect(screen.queryByText('Reference 3')).toBeNull()
+
+    await act(async () => {
+      useGenerationStore.getState().setVideoReferenceFile(
+        'video-reference-2',
+        new File(['ref-2'], 'ref-2.png', { type: 'image/png' }),
+      )
+    })
+
+    expect(await screen.findByText('Reference 3')).toBeTruthy()
+    expect(screen.getAllByText('End Frame')).toHaveLength(1)
+  })
+
+  it('keeps Seedance manual video references capped to two visible cards', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('seedance-1.5-pro')
+      useGenerationStore.getState().setVideoReferenceFile(
+        'video-reference-1',
+        new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+      )
+      useGenerationStore.getState().setVideoReferenceFile(
+        'video-reference-2',
+        new File(['ref-2'], 'ref-2.png', { type: 'image/png' }),
+      )
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.queryAllByText('Reference 1').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Reference 2').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Reference 3')).toBeNull()
+    expect(screen.queryByText('End Frame')).toBeNull()
+  })
+
+  it('shows the End Frame card for Seedance 2.0 manual video mode', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('seedance-2')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.queryAllByText('Reference 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('First Frame')).toHaveLength(1)
+    expect(screen.queryByText('End Frame')).toBeNull()
+  })
+
+  it('only reveals the Seedance 2.0 End Frame card after the First Frame is staged', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setVideoModel('seedance-2')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Build the input set')
+
+    expect(screen.getAllByText('First Frame')).toHaveLength(1)
+    expect(screen.queryByText('End Frame')).toBeNull()
+
+    await act(async () => {
+      useGenerationStore.getState().setNamedAssetFile(
+        'firstFrame',
+        new File(['first'], 'first.png', { type: 'image/png' }),
+      )
+    })
+
+    expect(await screen.findByText('End Frame')).toBeTruthy()
   })
 
   it('shows a single clip-length option for Veo 3.1', async () => {
@@ -361,6 +491,7 @@ describe('StudioWorkspace', () => {
     )
 
     expect(videoModels.map((model) => model.value)).toEqual([
+      'seedance-2',
       'seedance-1.5-pro',
       'veo-3.1',
     ])
@@ -497,11 +628,6 @@ describe('StudioWorkspace', () => {
         'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
       ),
     ).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Hanya Veo yang menggunakan panduan frame akhir. Model lain mengabaikan slot ini.',
-      ),
-    ).toBeTruthy()
 
     const outputsTab = screen.getByRole('tab', { name: 'Output' })
     fireEvent.mouseDown(outputsTab)
@@ -611,9 +737,9 @@ describe('StudioWorkspace', () => {
         useGenerationStore.getState().setExperience(experience)
       })
 
-      await screen.findByText(
-        experience === 'guided' ? 'guided-workspace' : 'ideation-workspace',
-      )
+      await waitFor(() => {
+        expect(useGenerationStore.getState().experience).toBe(experience)
+      })
 
       await act(async () => {
         useGenerationStore
@@ -687,6 +813,10 @@ describe('StudioWorkspace', () => {
         }}
       />,
     )
+
+    const outputsTab = await screen.findByRole('tab', { name: 'Outputs' })
+    fireEvent.mouseDown(outputsTab)
+    fireEvent.click(outputsTab)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Forward to Video' }))
 

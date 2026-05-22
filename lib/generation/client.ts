@@ -17,6 +17,11 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
+import {
+  getMaxVideoReferenceCount,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 
 const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face1',
@@ -31,6 +36,13 @@ function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
 
 function getPrimaryReference(snapshot: GenerationSnapshot) {
   if (snapshot.activeTab === 'video') {
+    if (
+      supportsVideoFirstLastFramePair(snapshot.videoModel) &&
+      snapshot.assets.firstFrame.file
+    ) {
+      return snapshot.assets.firstFrame
+    }
+
     return snapshot.videoReferences.find((slot) => slot.file) ?? null
   }
 
@@ -113,7 +125,25 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
   if (snapshot.activeTab === 'video') {
-    snapshot.videoReferences.forEach((reference, index) => {
+    const firstFrame = snapshot.assets.firstFrame
+    if (
+      supportsVideoFirstLastFramePair(snapshot.videoModel) &&
+      firstFrame.file
+    ) {
+      const fieldName = 'asset_firstFrame'
+      assetManifest.push({
+        fieldName,
+        key: 'firstFrame',
+        kind: 'named',
+        label: firstFrame.label,
+        order: 90,
+      })
+      formData.append(fieldName, firstFrame.file)
+    }
+
+    snapshot.videoReferences
+      .slice(0, getMaxVideoReferenceCount(snapshot.videoModel))
+      .forEach((reference, index) => {
       if (!reference.file) {
         return
       }
@@ -127,10 +157,15 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
         productId: reference.id,
       })
       formData.append(fieldName, reference.file)
-    })
+      })
 
     const endFrame = snapshot.assets.endFrame
-    if (endFrame.file) {
+    if (
+      supportsVideoEndFrameGuidance(snapshot.videoModel) &&
+      (!supportsVideoFirstLastFramePair(snapshot.videoModel) ||
+        snapshot.assets.firstFrame.file) &&
+      endFrame.file
+    ) {
       const fieldName = 'asset_endFrame'
       assetManifest.push({
         fieldName,
@@ -238,11 +273,14 @@ export function buildGuidedGenerationFormData(input: {
 
   const formData = new FormData()
   const workspace = input.workspace ?? 'image'
+  const supportsEndFrame =
+    workspace === 'video' &&
+    supportsVideoEndFrameGuidance(input.videoModel ?? 'veo-3.1')
   const guidedShots =
     workspace === 'video' ? input.plan.shots.slice(0, 1) : input.plan.shots
   const assetManifest: SubmittedAssetDescriptor[] = []
 
-  if (workspace === 'video' && input.endFrameAsset?.file) {
+  if (supportsEndFrame && input.endFrameAsset?.file) {
     assetManifest.push({
       fieldName: 'asset_endFrame',
       key: 'endFrame',
@@ -288,7 +326,7 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('creativePlan', JSON.stringify(input.creativePlan))
   formData.append('productUrl', input.productUrl)
   formData.append('assetManifest', JSON.stringify(assetManifest))
-  if (workspace === 'video' && input.endFrameAsset?.file) {
+  if (supportsEndFrame && input.endFrameAsset?.file) {
     formData.append('asset_endFrame', input.endFrameAsset.file)
   }
   formData.append('product_guided_hero', input.heroAsset.file)
@@ -298,6 +336,7 @@ export function buildGuidedGenerationFormData(input: {
 
 export function buildCreativePlanningFormData(input: {
   brief: CreativeBrief
+  outputLanguage: Locale
   plan: GuidedAnalysisPlan
 }) {
   const formData = new FormData()
@@ -311,6 +350,7 @@ export function buildCreativePlanningFormData(input: {
   formData.append('productCategory', input.plan.productCategory)
   formData.append('guidedSummary', input.plan.summary)
   formData.append('guidedShots', JSON.stringify(input.plan.shots))
+  formData.append('outputLanguage', input.outputLanguage)
 
   return { formData }
 }

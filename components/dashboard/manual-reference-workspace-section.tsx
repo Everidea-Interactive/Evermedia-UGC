@@ -1,11 +1,16 @@
 'use client'
 
-import { Image, Package2 } from 'lucide-react'
+import { Image, Package2, ScanLine } from 'lucide-react'
 
 import {
   peopleReferenceCards,
   styleReferenceCards,
 } from '@/components/dashboard/manual-workspace-config'
+import {
+  getMaxVideoReferenceCount,
+  supportsVideoEndFrameGuidance,
+  supportsVideoFirstLastFramePair,
+} from '@/lib/generation/model-mapping'
 import {
   panelClassName,
   ReferenceCard,
@@ -21,6 +26,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   const assets = useGenerationStore((state) => state.assets)
   const products = useGenerationStore((state) => state.products)
   const videoReferences = useGenerationStore((state) => state.videoReferences)
+  const videoModel = useGenerationStore((state) => state.videoModel)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
   const clearProductSlot = useGenerationStore((state) => state.clearProductSlot)
   const clearVideoReference = useGenerationStore((state) => state.clearVideoReference)
@@ -35,6 +41,19 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
     (state) => state.setVideoReferenceFile,
   )
   const productSlots = products.slice(0, 2)
+  const videoReferenceLimit = getMaxVideoReferenceCount(videoModel)
+  const showDedicatedFramePair = supportsVideoFirstLastFramePair(videoModel)
+  const showEndFrameReference =
+    supportsVideoEndFrameGuidance(videoModel) &&
+    (!showDedicatedFramePair || Boolean(assets.firstFrame.file))
+  const visibleVideoReferenceCount = Math.min(
+    videoReferenceLimit,
+    Math.max(
+      1,
+      videoReferences.filter((slot) => slot.file).length + 1,
+    ),
+  )
+  const visibleVideoReferences = videoReferences.slice(0, visibleVideoReferenceCount)
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -43,7 +62,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
           <SectionHeader
             description={
               activeTab === 'video'
-                ? 'Stage up to three start-frame references here. Keep them in order so the model receives clear guidance from Reference 1 to Reference 3.'
+                ? 'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.'
                 : 'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.'
             }
             eyebrow="Reference board"
@@ -60,7 +79,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
 
         {activeTab === 'video' ? (
           <ReferenceCardGroup title="References">
-            {videoReferences.map((referenceSlot) => (
+            {visibleVideoReferences.map((referenceSlot) => (
               <ReferenceCard
                 icon={Image}
                 inputId={referenceSlot.id}
@@ -70,6 +89,24 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
                 slot={referenceSlot}
               />
             ))}
+            {showDedicatedFramePair ? (
+              <ReferenceCard
+                icon={Image}
+                inputId="asset-first-frame"
+                onClear={() => clearNamedAsset('firstFrame')}
+                onSelect={(file) => setNamedAssetFile('firstFrame', file)}
+                slot={assets.firstFrame}
+              />
+            ) : null}
+            {showEndFrameReference ? (
+              <ReferenceCard
+                icon={ScanLine}
+                inputId="asset-end-frame"
+                onClear={() => clearNamedAsset('endFrame')}
+                onSelect={(file) => setNamedAssetFile('endFrame', file)}
+                slot={assets.endFrame}
+              />
+            ) : null}
           </ReferenceCardGroup>
         ) : (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-x-6">

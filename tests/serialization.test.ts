@@ -179,6 +179,14 @@ describe('normalizeProjectConfigSnapshot', () => {
       expect(snapshot.videoModel).toBe('veo-3.1')
     },
   )
+
+  it('preserves Seedance 2.0 snapshots during normalization', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      videoModel: 'seedance-2' as never,
+    })
+
+    expect(snapshot.videoModel).toBe('seedance-2')
+  })
 })
 
 describe('createGenerationRunState', () => {

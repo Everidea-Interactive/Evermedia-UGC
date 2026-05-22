@@ -61,6 +61,11 @@ function createEmptyNamedAssetSlots(): NamedAssetSlots {
       id: 'endFrame',
       label: 'End Frame',
     }),
+    firstFrame: createEstimateSlot({
+      file: null,
+      id: 'firstFrame',
+      label: 'First Frame',
+    }),
     face1: createEstimateSlot({
       file: null,
       id: 'face1',

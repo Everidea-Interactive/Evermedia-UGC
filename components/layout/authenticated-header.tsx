@@ -3,11 +3,14 @@
 import { useId, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { LogOut, Menu, X } from 'lucide-react'
 
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useLocale } from '@/components/i18n/locale-provider'
 import { LanguageSelector } from '@/components/i18n/language-selector'
 import { KieCreditsChip } from '@/components/layout/kie-credits-chip'
+import { useGenerationStore } from '@/store/use-generation-store'
 import type { AuthenticatedUserSummary } from '@/lib/persistence/types'
 
 const desktopNavLinkClass =
@@ -18,7 +21,7 @@ const mobileNavLinkClass =
 
 const desktopSectionDividerClass = 'hidden lg:flex lg:items-center lg:border-l lg:border-border/70 lg:pl-4'
 const signOutIconButtonClass =
-  'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 hover:text-foreground'
+  'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
 
 type AuthenticatedHeaderProps = {
   user: AuthenticatedUserSummary
@@ -26,9 +29,19 @@ type AuthenticatedHeaderProps = {
 
 export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
   const { dictionary } = useLocale()
+  const pathname = usePathname()
+  const router = useRouter()
   const copy = dictionary.shared
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
   const mobileMenuId = useId()
+  const isGenerationBusy = useGenerationStore((s) =>
+    s.generationRun.status === 'rendering' ||
+      s.analysisStatus === 'analyzing' ||
+      s.ideationStatus === 'analyzing',
+  )
+
   const primaryNavItems = [
     { href: '/', label: copy.nav.studio },
     { href: '/library', label: copy.nav.library },
@@ -37,6 +50,22 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
 
   function closeMobileMenu() {
     setIsMobileMenuOpen(false)
+  }
+
+  function handleNavClick(href: string, event: React.MouseEvent) {
+    if (isGenerationBusy) {
+      event.preventDefault()
+      setPendingHref(href)
+      setIsLeaveDialogOpen(true)
+    }
+  }
+
+  function handleConfirmLeave() {
+    setIsLeaveDialogOpen(false)
+    if (pendingHref) {
+      router.push(pendingHref)
+      setPendingHref(null)
+    }
   }
 
   return (
@@ -61,11 +90,21 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
             </Link>
 
             <nav className="hidden items-center gap-2.5 lg:flex">
-              {primaryNavItems.map((item) => (
-                <Link className={desktopNavLinkClass} href={item.href} key={item.href}>
-                  {item.label}
-                </Link>
-              ))}
+              {primaryNavItems.map((item) => {
+                const isCurrent = pathname === item.href
+
+                return (
+                  <Link
+                    aria-current={isCurrent ? 'page' : undefined}
+                    className={desktopNavLinkClass}
+                    href={item.href}
+                    key={item.href}
+                    onClick={(event) => handleNavClick(item.href, event)}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
             </nav>
           </div>
 
@@ -99,7 +138,7 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
               aria-controls={mobileMenuId}
               aria-expanded={isMobileMenuOpen}
               aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 lg:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
               onClick={() => {
                 setIsMobileMenuOpen((current) => !current)
               }}
@@ -121,16 +160,24 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
               </div>
 
               <nav className="flex flex-col gap-2">
-                {primaryNavItems.map((item) => (
-                  <Link
-                    className={mobileNavLinkClass}
-                    href={item.href}
-                    key={`mobile-${item.href}`}
-                    onClick={closeMobileMenu}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {primaryNavItems.map((item) => {
+                  const isCurrent = pathname === item.href
+
+                  return (
+                    <Link
+                      aria-current={isCurrent ? 'page' : undefined}
+                      className={mobileNavLinkClass}
+                      href={item.href}
+                      key={`mobile-${item.href}`}
+                      onClick={(event) => {
+                        closeMobileMenu()
+                        handleNavClick(item.href, event)
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
               </nav>
 
               <div className="rounded-2xl border border-border/80 px-4 py-3">
@@ -157,7 +204,19 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
             </div>
           </div>
         ) : null}
+
       </div>
+
+      <ConfirmDialog
+        cancelLabel="Stay"
+        confirmLabel="Leave Anyway"
+        confirmVariant="destructive"
+        description="Generation in progress. Leaving may interrupt your workflow."
+        onConfirm={handleConfirmLeave}
+        onOpenChange={setIsLeaveDialogOpen}
+        open={isLeaveDialogOpen}
+        title="Generation in Progress"
+      />
     </header>
   )
 }

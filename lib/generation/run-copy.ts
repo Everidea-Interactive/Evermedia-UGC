@@ -150,11 +150,11 @@ export function getGenerateButtonLabel(
     generationRun.status === 'cancelled' ||
     generationRun.status === 'success'
   ) {
-    return 'Generate Again'
+    return 'Generate'
   }
 
   if (generationRun.status === 'error' && generationRun.runId) {
-    return 'Generate Again'
+    return 'Generate'
   }
 
   return `Generate ${batchSize} Variation${batchSize > 1 ? 's' : ''}`

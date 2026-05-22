@@ -25,6 +25,7 @@ function buildBaseFormData() {
   formData.append('creativeStyle', 'ugc-lifestyle')
   formData.append('productCategory', 'cosmetics')
   formData.append('guidedSummary', 'Show the product benefit from hook to CTA.')
+  formData.append('outputLanguage', 'en')
   formData.append(
     'guidedShots',
     JSON.stringify([
@@ -73,9 +74,17 @@ describe('POST /api/guided/creative-plan', () => {
     expect(payload.creativePlan?.ctaOptions.length).toBeGreaterThan(0)
     expect(payload.creativePlan?.storyboard).toHaveLength(2)
     expect(payload.creativePlan?.storyboard[0]?.renderPrompt).not.toContain('Objective:')
-    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).not.toContain('Voiceover cue:')
     expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
-      'No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.',
+      'Include clear spoken voiceover that says exactly: "Here is the product that delivers hydrating finish and easy application."',
+    )
+    expect(payload.creativePlan?.storyboard[1]?.renderPrompt).toContain(
+      'End with a spoken CTA that says exactly: "Shop now on TikTok".',
+    )
+    expect(payload.creativePlan?.storyboard[1]?.renderPrompt).toContain(
+      'If any readable on-screen CTA text appears, it must be exactly "Shop now on TikTok" in Latin letters only. Do not translate or replace it.',
+    )
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
+      'Avoid foreign-language characters, translated captions, extra UI text, logos, or watermarks.',
     )
     expect(payload.creativePlan?.voiceoverScript).not.toContain('Hook the viewer fast')
     expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
@@ -101,6 +110,60 @@ describe('POST /api/guided/creative-plan', () => {
     expect(response.status).toBe(200)
     expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
       'Here is the product that delivers the clearest product benefit.',
+    )
+  })
+
+  it('summarizes long product highlight lists into a usable voiceover benefit', async () => {
+    const formData = buildBaseFormData()
+
+    formData.set(
+      'guidedSummary',
+      'Portable massage gun (UNEED UMG102) — compact handheld percussive therapy device in a dark matte finish with ergonomic pistol grip.',
+    )
+    formData.set(
+      'productHighlights',
+      '3200RPM HIGH ENERGY MAGNETIC MOTOR, DEEP MUSCLE RELAXATION, 6 SPEED ADJUSTMENT MODE, 4 TYPE NOZZLE MASSAGE HEAD, LIGHT & COMPACT TRAVEL SIZE',
+    )
+
+    const response = await POST(createRequest(formData))
+    const payload = (await response.json()) as {
+      creativePlan?: {
+        storyboard: Array<{ voiceoverLine: string }>
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
+      'Here is the product that delivers 3200RPM HIGH ENERGY MAGNETIC MOTOR, DEEP MUSCLE RELAXATION, and 6 SPEED ADJUSTMENT MODE.',
+    )
+  })
+
+  it('builds Indonesian voiceover lines when the output language is id', async () => {
+    const formData = buildBaseFormData()
+
+    formData.set('outputLanguage', 'id')
+    formData.set(
+      'guidedSummary',
+      'Tampilkan manfaat produk dari hook hingga penutup dengan fokus pada pemulihan setelah olahraga.',
+    )
+
+    const response = await POST(createRequest(formData))
+    const payload = (await response.json()) as {
+      creativePlan?: {
+        ctaOptions: Array<{ label: string }>
+        storyboard: Array<{ renderPrompt: string; voiceoverLine: string }>
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
+      'Inilah produk yang menghadirkan hydrating finish and easy application.',
+    )
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
+      'Spoken narration language: Bahasa Indonesia only, with natural Indonesian pronunciation.',
+    )
+    expect(payload.creativePlan?.ctaOptions[0]?.label).toBe(
+      'Belanja sekarang di TikTok',
     )
   })
 

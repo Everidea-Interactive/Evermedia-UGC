@@ -60,6 +60,8 @@ export type ImageModelOption = 'nano-banana'
 export type VideoModelOption =
   | 'veo-3.1'
   | 'seedance-1.5-pro'
+  | 'seedance-2'
+  | 'kling-3.0'
 export type KieAnalysisModel =
   | 'gemini-2.5-flash'
   | 'claude-sonnet-4-6'
@@ -105,6 +107,7 @@ export type NamedAssetKey =
   | 'face2'
   | 'clothing'
   | 'location'
+  | 'firstFrame'
   | 'endFrame'
 
 export type AssetSlot = {
@@ -328,11 +331,31 @@ export type KiePricingMatrix = {
       promptOnly: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       withReference: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
     }
+    'kling-3.0': {
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+    }
     'veo-3.1': {
-      promptOnly: GenerationCostRate
-      withReference: GenerationCostRate
+      promptOnly: Record<VideoResolution, GenerationCostRate>
+      withReference: Record<VideoResolution, GenerationCostRate>
     }
     'seedance-1.5-pro': {
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+    }
+    'seedance-2': {
       promptOnly: Record<
         VideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>

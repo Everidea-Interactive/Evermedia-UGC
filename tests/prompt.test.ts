@@ -268,4 +268,122 @@ describe('video duration prompt wording', () => {
     expect(extendedPrompt).toContain('Clip intent: 12-second pacing.')
     expect(veoExtendedPrompt).toContain('Clip intent: 8-second pacing.')
   })
+
+  it('uses Seedance 2.0 clip lengths in video prompts', () => {
+    const basePrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    const extendedPrompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'extended',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(basePrompt).toContain('Clip intent: 5-second pacing.')
+    expect(extendedPrompt).toContain('Clip intent: 10-second pacing.')
+  })
+
+  it('omits end-frame wording for video models that do not support it', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [
+        makeAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 4,
+          remoteUrl: 'https://example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(prompt).not.toContain('Use End Frame as the end-frame guidance when supported.')
+  })
+
+  it('describes dedicated first and last frames for Seedance 2.0 while keeping other references separate', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [
+        makeAsset({
+          fieldName: 'asset_firstFrame',
+          key: 'firstFrame',
+          label: 'First Frame',
+          order: 90,
+          remoteUrl: 'https://example.com/first-frame.png',
+        }),
+        makeAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://example.com/reference-1.png',
+        }),
+        makeAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          label: 'End Frame',
+          order: 101,
+          remoteUrl: 'https://example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'seedance-2',
+      workspace: 'video',
+    })
+
+    expect(prompt).toContain(
+      'First frame: First Frame. Treat this as the required opening frame anchor and preserve its exact composition, subject identity, and scene setup at the start of the clip.',
+    )
+    expect(prompt).toContain(
+      'Reference 1: Reference 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
+    )
+    expect(prompt).toContain('Use End Frame as the end-frame guidance when supported.')
+  })
 })
