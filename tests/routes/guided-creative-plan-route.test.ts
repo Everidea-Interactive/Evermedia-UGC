@@ -64,14 +64,44 @@ describe('POST /api/guided/creative-plan', () => {
     const payload = (await response.json()) as {
       creativePlan?: {
         ctaOptions: Array<{ id: string }>
-        storyboard: Array<{ slug: string; renderPrompt: string }>
+        storyboard: Array<{ renderPrompt: string; slug: string; voiceoverLine: string }>
+        voiceoverScript: string
       }
     }
 
     expect(response.status).toBe(200)
     expect(payload.creativePlan?.ctaOptions.length).toBeGreaterThan(0)
     expect(payload.creativePlan?.storyboard).toHaveLength(2)
-    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain('Objective:')
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).not.toContain('Objective:')
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).not.toContain('Voiceover cue:')
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
+      'No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.',
+    )
+    expect(payload.creativePlan?.voiceoverScript).not.toContain('Hook the viewer fast')
+    expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
+      'Here is the product that delivers hydrating finish and easy application.',
+    )
+  })
+
+  it('keeps instructional highlight text out of the final voiceover line', async () => {
+    const formData = buildBaseFormData()
+
+    formData.set(
+      'productHighlights',
+      'yakinkan pengguna dengan bahasa yang jelas terhadap audiens terhadap keunggulan produk',
+    )
+
+    const response = await POST(createRequest(formData))
+    const payload = (await response.json()) as {
+      creativePlan?: {
+        storyboard: Array<{ voiceoverLine: string }>
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
+      'Here is the product that delivers the clearest product benefit.',
+    )
   })
 
   it('rejects unsupported brief values', async () => {

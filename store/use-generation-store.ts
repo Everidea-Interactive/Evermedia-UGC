@@ -309,10 +309,10 @@ function composeStoryboardRenderPrompt(shot: StoryboardShot) {
   const segments = [
     shot.visualPrompt,
     shot.environmentPrompt,
-    shot.objective ? `Objective: ${shot.objective}` : '',
-    shot.voiceoverLine ? `Voiceover cue: ${shot.voiceoverLine}` : '',
-    shot.soundPrompt ? `Sound cue: ${shot.soundPrompt}` : '',
-    shot.ctaText ? `End with CTA text: ${shot.ctaText}.` : '',
+    shot.ctaText
+      ? 'End on a decisive purchase-intent visual payoff without rendering any on-screen CTA text.'
+      : '',
+    'No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.',
   ]
 
   return segments

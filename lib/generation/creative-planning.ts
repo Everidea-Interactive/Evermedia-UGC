@@ -62,6 +62,22 @@ function normalizeSentence(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function pickVoiceoverBenefit(highlight: string) {
+  const normalized = normalizeSentence(highlight).replace(/[.!?]+$/, '')
+
+  if (!normalized) {
+    return 'the clearest product benefit'
+  }
+
+  const looksInstructional =
+    normalized.split(' ').length > 10 ||
+    /(audience|bahasa|caption|cta|explain|instruction|jelas|jelaskan|mention|pengguna|prompt|sampaikan|show|tell|voiceover|yakinkan)/i.test(
+      normalized,
+    )
+
+  return looksInstructional ? 'the clearest product benefit' : normalized
+}
+
 function buildMessageAngle(input: {
   brief: CreativeBrief
   plan: GuidedAnalysisPlan
@@ -120,20 +136,28 @@ function buildVoiceoverScript(input: {
   brief: CreativeBrief
   plan: GuidedAnalysisPlan
 }) {
+  const benefitFocus = pickVoiceoverBenefit(input.brief.productHighlights)
+
   return input.plan.shots
     .map((shot, index) => {
-      const opening =
-        index === 0
-          ? `Hook the viewer fast by framing ${shot.title.toLowerCase()}.`
-          : `Continue with ${shot.title.toLowerCase()}.`
-      const highlight = input.brief.productHighlights.trim()
+      if (index === 0) {
+        return normalizeSentence(
+          `Here is the product that delivers ${benefitFocus}.`,
+        )
+      }
+
+      if (index === input.plan.shots.length - 1) {
+        return normalizeSentence(
+          input.brief.goal === 'conversion'
+            ? `Take a closer look and decide if this is the right fit for you.`
+            : `See the result clearly and decide if it fits what you need.`,
+        )
+      }
 
       return normalizeSentence(
-        `${opening} ${
-          highlight
-            ? `Mention ${highlight} naturally in this beat.`
-            : 'Focus on the most tangible product benefit in this beat.'
-        }`,
+        input.brief.goal === 'consideration'
+          ? `It keeps the experience focused on ${benefitFocus} in a way that feels easy to trust.`
+          : `It keeps the focus on ${benefitFocus} with a clear, easy-to-follow payoff.`,
       )
     })
     .join('\n')
@@ -191,10 +215,11 @@ function buildStoryboardShot(input: {
     })}`,
   )
   const ctaText = input.index === input.plan.shots.length - 1 ? input.cta.label : ''
+  const endingVisualDirection = ctaText
+    ? 'End on a decisive purchase-intent visual payoff without rendering any on-screen CTA text.'
+    : ''
   const renderPrompt = normalizeSentence(
-    `${visualPrompt} ${environmentPrompt} Objective: ${objective} ${input.messageAngle} ${
-      ctaText ? `End with CTA text: ${ctaText}.` : ''
-    }`,
+    `${visualPrompt} ${environmentPrompt} ${endingVisualDirection} No subtitles, captions, logos, watermarks, UI text, or foreign-language characters.`,
   )
 
   return {
