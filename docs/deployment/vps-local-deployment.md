@@ -337,7 +337,7 @@ That log output is usually the fastest way to see whether the problem is missing
 
 Nginx acts as the public web server in front of the Node.js app.
 
-The app itself runs on port `3000`, but visitors should connect through Nginx on ports `80` and later `443` if you add TLS.
+The app itself runs on the internal port configured in `ecosystem.config.cjs` (the checked-in PM2 config currently uses `3001`), but visitors should connect through Nginx on ports `80` and later `443` if you add TLS.
 
 Open the shipped Nginx config:
 
@@ -352,6 +352,14 @@ server_name your-domain.com;
 ```
 
 Replace `your-domain.com` with your real domain.
+
+Keep the Nginx upstream port aligned with the `PORT` value in `ecosystem.config.cjs`.
+
+Keep this upload setting in the server block so generation requests with staged image files are not rejected by Nginx before they reach Next.js:
+
+```nginx
+client_max_body_size 25m;
+```
 
 Copy the config into Nginx:
 

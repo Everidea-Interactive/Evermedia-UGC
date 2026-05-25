@@ -37,6 +37,14 @@ function isHtmlResponse(contentType: string, text: string) {
   return contentType.includes('text/html') || /^\s*</.test(text)
 }
 
+function getProxyErrorMessage(status: number, fallbackMessage: string) {
+  if (status === 413) {
+    return `${fallbackMessage} Uploaded generation assets exceeded the server upload limit.`
+  }
+
+  return null
+}
+
 export async function readJsonResponse<T>(
   response: Response,
   fallbackMessage: string,
@@ -59,6 +67,15 @@ export async function readJsonResponse<T>(
     if (isHtmlResponse(contentType, text)) {
       if (response.status === 401 || response.status === 403) {
         throw new Error('Your session expired. Sign in again and retry.')
+      }
+
+      const proxyErrorMessage = getProxyErrorMessage(
+        response.status,
+        fallbackMessage,
+      )
+
+      if (proxyErrorMessage) {
+        throw new Error(proxyErrorMessage)
       }
 
       throw new Error(`${fallbackMessage} The server returned HTML instead of JSON.`)

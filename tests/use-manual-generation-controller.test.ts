@@ -157,4 +157,49 @@ describe('useManualGenerationController', () => {
     )
     expect(useGenerationStore.getState().generationRun.status).toBe('error')
   })
+
+  it('surfaces a specific message when a reverse proxy rejects the upload with 413', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<html><h1>413 Content Too Large</h1></html>', {
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+          },
+          status: 413,
+        }),
+      ),
+    )
+
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+    useGenerationStore.getState().setTextPrompt('Render a hero product image')
+
+    const { useManualGenerationController } = await import(
+      '@/components/dashboard/use-manual-generation-controller'
+    )
+
+    const { result } = renderHook(() =>
+      useManualGenerationController({
+        enabled: true,
+        kiePricing: null,
+        kieStatus: {
+          connected: true,
+          credits: 200,
+          error: null,
+          fetchedAt: null,
+          source: 'user-credits',
+        },
+        pricingError: null,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.handleGenerate()
+    })
+
+    expect(useGenerationStore.getState().generationRun.error).toBe(
+      'Unable to start generation. Uploaded generation assets exceeded the server upload limit. Reduce the image size or raise the reverse-proxy body limit.',
+    )
+    expect(useGenerationStore.getState().generationRun.status).toBe('error')
+  })
 })
