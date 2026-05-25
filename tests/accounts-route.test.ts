@@ -38,7 +38,7 @@ function createAccountsRequest(fields: Record<string, string>) {
     formData.set(key, value)
   }
 
-  return new Request('https://example.com/api/accounts', {
+  return new Request('http://127.0.0.1:3000/api/accounts', {
     body: formData,
     method: 'POST',
   })
@@ -47,6 +47,7 @@ function createAccountsRequest(fields: Record<string, string>) {
 describe('POST /api/accounts', () => {
   beforeEach(() => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
+    vi.stubEnv('SUPABASE_AUTH_REDIRECT_URL', 'https://studio.evermedia.id')
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
       canManageAccounts: true,
       email: 'owner@example.com',
@@ -87,6 +88,9 @@ describe('POST /api/accounts', () => {
       userId: 'managed-1',
     })
     expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe(
+      'https://studio.evermedia.id/accounts?notice=created',
+    )
   })
 
   it('updates a managed user password', async () => {

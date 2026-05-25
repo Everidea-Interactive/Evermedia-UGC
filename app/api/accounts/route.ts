@@ -7,6 +7,7 @@ import {
   setManagedAccountRoles,
   type ManagedAccountRole,
 } from '@/lib/auth/access-repository'
+import { getConfiguredAppBaseUrl } from '@/lib/auth/navigation'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   createManagedAuthUser,
@@ -15,8 +16,8 @@ import {
 
 export const runtime = 'nodejs'
 
-function redirectToAccounts(params: Record<string, string>) {
-  const url = new URL('/accounts', 'https://example.com')
+function redirectToAccounts(requestUrl: URL, params: Record<string, string>) {
+  const url = new URL('/accounts', getConfiguredAppBaseUrl(requestUrl))
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
@@ -55,8 +56,10 @@ function mapRouteError(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const requestUrl = new URL(request.url)
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return redirectToAccounts({
+    return redirectToAccounts(requestUrl, {
       error: 'missing_service_role',
     })
   }
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
         typeof password !== 'string' ||
         password.length === 0
       ) {
-        return redirectToAccounts({ error: 'missing_fields' })
+        return redirectToAccounts(requestUrl, { error: 'missing_fields' })
       }
 
       const createdUser = await createManagedAuthUser({
@@ -95,7 +98,7 @@ export async function POST(request: Request) {
         userId: createdUser.id,
       })
 
-      return redirectToAccounts({ notice: 'created' })
+      return redirectToAccounts(requestUrl, { notice: 'created' })
     }
 
     if (intent === 'set_password') {
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
         typeof userId !== 'string' ||
         userId.length === 0
       ) {
-        return redirectToAccounts({ error: 'missing_fields' })
+        return redirectToAccounts(requestUrl, { error: 'missing_fields' })
       }
 
       await updateManagedAuthUserPassword({
@@ -116,14 +119,14 @@ export async function POST(request: Request) {
         userId,
       })
 
-      return redirectToAccounts({ notice: 'password_updated' })
+      return redirectToAccounts(requestUrl, { notice: 'password_updated' })
     }
 
     if (intent === 'disable') {
       const userId = formData.get('userId')
 
       if (typeof userId !== 'string' || userId.length === 0) {
-        return redirectToAccounts({ error: 'missing_fields' })
+        return redirectToAccounts(requestUrl, { error: 'missing_fields' })
       }
 
       await disableManagedAccount({
@@ -131,14 +134,14 @@ export async function POST(request: Request) {
         userId,
       })
 
-      return redirectToAccounts({ notice: 'disabled' })
+      return redirectToAccounts(requestUrl, { notice: 'disabled' })
     }
 
     if (intent === 'enable') {
       const userId = formData.get('userId')
 
       if (typeof userId !== 'string' || userId.length === 0) {
-        return redirectToAccounts({ error: 'missing_fields' })
+        return redirectToAccounts(requestUrl, { error: 'missing_fields' })
       }
 
       await enableManagedAccount({
@@ -146,14 +149,14 @@ export async function POST(request: Request) {
         userId,
       })
 
-      return redirectToAccounts({ notice: 'enabled' })
+      return redirectToAccounts(requestUrl, { notice: 'enabled' })
     }
 
     if (intent === 'set_roles') {
       const userId = formData.get('userId')
 
       if (typeof userId !== 'string' || userId.length === 0) {
-        return redirectToAccounts({ error: 'missing_fields' })
+        return redirectToAccounts(requestUrl, { error: 'missing_fields' })
       }
 
       await setManagedAccountRoles({
@@ -162,13 +165,13 @@ export async function POST(request: Request) {
         userId,
       })
 
-      return redirectToAccounts({ notice: 'roles_updated' })
+      return redirectToAccounts(requestUrl, { notice: 'roles_updated' })
     }
   } catch (error) {
-    return redirectToAccounts({
+    return redirectToAccounts(requestUrl, {
       error: mapRouteError(error),
     })
   }
 
-  return redirectToAccounts({ error: 'unknown_intent' })
+  return redirectToAccounts(requestUrl, { error: 'unknown_intent' })
 }
