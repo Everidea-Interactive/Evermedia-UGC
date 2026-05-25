@@ -107,6 +107,7 @@ export type NamedAssetKey =
   | 'face2'
   | 'clothing'
   | 'location'
+  | 'brandLogo'
   | 'firstFrame'
   | 'endFrame'
 

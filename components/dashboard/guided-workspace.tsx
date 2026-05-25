@@ -312,6 +312,16 @@ function createGuidedEstimateInput(input: {
   return {
     activeTab: input.activeTab,
     assets: {
+      brandLogo: {
+        error: null,
+        file: null,
+        id: 'guided-brand-logo',
+        label: 'Brand Logo',
+        mimeType: null,
+        previewUrl: null,
+        size: null,
+        uploadStatus: 'idle' as const,
+      },
       clothing: {
         error: null,
         file: null,

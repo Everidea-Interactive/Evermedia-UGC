@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Brush,
+  Copyright,
   CupSoda,
   Gem,
   House,
@@ -304,5 +305,17 @@ export const styleReferenceCards: Array<{
     icon: MapPin,
     key: 'location',
     label: 'Location',
+  },
+]
+
+export const miscReferenceCards: Array<{
+  icon: LucideIcon
+  key: Extract<NamedAssetKey, 'brandLogo'>
+  label: string
+}> = [
+  {
+    icon: Copyright,
+    key: 'brandLogo',
+    label: 'Brand Logo',
   },
 ]

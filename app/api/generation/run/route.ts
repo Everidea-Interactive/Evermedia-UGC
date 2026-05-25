@@ -51,6 +51,11 @@ function createEstimateSlot(input: {
 
 function createEmptyNamedAssetSlots(): NamedAssetSlots {
   return {
+    brandLogo: createEstimateSlot({
+      file: null,
+      id: 'brandLogo',
+      label: 'Brand Logo',
+    }),
     clothing: createEstimateSlot({
       file: null,
       id: 'clothing',

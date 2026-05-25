@@ -94,6 +94,7 @@ const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face2',
   'clothing',
   'location',
+  'brandLogo',
 ]
 
 function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {

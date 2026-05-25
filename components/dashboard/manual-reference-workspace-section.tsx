@@ -3,6 +3,7 @@
 import { Image, Package2, ScanLine } from 'lucide-react'
 
 import {
+  miscReferenceCards,
   peopleReferenceCards,
   styleReferenceCards,
 } from '@/components/dashboard/manual-workspace-config'
@@ -143,18 +144,33 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               </ReferenceCardGroup>
             </div>
 
-            <ReferenceCardGroup className="xl:self-start" title="Products">
-              {productSlots.map((product) => (
-                <ReferenceCard
-                  icon={Package2}
-                  inputId={`product-${product.id}`}
-                  key={product.id}
-                  onClear={() => clearProductSlot(product.id)}
-                  onSelect={(file) => setProductSlotFile(product.id, file)}
-                  slot={product}
-                />
-              ))}
-            </ReferenceCardGroup>
+            <div className="grid gap-5">
+              <ReferenceCardGroup className="xl:self-start" title="Products">
+                {productSlots.map((product) => (
+                  <ReferenceCard
+                    icon={Package2}
+                    inputId={`product-${product.id}`}
+                    key={product.id}
+                    onClear={() => clearProductSlot(product.id)}
+                    onSelect={(file) => setProductSlotFile(product.id, file)}
+                    slot={product}
+                  />
+                ))}
+              </ReferenceCardGroup>
+
+              <ReferenceCardGroup className="xl:self-start" title="Brand Assets">
+                {miscReferenceCards.map((asset) => (
+                  <ReferenceCard
+                    icon={asset.icon}
+                    inputId={`asset-${asset.key}`}
+                    key={asset.key}
+                    onClear={() => clearNamedAsset(asset.key)}
+                    onSelect={(file) => setNamedAssetFile(asset.key, file)}
+                    slot={assets[asset.key]}
+                  />
+                ))}
+              </ReferenceCardGroup>
+            </div>
           </div>
         )}
       </div>

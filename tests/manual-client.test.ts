@@ -21,6 +21,7 @@ function createSlot(id: string, label: string, file: File | null): AssetSlot {
 
 function createNamedAssets(): NamedAssetSlots {
   return {
+    brandLogo: createSlot('brandLogo', 'Brand Logo', null),
     clothing: createSlot('clothing', 'Clothing', null),
     endFrame: createSlot('endFrame', 'End Frame', null),
     firstFrame: createSlot('firstFrame', 'First Frame', null),

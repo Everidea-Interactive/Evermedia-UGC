@@ -182,6 +182,7 @@ export function compileGenerationPrompt(input: {
   const productReference = products[0] ?? null
   const clothingReference = named.get('clothing') ?? null
   const locationReference = named.get('location') ?? null
+  const brandLogoReference = named.get('brandLogo') ?? null
   const explicitlyDescribedFieldNames = new Set<string>(
     [firstFrame?.fieldName, endFrame?.fieldName].filter(
       (value): value is string => Boolean(value),
@@ -303,6 +304,13 @@ export function compileGenerationPrompt(input: {
       promptParts.push(
         `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
       )
+    }
+
+    if (brandLogoReference) {
+      promptParts.push(
+        `Brand logo reference: ${brandLogoReference.label}. Use it for brand logo-placement, color palette guidance, and visual identity cues. Integrate the logo naturally into the composition.`,
+      )
+      explicitlyDescribedFieldNames.add(brandLogoReference.fieldName)
     }
   }
 

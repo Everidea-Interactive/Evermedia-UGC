@@ -342,6 +342,7 @@ function createInitialState(): GenerationStateShape {
     analysisError: null,
     analysisStatus: 'idle',
     assets: {
+      brandLogo: createSlot('brandLogo', 'Brand Logo'),
       clothing: createSlot('clothing', 'Clothing'),
       endFrame: createSlot('endFrame', 'End Frame'),
       firstFrame: createSlot('firstFrame', 'First Frame'),

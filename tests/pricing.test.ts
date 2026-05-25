@@ -203,6 +203,7 @@ function createSlot(id: string, label: string, loaded = false): AssetSlot {
 
 function createAssets(overrides: Partial<NamedAssetSlots> = {}): NamedAssetSlots {
   return {
+    brandLogo: createSlot('brandLogo', 'Brand Logo'),
     clothing: createSlot('clothing', 'Clothing'),
     endFrame: createSlot('endFrame', 'End Frame'),
     firstFrame: createSlot('firstFrame', 'First Frame'),

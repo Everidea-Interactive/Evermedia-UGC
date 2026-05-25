@@ -63,7 +63,7 @@ const KIE_COMMON_DOWNLOAD_URL_ENDPOINT = `${KIE_API_BASE_URL}/api/v1/common/down
 export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
 const NANO_BANANA_REFERENCE_LIMIT = 3
-const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'firstFrame', 'endFrame'] as const
+const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'brandLogo', 'firstFrame', 'endFrame'] as const
 const kieCreditSources: Array<{
   endpoint: string
   source: KieStatusSource
