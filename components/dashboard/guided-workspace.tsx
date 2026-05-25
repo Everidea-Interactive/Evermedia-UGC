@@ -34,6 +34,7 @@ import {
   buildCreativePlanningFormData,
   buildGuidedAnalysisFormData,
   buildGuidedGenerationFormData,
+  readJsonResponse,
 } from '@/lib/generation/client'
 import {
   clampGuidedShotCount,
@@ -2073,9 +2074,11 @@ export function GuidedWorkspace({
         body: formData,
         method: 'POST',
       })
-      const payload = (await response.json()) as GenerationRun & {
-        error?: string
-      }
+      const payload = await readJsonResponse<
+        GenerationRun & {
+          error?: string
+        }
+      >(response, 'Unable to start guided generation.')
 
       if (!response.ok) {
         throw new Error(payload.error ?? 'Unable to start guided generation.')

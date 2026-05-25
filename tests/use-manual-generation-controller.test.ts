@@ -3,17 +3,25 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/generation/client', () => ({
-  buildGenerationFormData: () => ({
-    assetManifest: [],
-    formData: new FormData(),
-  }),
-  getAssetPreviewUrl: vi.fn(),
-  getGenerationValidation: () => ({
-    canGenerate: true,
-    reason: null,
-  }),
-}))
+vi.mock('@/lib/generation/client', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/generation/client')>(
+      '@/lib/generation/client',
+    )
+
+  return {
+    ...actual,
+    buildGenerationFormData: () => ({
+      assetManifest: [],
+      formData: new FormData(),
+    }),
+    getAssetPreviewUrl: vi.fn(),
+    getGenerationValidation: () => ({
+      canGenerate: true,
+      reason: null,
+    }),
+  }
+})
 
 vi.mock('@/lib/generation/pricing', () => ({
   getGenerationCostEstimate: () => ({
@@ -40,8 +48,9 @@ describe('useManualGenerationController', () => {
   it('submits a generation request and hydrates the returned run', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        json: async () => ({
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
           completedAt: null,
           createdAt: '2026-05-06T00:00:00.000Z',
           error: null,
@@ -54,9 +63,15 @@ describe('useManualGenerationController', () => {
           status: 'success',
           variants: [],
           workspace: 'image',
-        }),
-        ok: true,
-      }),
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            status: 200,
+          },
+        ),
+      ),
     )
 
     const { useGenerationStore } = await import('@/store/use-generation-store')
@@ -96,5 +111,50 @@ describe('useManualGenerationController', () => {
         status: 'success',
       }),
     )
+  })
+
+  it('surfaces an HTML error response instead of crashing on JSON parsing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<html><h1>Bad Gateway</h1></html>', {
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+          },
+          status: 502,
+        }),
+      ),
+    )
+
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+    useGenerationStore.getState().setTextPrompt('Render a hero product image')
+
+    const { useManualGenerationController } = await import(
+      '@/components/dashboard/use-manual-generation-controller'
+    )
+
+    const { result } = renderHook(() =>
+      useManualGenerationController({
+        enabled: true,
+        kiePricing: null,
+        kieStatus: {
+          connected: true,
+          credits: 200,
+          error: null,
+          fetchedAt: null,
+          source: 'user-credits',
+        },
+        pricingError: null,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.handleGenerate()
+    })
+
+    expect(useGenerationStore.getState().generationRun.error).toBe(
+      'Unable to start generation. The server returned HTML instead of JSON.',
+    )
+    expect(useGenerationStore.getState().generationRun.status).toBe('error')
   })
 })

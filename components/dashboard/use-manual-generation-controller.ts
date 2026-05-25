@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   buildGenerationFormData,
   getGenerationValidation,
+  readJsonResponse,
 } from '@/lib/generation/client'
 import {
   getGenerationCostEstimate,
@@ -313,9 +314,11 @@ export function useManualGenerationController(input: {
         body: formData,
         method: 'POST',
       })
-      const payload = (await response.json()) as GenerationRun & {
-        error?: string
-      }
+      const payload = await readJsonResponse<
+        GenerationRun & {
+          error?: string
+        }
+      >(response, 'Unable to start generation.')
 
       if (!response.ok) {
         throw new Error(payload.error ?? 'Unable to start generation.')

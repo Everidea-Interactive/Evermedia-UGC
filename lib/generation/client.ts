@@ -23,6 +23,55 @@ import {
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 
+function normalizeResponsePreview(text: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+
+  if (!normalized) {
+    return null
+  }
+
+  return normalized.slice(0, 120)
+}
+
+function isHtmlResponse(contentType: string, text: string) {
+  return contentType.includes('text/html') || /^\s*</.test(text)
+}
+
+export async function readJsonResponse<T>(
+  response: Response,
+  fallbackMessage: string,
+) {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+
+  if (contentType.includes('application/json')) {
+    return (await response.json()) as T
+  }
+
+  const text = await response.text().catch(() => '')
+
+  if (!text.trim()) {
+    throw new Error(fallbackMessage)
+  }
+
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    if (isHtmlResponse(contentType, text)) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Your session expired. Sign in again and retry.')
+      }
+
+      throw new Error(`${fallbackMessage} The server returned HTML instead of JSON.`)
+    }
+
+    const preview = normalizeResponsePreview(text)
+
+    throw new Error(
+      preview ? `${fallbackMessage} Unexpected response: ${preview}` : fallbackMessage,
+    )
+  }
+}
+
 const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'face1',
   'face2',
