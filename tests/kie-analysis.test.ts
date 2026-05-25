@@ -82,7 +82,7 @@ describe('KIE analysis adapters', () => {
       ? userContent.find((entry) => entry.type === 'image_url')
       : null
 
-    expect(imageEntry?.image_url.url).toBe(inlineImageUrl)
+    expect(imageEntry?.image_url?.url).toBe(inlineImageUrl)
   })
 
   it('builds the Claude analysis payload with tool calling', () => {

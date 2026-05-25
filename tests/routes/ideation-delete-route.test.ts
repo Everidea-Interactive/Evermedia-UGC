@@ -30,14 +30,17 @@ describe('DELETE /api/ideations/[ideationId]', () => {
 
   it('deletes an owned ideation brief', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: true,
       email: 'owner@example.com',
       id: 'user-1',
+      roles: ['super_admin'],
+      status: 'active',
     })
     vi.mocked(deleteSavedIdeationForUser).mockResolvedValue({
       createdAt: '2026-05-12T00:00:00.000Z',
       id: 'ideation-1',
       inputSnapshot: {
-        analysisModel: 'KIE-ai',
+        analysisModel: 'gemini-2.5-flash',
         briefText: 'Brief',
         contentConcept: 'affiliate',
         contentFormat: 'photos',
@@ -56,6 +59,24 @@ describe('DELETE /api/ideations/[ideationId]', () => {
             keyMessage: 'Message',
             title: 'Concept 1',
             visualDirection: 'Visual',
+          },
+          {
+            angle: 'Angle 2',
+            audience: 'Audience 2',
+            cta: 'CTA 2',
+            hook: 'Hook 2',
+            keyMessage: 'Message 2',
+            title: 'Concept 2',
+            visualDirection: 'Visual 2',
+          },
+          {
+            angle: 'Angle 3',
+            audience: 'Audience 3',
+            cta: 'CTA 3',
+            hook: 'Hook 3',
+            keyMessage: 'Message 3',
+            title: 'Concept 3',
+            visualDirection: 'Visual 3',
           },
         ],
         summary: 'Summary',
@@ -77,8 +98,11 @@ describe('DELETE /api/ideations/[ideationId]', () => {
 
   it('returns 404 when ideation brief is missing', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: true,
       email: 'owner@example.com',
       id: 'user-1',
+      roles: ['super_admin'],
+      status: 'active',
     })
     vi.mocked(deleteSavedIdeationForUser).mockResolvedValue(null)
 

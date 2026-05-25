@@ -96,26 +96,14 @@ describe('auth access control', () => {
 
     expect(
       userHasCapability(
-        {
-          canManageAccounts: false,
-          email: 'member@example.com',
-          id: 'member-1',
-          roles: ['member'],
-          status: 'active',
-        },
+        { roles: ['member'] },
         'manage_accounts',
       ),
     ).toBe(false)
 
     expect(
       userHasCapability(
-        {
-          canManageAccounts: true,
-          email: 'owner@example.com',
-          id: 'owner-1',
-          roles: ['super_admin'],
-          status: 'active',
-        },
+        { roles: ['super_admin'] },
         'manage_accounts',
       ),
     ).toBe(true)

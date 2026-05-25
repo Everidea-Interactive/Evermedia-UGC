@@ -39,7 +39,7 @@ describe('createSupabaseServerClient', () => {
   })
 
   it('writes cookies when the request context allows mutation', async () => {
-    const supabase = (await createSupabaseServerClient()) as {
+    const supabase = (await createSupabaseServerClient()) as unknown as {
       cookies: {
         getAll: () => unknown
         setAll: (
@@ -80,7 +80,7 @@ describe('createSupabaseServerClient', () => {
       )
     })
 
-    const supabase = (await createSupabaseServerClient()) as {
+    const supabase = (await createSupabaseServerClient()) as unknown as {
       cookies: {
         setAll: (
           cookiesToSet: Array<{
@@ -107,7 +107,7 @@ describe('createSupabaseServerClient', () => {
       throw new Error('boom')
     })
 
-    const supabase = (await createSupabaseServerClient()) as {
+    const supabase = (await createSupabaseServerClient()) as unknown as {
       cookies: {
         setAll: (
           cookiesToSet: Array<{

@@ -43,8 +43,11 @@ describe('GET /api/generation/runs/[runId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
   })
 
@@ -67,7 +70,8 @@ describe('GET /api/generation/runs/[runId]', () => {
         shotEnvironment: 'indoor',
         subjectMode: 'lifestyle',
         textPrompt: 'Prompt',
-        videoDuration: 'base',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
         videoModel: 'veo-3.1',
       },
       createdAt: '2026-04-09T00:00:00.000Z',
@@ -132,6 +136,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -180,6 +185,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -223,6 +229,7 @@ describe('GET /api/generation/runs/[runId]', () => {
       error: null,
       model: 'nano-banana-2',
       provider: 'market',
+      experience: 'manual',
       runId: 'run-1',
       selectedVariantId: null,
       startedAt: 0,
@@ -260,7 +267,8 @@ describe('GET /api/generation/runs/[runId]', () => {
         shotEnvironment: 'indoor',
         subjectMode: 'lifestyle',
         textPrompt: 'Prompt',
-        videoDuration: 'base',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
         videoModel: 'veo-3.1',
       },
       run: {
@@ -292,6 +300,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -338,6 +347,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -396,6 +406,7 @@ describe('GET /api/generation/runs/[runId]', () => {
       error: null,
       model: 'nano-banana-2',
       provider: 'market',
+      experience: 'manual',
       runId: 'run-grid',
       selectedVariantId: null,
       startedAt: 0,
@@ -444,6 +455,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -492,6 +504,7 @@ describe('GET /api/generation/runs/[runId]', () => {
             shotEnvironment: 'indoor',
             subjectMode: 'lifestyle',
             textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
             videoDuration: 'base',
             videoModel: 'veo-3.1',
           },
@@ -518,6 +531,7 @@ describe('GET /api/generation/runs/[runId]', () => {
       error: 'Provider failed.',
       model: 'nano-banana-2',
       provider: 'market',
+      experience: 'manual',
       runId: 'run-1',
       selectedVariantId: null,
       startedAt: 0,
@@ -541,3 +555,4 @@ describe('GET /api/generation/runs/[runId]', () => {
     expect(response.status).toBe(200)
   })
 })
+

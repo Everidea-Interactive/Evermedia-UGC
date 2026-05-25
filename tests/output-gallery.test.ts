@@ -31,6 +31,7 @@ function createRun(variants: GenerationVariant[]): GenerationRun {
     completedAt: '2026-04-30T00:00:00.000Z',
     createdAt: '2026-04-30T00:00:00.000Z',
     error: null,
+    experience: 'manual',
     model: 'nano-banana-2',
     provider: 'market',
     runId: 'run-1',

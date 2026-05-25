@@ -62,6 +62,36 @@ import {
 } from '@/lib/persistence/repository'
 import { createGenerationRunState } from '@/lib/persistence/serialization'
 import { POST } from '@/app/api/generation/run/route'
+import type { KiePricingResponse } from '@/lib/generation/types'
+
+function createPricingResponse(): KiePricingResponse {
+  return {
+    creditUsdRate: 0.005,
+    expiresAt: '2026-04-09T01:00:00.000Z',
+    fetchedAt: '2026-04-09T00:00:00.000Z',
+    matrix: {
+      image: {
+        'nano-banana': {
+          '1K': { credits: 8, usd: 0.04 },
+          '2K': { credits: 12, usd: 0.06 },
+          '4K': { credits: 12, usd: 0.06 },
+        },
+      },
+      video: {
+        'veo-3.1': {
+          promptOnly: {
+            credits: 60,
+            usd: 0.3,
+          },
+          withReference: {
+            credits: 60,
+            usd: 0.3,
+          },
+        },
+      },
+    } as unknown as KiePricingResponse['matrix'],
+  }
+}
 
 describe('POST /api/generation/run', () => {
   beforeEach(() => {
@@ -73,145 +103,16 @@ describe('POST /api/generation/run', () => {
       fetchedAt: '2026-04-09T00:00:00.000Z',
       source: 'chat-credit',
     })
-    vi.mocked(getKiePricing).mockResolvedValue({
-      creditUsdRate: 0.005,
-      expiresAt: '2026-04-09T01:00:00.000Z',
-      fetchedAt: '2026-04-09T00:00:00.000Z',
-      matrix: {
-        image: {
-          'grok-imagine': {
-            promptOnly: {
-              credits: 4,
-              usd: 0.02,
-            },
-            withReference: {
-              credits: 4,
-              usd: 0.02,
-            },
-          },
-          'nano-banana': {
-            '1K': {
-              credits: 8,
-              usd: 0.04,
-            },
-            '2K': {
-              credits: 12,
-              usd: 0.06,
-            },
-            '4K': {
-              credits: 12,
-              usd: 0.06,
-            },
-          },
-        },
-        video: {
-          'grok-imagine': {
-            promptOnly: {
-              '1080p': {
-                base: {
-                  credits: 18,
-                  usd: 0.09,
-                },
-                extended: {
-                  credits: 30,
-                  usd: 0.15,
-                },
-              },
-              '4k': {
-                base: {
-                  credits: 9.6,
-                  usd: 0.048,
-                },
-                extended: {
-                  credits: 16,
-                  usd: 0.08,
-                },
-              },
-              '720p': {
-                base: {
-                  credits: 9.6,
-                  usd: 0.048,
-                },
-                extended: {
-                  credits: 16,
-                  usd: 0.08,
-                },
-              },
-            },
-            withReference: {
-              '1080p': {
-                base: {
-                  credits: 18,
-                  usd: 0.09,
-                },
-                extended: {
-                  credits: 30,
-                  usd: 0.15,
-                },
-              },
-              '4k': {
-                base: {
-                  credits: 9.6,
-                  usd: 0.048,
-                },
-                extended: {
-                  credits: 16,
-                  usd: 0.08,
-                },
-              },
-              '720p': {
-                base: {
-                  credits: 9.6,
-                  usd: 0.048,
-                },
-                extended: {
-                  credits: 16,
-                  usd: 0.08,
-                },
-              },
-            },
-          },
-          kling: {
-            promptOnly: {
-              base: {
-                credits: 55,
-                usd: 0.275,
-              },
-              extended: {
-                credits: 110,
-                usd: 0.55,
-              },
-            },
-            withReference: {
-              base: {
-                credits: 55,
-                usd: 0.275,
-              },
-              extended: {
-                credits: 110,
-                usd: 0.55,
-              },
-            },
-          },
-          'veo-3.1': {
-            promptOnly: {
-              credits: 60,
-              usd: 0.3,
-            },
-            withReference: {
-              credits: 60,
-              usd: 0.3,
-            },
-          },
-        },
-      },
-    })
+    vi.mocked(getKiePricing).mockResolvedValue(createPricingResponse())
   })
 
   it('submits a generation run and persists the run metadata', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(parseGenerationFormData).mockReturnValue({
       activeModel: 'nano-banana',
@@ -230,6 +131,7 @@ describe('POST /api/generation/run', () => {
       shotEnvironment: 'indoor',
       subjectMode: 'lifestyle',
       textPrompt: 'Prompt',
+      videoAudio: 'no-audio',
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
@@ -277,7 +179,8 @@ describe('POST /api/generation/run', () => {
         shotEnvironment: 'indoor',
         subjectMode: 'lifestyle',
         textPrompt: 'Prompt',
-        videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
         videoModel: 'veo-3.1',
       },
       createdAt: '2026-04-09T00:00:00.000Z',
@@ -311,7 +214,8 @@ describe('POST /api/generation/run', () => {
           shotEnvironment: 'indoor',
           subjectMode: 'lifestyle',
           textPrompt: 'Prompt',
-          videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
           videoModel: 'veo-3.1',
         },
         createdAt: '2026-04-09T00:00:00.000Z',
@@ -331,6 +235,7 @@ describe('POST /api/generation/run', () => {
       error: null,
       model: 'nano-banana-2',
       provider: 'market',
+      experience: 'manual',
       runId: 'run-1',
       selectedVariantId: null,
       startedAt: 0,
@@ -385,8 +290,11 @@ describe('POST /api/generation/run', () => {
 
   it('returns 402 when the user does not have enough KIE credits', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(getKieStatus).mockResolvedValue({
       connected: true,
@@ -412,6 +320,7 @@ describe('POST /api/generation/run', () => {
       shotEnvironment: 'indoor',
       subjectMode: 'lifestyle',
       textPrompt: 'Prompt',
+      videoAudio: 'no-audio',
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
@@ -433,8 +342,11 @@ describe('POST /api/generation/run', () => {
 
   it('returns 400 when request parsing fails with a validation error', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(parseGenerationFormData).mockImplementation(() => {
       throw new GenerationRequestError({
@@ -459,8 +371,11 @@ describe('POST /api/generation/run', () => {
 
   it('returns 503 when upstream KIE submission fails', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(parseGenerationFormData).mockReturnValue({
       activeModel: 'nano-banana',
@@ -507,8 +422,11 @@ describe('POST /api/generation/run', () => {
 
   it('persists guided config metadata for guided runs', async () => {
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(parseGenerationFormData).mockReturnValue({
       activeModel: 'nano-banana',
@@ -522,6 +440,8 @@ describe('POST /api/generation/run', () => {
       figureArtDirection: 'none',
       guided: {
         analysisModel: 'gemini-2.5-flash',
+        creativeBrief: null,
+        creativePlan: null,
         contentConcept: 'driven-ads',
         productUrl: 'https://example.com/product',
         shots: [
@@ -550,6 +470,7 @@ describe('POST /api/generation/run', () => {
       shotEnvironment: 'indoor',
       subjectMode: 'product-only',
       textPrompt: '',
+      videoAudio: 'no-audio',
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
@@ -604,6 +525,8 @@ describe('POST /api/generation/run', () => {
         figureArtDirection: 'none',
         guided: {
           analysisModel: 'gemini-2.5-flash',
+          creativeBrief: null,
+          creativePlan: null,
           contentConcept: 'driven-ads',
           productUrl: 'https://example.com/product',
           shots: [
@@ -632,7 +555,8 @@ describe('POST /api/generation/run', () => {
         shotEnvironment: 'indoor',
         subjectMode: 'product-only',
         textPrompt: '',
-        videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
         videoModel: 'veo-3.1',
       },
       createdAt: '2026-04-09T00:00:00.000Z',
@@ -659,11 +583,13 @@ describe('POST /api/generation/run', () => {
           creativeStyle: 'tv-commercial',
           experience: 'guided',
           figureArtDirection: 'none',
-          guided: {
-            analysisModel: 'gemini-2.5-flash',
-            contentConcept: 'driven-ads',
-            productUrl: 'https://example.com/product',
-            shots: [
+        guided: {
+          analysisModel: 'gemini-2.5-flash',
+          creativeBrief: null,
+          creativePlan: null,
+          contentConcept: 'driven-ads',
+          productUrl: 'https://example.com/product',
+          shots: [
               {
                 prompt: 'Prompt 1',
                 shotEnvironment: 'indoor',
@@ -689,7 +615,8 @@ describe('POST /api/generation/run', () => {
           shotEnvironment: 'indoor',
           subjectMode: 'product-only',
           textPrompt: '',
-          videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
           videoModel: 'veo-3.1',
         },
         createdAt: '2026-04-09T00:00:00.000Z',
@@ -709,6 +636,7 @@ describe('POST /api/generation/run', () => {
       error: null,
       model: 'nano-banana-2',
       provider: 'market',
+      experience: 'guided',
       runId: 'run-guided',
       selectedVariantId: null,
       startedAt: 0,
@@ -752,3 +680,4 @@ describe('POST /api/generation/run', () => {
     )
   })
 })
+

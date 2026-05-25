@@ -15,6 +15,7 @@ function createRun(
     completedAt: null,
     createdAt: null,
     error: null,
+    experience: 'manual',
     model: 'google/nano-banana',
     provider: 'market',
     runId: 'run-1',

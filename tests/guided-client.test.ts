@@ -5,7 +5,11 @@ import {
   buildGuidedGenerationFormData,
   buildIdeationAnalysisFormData,
 } from '@/lib/generation/client'
-import type { AssetSlot, GuidedAnalysisPlan } from '@/lib/generation/types'
+import type {
+  AssetSlot,
+  CreativeBrief,
+  GuidedAnalysisPlan,
+} from '@/lib/generation/types'
 
 function createSlot(id: string, label: string, file: File | null): AssetSlot {
   return {
@@ -49,6 +53,14 @@ const multiShotGuidedPlan: GuidedAnalysisPlan = {
       title: 'Shot 2',
     },
   ],
+}
+
+const creativeBrief: CreativeBrief = {
+  audience: 'broad',
+  goal: 'awareness',
+  platform: 'tiktok',
+  productHighlights: 'Highlight the product benefits quickly.',
+  tone: 'Confident and direct',
 }
 
 describe('guided generation client payloads', () => {
@@ -114,6 +126,8 @@ describe('guided generation client payloads', () => {
     const { assetManifest, formData } = buildGuidedGenerationFormData({
       analysisModel: 'gemini-2.5-flash',
       contentConcept: 'affiliate',
+      creativeBrief,
+      creativePlan: null,
       heroAsset,
       imageModel: 'nano-banana',
       outputQuality: '1080p',
@@ -154,6 +168,8 @@ describe('guided generation client payloads', () => {
       analysisModel: 'gemini-2.5-flash',
       cameraMovement: 'dolly',
       contentConcept: 'driven-ads',
+      creativeBrief,
+      creativePlan: null,
       endFrameAsset,
       heroAsset,
       imageModel: 'nano-banana',
@@ -210,6 +226,8 @@ describe('guided generation client payloads', () => {
       analysisModel: 'gemini-2.5-flash',
       cameraMovement: 'dolly',
       contentConcept: 'driven-ads',
+      creativeBrief,
+      creativePlan: null,
       endFrameAsset,
       heroAsset,
       imageModel: 'nano-banana',

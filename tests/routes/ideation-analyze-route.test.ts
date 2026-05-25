@@ -27,6 +27,7 @@ import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
 import { createSavedIdeationForUser } from '@/lib/persistence/repository'
 import { POST } from '@/app/api/ideation/analyze/route'
+import type { IdeationResult } from '@/lib/generation/types'
 
 const ideationResult = {
   concepts: [
@@ -59,7 +60,7 @@ const ideationResult = {
     },
   ],
   summary: 'Three ideation concepts.',
-}
+} satisfies IdeationResult
 
 function createRequest(formData: FormData) {
   return new Request('http://localhost/api/ideation/analyze', {
@@ -86,8 +87,11 @@ describe('POST /api/ideation/analyze', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
     vi.mocked(getKieApiKey).mockReturnValue('test-key')
     vi.mocked(uploadFileToKie).mockResolvedValue('https://files.example.com/hero.png')

@@ -55,8 +55,11 @@ describe('POST /api/guided/creative-plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
       email: 'user@example.com',
       id: 'user-1',
+      roles: ['member'],
+      status: 'active',
     })
   })
 

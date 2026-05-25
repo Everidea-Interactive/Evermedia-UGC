@@ -25,33 +25,33 @@ function deferred<T>() {
   }
 }
 
-function createPricingResponse(credits: number): KiePricingResponse {
+function createPricingResponse(credits: number) {
   return {
     creditUsdRate: 0.1,
     expiresAt: '2026-05-06T00:00:00.000Z',
     fetchedAt: '2026-05-06T00:00:00.000Z',
     matrix: {
       image: {
-        'gpt-image-2': {
-          promptOnly: {
-            '1K': { credits, usd: 1 },
-            '2K': { credits: credits + 1, usd: 2 },
-            '4K': { credits: credits + 2, usd: 3 },
-          },
-          withReference: {
-            '1K': { credits: credits + 3, usd: 4 },
-            '2K': { credits: credits + 4, usd: 5 },
-            '4K': { credits: credits + 5, usd: 6 },
-          },
+        'nano-banana': {
+          '1K': { credits, usd: 1 },
+          '2K': { credits: credits + 1, usd: 2 },
+          '4K': { credits: credits + 2, usd: 3 },
         },
         'grok-imagine': {
-          promptOnly: { credits: credits + 6, usd: 7 },
-          withReference: { credits: credits + 7, usd: 8 },
+          promptOnly: { credits: credits + 3, usd: 4 },
+          withReference: { credits: credits + 4, usd: 5 },
         },
-        'nano-banana': {
-          '1K': { credits: credits + 8, usd: 9 },
-          '2K': { credits: credits + 9, usd: 10 },
-          '4K': { credits: credits + 10, usd: 11 },
+        'gpt-image-2': {
+          promptOnly: {
+            '1K': { credits: credits + 5, usd: 6 },
+            '2K': { credits: credits + 6, usd: 7 },
+            '4K': { credits: credits + 7, usd: 8 },
+          },
+          withReference: {
+            '1K': { credits: credits + 8, usd: 9 },
+            '2K': { credits: credits + 9, usd: 10 },
+            '4K': { credits: credits + 10, usd: 11 },
+          },
         },
       },
       video: {
@@ -79,43 +79,171 @@ function createPricingResponse(credits: number): KiePricingResponse {
         },
         kling: {
           promptOnly: {
-            base: { credits: credits + 19, usd: 20 },
-            extended: { credits: credits + 20, usd: 21 },
+            'no-audio': {
+              base: { credits: credits + 19, usd: 20 },
+              extended: { credits: credits + 20, usd: 21 },
+            },
+            'with-audio': {
+              base: { credits: credits + 21, usd: 22 },
+              extended: { credits: credits + 22, usd: 23 },
+            },
           },
           withReference: {
-            base: { credits: credits + 21, usd: 22 },
-            extended: { credits: credits + 22, usd: 23 },
-          },
-        },
-        'seedance-1.5-pro': {
-          promptOnly: {
-            '720p': {
+            'no-audio': {
               base: { credits: credits + 23, usd: 24 },
               extended: { credits: credits + 24, usd: 25 },
             },
-            '1080p': {
+            'with-audio': {
               base: { credits: credits + 25, usd: 26 },
               extended: { credits: credits + 26, usd: 27 },
             },
           },
-          withReference: {
+        },
+        'kling-3.0': {
+          promptOnly: {
             '720p': {
-              base: { credits: credits + 27, usd: 28 },
-              extended: { credits: credits + 28, usd: 29 },
+              'no-audio': {
+                base: { credits: credits + 27, usd: 28 },
+                extended: { credits: credits + 28, usd: 29 },
+              },
+              'with-audio': {
+                base: { credits: credits + 29, usd: 30 },
+                extended: { credits: credits + 30, usd: 31 },
+              },
             },
             '1080p': {
-              base: { credits: credits + 29, usd: 30 },
-              extended: { credits: credits + 30, usd: 31 },
+              'no-audio': {
+                base: { credits: credits + 31, usd: 32 },
+                extended: { credits: credits + 32, usd: 33 },
+              },
+              'with-audio': {
+                base: { credits: credits + 33, usd: 34 },
+                extended: { credits: credits + 34, usd: 35 },
+              },
+            },
+          },
+          withReference: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 35, usd: 36 },
+                extended: { credits: credits + 36, usd: 37 },
+              },
+              'with-audio': {
+                base: { credits: credits + 37, usd: 38 },
+                extended: { credits: credits + 38, usd: 39 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 39, usd: 40 },
+                extended: { credits: credits + 40, usd: 41 },
+              },
+              'with-audio': {
+                base: { credits: credits + 41, usd: 42 },
+                extended: { credits: credits + 42, usd: 43 },
+              },
             },
           },
         },
         'veo-3.1': {
-          promptOnly: { credits: credits + 31, usd: 32 },
-          withReference: { credits: credits + 32, usd: 33 },
+          promptOnly: { credits: credits + 43, usd: 44 },
+          withReference: { credits: credits + 44, usd: 45 },
+        },
+        'seedance-1.5-pro': {
+          promptOnly: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 45, usd: 46 },
+                extended: { credits: credits + 46, usd: 47 },
+              },
+              'with-audio': {
+                base: { credits: credits + 47, usd: 48 },
+                extended: { credits: credits + 48, usd: 49 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 49, usd: 50 },
+                extended: { credits: credits + 50, usd: 51 },
+              },
+              'with-audio': {
+                base: { credits: credits + 51, usd: 52 },
+                extended: { credits: credits + 52, usd: 53 },
+              },
+            },
+          },
+          withReference: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 53, usd: 54 },
+                extended: { credits: credits + 54, usd: 55 },
+              },
+              'with-audio': {
+                base: { credits: credits + 55, usd: 56 },
+                extended: { credits: credits + 56, usd: 57 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 57, usd: 58 },
+                extended: { credits: credits + 58, usd: 59 },
+              },
+              'with-audio': {
+                base: { credits: credits + 59, usd: 60 },
+                extended: { credits: credits + 60, usd: 61 },
+              },
+            },
+          },
+        },
+        'seedance-2': {
+          promptOnly: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 61, usd: 62 },
+                extended: { credits: credits + 62, usd: 63 },
+              },
+              'with-audio': {
+                base: { credits: credits + 63, usd: 64 },
+                extended: { credits: credits + 64, usd: 65 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 65, usd: 66 },
+                extended: { credits: credits + 66, usd: 67 },
+              },
+              'with-audio': {
+                base: { credits: credits + 67, usd: 68 },
+                extended: { credits: credits + 68, usd: 69 },
+              },
+            },
+          },
+          withReference: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 69, usd: 70 },
+                extended: { credits: credits + 70, usd: 71 },
+              },
+              'with-audio': {
+                base: { credits: credits + 71, usd: 72 },
+                extended: { credits: credits + 72, usd: 73 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 73, usd: 74 },
+                extended: { credits: credits + 74, usd: 75 },
+              },
+              'with-audio': {
+                base: { credits: credits + 75, usd: 76 },
+                extended: { credits: credits + 76, usd: 77 },
+              },
+            },
+          },
         },
       },
     },
-  }
+  } as unknown as KiePricingResponse
 }
 
 function createStatusResponse(
