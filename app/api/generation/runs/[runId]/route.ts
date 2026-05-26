@@ -5,7 +5,7 @@ import { getTaskStatus } from '@/lib/generation/kie'
 import { splitImageGridBuffer } from '@/lib/media/image-grid'
 import {
   deleteGenerationRunForUser,
-  getGenerationRunBundleForUser,
+  getGenerationRunBundle,
   saveGeneratedOutputBufferForVariant,
   saveGeneratedOutputForVariant,
   syncGenerationRunStatus,
@@ -19,7 +19,7 @@ function getResultFileName(taskId: string, workspace: 'image' | 'video') {
   return `${taskId}.${workspace === 'video' ? 'mp4' : 'png'}`
 }
 
-function isManualImageGridRun(bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundleForUser>>>) {
+function isManualImageGridRun(bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>) {
   return (
     bundle.run.workspace === 'image' &&
     bundle.run.configSnapshot.experience === 'manual'
@@ -47,7 +47,7 @@ export async function GET(
   }
 
   const { runId } = await context.params
-  const bundle = await getGenerationRunBundleForUser(user.id, runId)
+  const bundle = await getGenerationRunBundle(runId)
 
   if (!bundle) {
     return NextResponse.json({ error: 'Run not found' }, { status: 404 })
@@ -148,7 +148,7 @@ export async function GET(
             label: `Variation ${variant.variantIndex} Output`,
             runId,
             sourceUrl: taskState.result.url,
-            userId: user.id,
+            userId: bundle.run.userId,
             variantId: variant.id,
           })
         } catch (error) {
@@ -168,7 +168,7 @@ export async function GET(
     await syncGenerationRunStatus(runId)
   }
 
-  const refreshedBundle = await getGenerationRunBundleForUser(user.id, runId)
+  const refreshedBundle = await getGenerationRunBundle(runId)
 
   if (!refreshedBundle) {
     return NextResponse.json({ error: 'Run not found' }, { status: 404 })

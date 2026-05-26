@@ -301,3 +301,23 @@ export async function listManagedAccounts(): Promise<ManagedAccountListItem[]> {
     }
   })
 }
+
+export async function listManagedAccountEmailsByUserId() {
+  try {
+    const authUsers = await listManagedAuthUsers()
+
+    return new Map(
+      authUsers
+        .filter((user): user is typeof user & { email: string } => typeof user.email === 'string')
+        .map((user) => [user.id, user.email]),
+    )
+  } catch (error) {
+    console.warn(
+      error instanceof Error
+        ? `Unable to resolve managed account emails for Library tags. Falling back to user ids. ${error.message}`
+        : 'Unable to resolve managed account emails for Library tags. Falling back to user ids.',
+    )
+
+    return new Map<string, string>()
+  }
+}

@@ -101,6 +101,7 @@ describe('LibraryPage', () => {
               id: 'output-1',
               label: 'Output 1',
               mimeType: 'image/png',
+              ownerEmail: 'owner-1@example.com',
               originalName: 'output-1.png',
               runId: 'run-1',
               storagePath: '/tmp/output-1.png',
@@ -174,10 +175,9 @@ describe('LibraryPage', () => {
     expect(screen.getByText('Belum ada media tersimpan untuk set media ini.')).toBeTruthy()
   })
 
-  it('shows the account tag on saved sessions', async () => {
+  it('shows the owner tag on saved sessions', async () => {
     render(
       <LibraryPage
-        accountTag="owner@example.com"
         ideations={[]}
         outputs={[
           {
@@ -187,6 +187,7 @@ describe('LibraryPage', () => {
               id: 'output-1',
               label: 'Output 1',
               mimeType: 'image/png',
+              ownerEmail: 'owner-1@example.com',
               originalName: 'output-1.png',
               runId: 'run-1',
               storagePath: '/tmp/output-1.png',
@@ -214,17 +215,52 @@ describe('LibraryPage', () => {
               variantIndex: 1,
             },
           },
+          {
+            output: {
+              createdAt: '2026-05-13T00:00:00.000Z',
+              fileSize: 1024,
+              id: 'output-2',
+              label: 'Output 2',
+              mimeType: 'image/png',
+              ownerEmail: 'owner-2@example.com',
+              originalName: 'output-2.png',
+              runId: 'run-2',
+              storagePath: '/tmp/output-2.png',
+              userId: 'user-2',
+            },
+            run: {
+              completedAt: null,
+              createdAt: '2026-05-13T00:00:00.000Z',
+              id: 'run-2',
+              model: 'model-b',
+              promptSnapshot: 'sample prompt 2',
+              provider: 'market',
+              status: 'success',
+              workspace: 'image',
+            },
+            variant: {
+              completedAt: '2026-05-13T00:00:05.000Z',
+              createdAt: '2026-05-13T00:00:00.000Z',
+              error: null,
+              id: 'variant-2',
+              profile: 'profile 2',
+              prompt: 'prompt 2',
+              status: 'success',
+              taskId: 'task-2',
+              variantIndex: 1,
+            },
+          },
         ]}
       />,
     )
 
-    expect(await screen.findByText('owner@example.com')).toBeTruthy()
+    expect(await screen.findByText('owner-1@example.com')).toBeTruthy()
+    expect(screen.getAllByText('owner-2@example.com').length).toBeGreaterThan(0)
   })
 
-  it('shows the account tag in briefs view', async () => {
+  it('shows the owner tag in briefs view', async () => {
     render(
       <LibraryPage
-        accountTag="owner@example.com"
         ideations={[
           {
             createdAt: '2026-05-12T00:00:00.000Z',
@@ -271,7 +307,56 @@ describe('LibraryPage', () => {
               ],
               summary: 'Test summary',
             },
+            ownerEmail: 'owner-1@example.com',
             userId: 'user-1',
+          },
+          {
+            createdAt: '2026-05-13T00:00:00.000Z',
+            id: 'ideation-2',
+            inputSnapshot: {
+              analysisModel: 'gemini-2.5-flash',
+              briefText: 'Short brief 2',
+              contentConcept: 'affiliate',
+              contentFormat: 'photos',
+              heroImageName: null,
+              heroImageUrl: null,
+              outputLanguage: 'en',
+              productUrl: null,
+            },
+            result: {
+              concepts: [
+                {
+                  angle: 'Angle',
+                  audience: 'Audience',
+                  cta: 'CTA',
+                  hook: 'Hook',
+                  keyMessage: 'Message',
+                  title: 'Concept 1',
+                  visualDirection: 'Visual',
+                },
+                {
+                  angle: 'Angle 2',
+                  audience: 'Audience 2',
+                  cta: 'CTA 2',
+                  hook: 'Hook 2',
+                  keyMessage: 'Message 2',
+                  title: 'Concept 2',
+                  visualDirection: 'Visual 2',
+                },
+                {
+                  angle: 'Angle 3',
+                  audience: 'Audience 3',
+                  cta: 'CTA 3',
+                  hook: 'Hook 3',
+                  keyMessage: 'Message 3',
+                  title: 'Concept 3',
+                  visualDirection: 'Visual 3',
+                },
+              ],
+              summary: 'Test summary 2',
+            },
+            ownerEmail: 'owner-2@example.com',
+            userId: 'user-2',
           },
         ]}
         outputs={[]}
@@ -279,7 +364,8 @@ describe('LibraryPage', () => {
     )
 
     screen.getByRole('button', { name: 'Saved ideation' }).click()
-    expect(await screen.findAllByText('owner@example.com')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Delete brief' })).toBeTruthy()
+    expect(await screen.findAllByText('owner-1@example.com')).toBeTruthy()
+    expect(screen.getAllByText('owner-2@example.com').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'Delete brief' }).length).toBeGreaterThan(0)
   })
 })

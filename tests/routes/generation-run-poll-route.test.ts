@@ -14,7 +14,7 @@ vi.mock('@/lib/media/image-grid', () => ({
 
 vi.mock('@/lib/persistence/repository', () => ({
   deleteGenerationRunForUser: vi.fn(),
-  getGenerationRunBundleForUser: vi.fn(),
+  getGenerationRunBundle: vi.fn(),
   saveGeneratedOutputBufferForVariant: vi.fn(),
   saveGeneratedOutputForVariant: vi.fn(),
   syncGenerationRunStatus: vi.fn(),
@@ -30,7 +30,7 @@ import { getTaskStatus } from '@/lib/generation/kie'
 import { splitImageGridBuffer } from '@/lib/media/image-grid'
 import {
   deleteGenerationRunForUser,
-  getGenerationRunBundleForUser,
+  getGenerationRunBundle,
   saveGeneratedOutputBufferForVariant,
   saveGeneratedOutputForVariant,
   syncGenerationRunStatus,
@@ -115,7 +115,7 @@ describe('GET /api/generation/runs/[runId]', () => {
   })
 
   it('saves newly completed outputs before returning the refreshed run', async () => {
-    vi.mocked(getGenerationRunBundleForUser)
+    vi.mocked(getGenerationRunBundle)
       .mockResolvedValueOnce({
         outputs: [],
         run: {
@@ -279,7 +279,7 @@ describe('GET /api/generation/runs/[runId]', () => {
   })
 
   it('splits one completed manual image grid task into four saved outputs', async () => {
-    vi.mocked(getGenerationRunBundleForUser)
+    vi.mocked(getGenerationRunBundle)
       .mockResolvedValueOnce({
         outputs: [],
         run: {
@@ -434,7 +434,7 @@ describe('GET /api/generation/runs/[runId]', () => {
   })
 
   it('marks provider task failures as variant errors', async () => {
-    vi.mocked(getGenerationRunBundleForUser)
+    vi.mocked(getGenerationRunBundle)
       .mockResolvedValueOnce({
         outputs: [],
         run: {
@@ -553,6 +553,151 @@ describe('GET /api/generation/runs/[runId]', () => {
       }),
     )
     expect(response.status).toBe(200)
+  })
+
+  it('saves refreshed outputs under the run owner when another user reads the shared library run', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
+      email: 'viewer@example.com',
+      id: 'viewer-2',
+      roles: ['member'],
+      status: 'active',
+    })
+    vi.mocked(getGenerationRunBundle)
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: null,
+          configSnapshot: {
+            activeTab: 'image',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-04-09T00:00:00.000Z',
+          id: 'run-owner',
+          model: 'nano-banana-2',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'rendering',
+          userId: 'owner-1',
+          variants: [
+            {
+              completedAt: null,
+              createdAt: '2026-04-09T00:00:00.000Z',
+              error: null,
+              id: 'variant-1',
+              profile: 'Profile 1',
+              prompt: 'Prompt 1',
+              resultAssetId: null,
+              runId: 'run-owner',
+              status: 'rendering',
+              taskId: 'task-1',
+              variantIndex: 1,
+            },
+          ],
+          workspace: 'image',
+        },
+      })
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: '2026-04-09T00:00:05.000Z',
+          configSnapshot: {
+            activeTab: 'image',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-04-09T00:00:00.000Z',
+          id: 'run-owner',
+          model: 'nano-banana-2',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'success',
+          userId: 'owner-1',
+          variants: [],
+          workspace: 'image',
+        },
+      })
+    vi.mocked(getTaskStatus).mockResolvedValue({
+      error: null,
+      result: {
+        model: 'nano-banana-2',
+        taskId: 'task-1',
+        type: 'image',
+        url: 'https://example.com/output.png',
+      },
+      status: 'success',
+      taskId: 'task-1',
+    })
+    vi.mocked(saveGeneratedOutputForVariant).mockResolvedValue({
+      createdAt: '2026-04-09T00:00:05.000Z',
+      fileSize: 123,
+      id: 'output-1',
+      label: 'Variation 1 Output',
+      mimeType: 'image/png',
+      originalName: 'task-1.png',
+      runId: 'run-owner',
+      storagePath: 'owner-1/runs/run-owner/outputs/task-1.png',
+      userId: 'owner-1',
+    })
+    vi.mocked(syncGenerationRunStatus).mockResolvedValue(null)
+    vi.mocked(createGenerationRunState).mockReturnValue({
+      completedAt: '2026-04-09T00:00:05.000Z',
+      createdAt: '2026-04-09T00:00:00.000Z',
+      error: null,
+      model: 'nano-banana-2',
+      provider: 'market',
+      experience: 'manual',
+      runId: 'run-owner',
+      selectedVariantId: null,
+      startedAt: 0,
+      status: 'success',
+      variants: [],
+      workspace: 'image',
+    })
+
+    const response = await GET(new Request('http://localhost/api/generation/runs/run-owner'), {
+      params: Promise.resolve({ runId: 'run-owner' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(saveGeneratedOutputForVariant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-owner',
+        userId: 'owner-1',
+        variantId: 'variant-1',
+      }),
+    )
   })
 })
 

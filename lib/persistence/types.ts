@@ -91,6 +91,7 @@ export type SavedIdeationRecord = {
   createdAt: string
   id: string
   inputSnapshot: IdeationInputSnapshot
+  ownerEmail?: string | null
   result: IdeationResult
   userId: string
 }
@@ -101,6 +102,7 @@ export type SavedOutputRecord = {
   id: string
   label: string
   mimeType: string
+  ownerEmail?: string | null
   originalName: string
   runId: string
   storagePath: string

@@ -265,11 +265,45 @@ export async function getGenerationRunForUser(userId: string, runId: string) {
   return mapRun(runRow, variantRows.map(mapVariant))
 }
 
+export async function getGenerationRun(runId: string) {
+  const db = getDatabase()
+  const [runRow] = await db
+    .select()
+    .from(generationRuns)
+    .where(eq(generationRuns.id, runId))
+    .limit(1)
+
+  if (!runRow) {
+    return null
+  }
+
+  const variantRows = await getVariantRowsForRun(runId)
+
+  return mapRun(runRow, variantRows.map(mapVariant))
+}
+
 export async function getGenerationRunBundleForUser(
   userId: string,
   runId: string,
 ): Promise<GenerationRunBundle | null> {
   const run = await getGenerationRunForUser(userId, runId)
+
+  if (!run) {
+    return null
+  }
+
+  const outputs = await getOutputRowsForRun(runId)
+
+  return {
+    outputs: outputs.map(mapSavedOutput),
+    run,
+  }
+}
+
+export async function getGenerationRunBundle(
+  runId: string,
+): Promise<GenerationRunBundle | null> {
+  const run = await getGenerationRun(runId)
 
   if (!run) {
     return null
@@ -294,6 +328,17 @@ export async function getSavedOutputForUser(userId: string, outputId: string) {
   return row ? mapSavedOutput(row) : null
 }
 
+export async function getSavedOutput(outputId: string) {
+  const db = getDatabase()
+  const [row] = await db
+    .select()
+    .from(savedOutputs)
+    .where(eq(savedOutputs.id, outputId))
+    .limit(1)
+
+  return row ? mapSavedOutput(row) : null
+}
+
 export async function listSavedOutputHistoryForUser(
   userId: string,
 ): Promise<SavedOutputHistoryEntry[]> {
@@ -308,6 +353,45 @@ export async function listSavedOutputHistoryForUser(
     .innerJoin(generationRuns, eq(savedOutputs.runId, generationRuns.id))
     .innerJoin(generationVariants, eq(generationVariants.resultAssetId, savedOutputs.id))
     .where(eq(savedOutputs.userId, userId))
+    .orderBy(desc(savedOutputs.createdAt))
+
+  return rows.map((row) => ({
+    output: mapSavedOutput(row.output),
+    run: {
+      completedAt: row.run.completedAt ? row.run.completedAt.toISOString() : null,
+      createdAt: row.run.createdAt.toISOString(),
+      id: row.run.id,
+      model: row.run.model,
+      promptSnapshot: row.run.promptSnapshot,
+      provider: row.run.provider as GenerationRunRecord['provider'],
+      status: row.run.status as GenerationRunRecord['status'],
+      workspace: row.run.workspace as GenerationRunRecord['workspace'],
+    },
+    variant: {
+      completedAt: row.variant.completedAt ? row.variant.completedAt.toISOString() : null,
+      createdAt: row.variant.createdAt.toISOString(),
+      error: row.variant.error,
+      id: row.variant.id,
+      profile: row.variant.profile,
+      prompt: row.variant.prompt,
+      status: row.variant.status as GenerationVariantRecord['status'],
+      taskId: row.variant.taskId,
+      variantIndex: row.variant.variantIndex as GenerationVariantRecord['variantIndex'],
+    },
+  }))
+}
+
+export async function listSavedOutputHistory(): Promise<SavedOutputHistoryEntry[]> {
+  const db = getDatabase()
+  const rows = await db
+    .select({
+      output: savedOutputs,
+      run: generationRuns,
+      variant: generationVariants,
+    })
+    .from(savedOutputs)
+    .innerJoin(generationRuns, eq(savedOutputs.runId, generationRuns.id))
+    .innerJoin(generationVariants, eq(generationVariants.resultAssetId, savedOutputs.id))
     .orderBy(desc(savedOutputs.createdAt))
 
   return rows.map((row) => ({
@@ -366,6 +450,30 @@ export async function listSavedIdeationHistoryForUser(
       .select()
       .from(savedIdeations)
       .where(eq(savedIdeations.userId, userId))
+      .orderBy(desc(savedIdeations.createdAt))
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_ideations')) {
+      console.warn(
+        'Saved ideations table is missing. Returning an empty ideation history. Run the latest database migration to enable library ideation history.',
+      )
+
+      return []
+    }
+
+    throw error
+  }
+
+  return rows.map((row) => mapSavedIdeation(row))
+}
+
+export async function listSavedIdeationHistory(): Promise<SavedIdeationHistoryEntry[]> {
+  const db = getDatabase()
+  let rows: Array<typeof savedIdeations.$inferSelect>
+
+  try {
+    rows = await db
+      .select()
+      .from(savedIdeations)
       .orderBy(desc(savedIdeations.createdAt))
   } catch (error) {
     if (isMissingTableError(error, 'saved_ideations')) {

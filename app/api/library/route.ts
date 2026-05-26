@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 
+import { listManagedAccountEmailsByUserId } from '@/lib/auth/access-repository'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
-  listSavedIdeationHistoryForUser,
-  listSavedOutputHistoryForUser,
+  applyOwnerEmailsToIdeations,
+  applyOwnerEmailsToOutputs,
+} from '@/lib/persistence/library-owner-emails'
+import {
+  listSavedIdeationHistory,
+  listSavedOutputHistory,
 } from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
@@ -15,13 +20,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [ideations, outputs] = await Promise.all([
-    listSavedIdeationHistoryForUser(user.id),
-    listSavedOutputHistoryForUser(user.id),
+  const [ideations, outputs, ownerEmailsByUserId] = await Promise.all([
+    listSavedIdeationHistory(),
+    listSavedOutputHistory(),
+    listManagedAccountEmailsByUserId(),
   ])
 
   return NextResponse.json({
-    ideations,
-    outputs,
+    ideations: applyOwnerEmailsToIdeations(ideations, ownerEmailsByUserId),
+    outputs: applyOwnerEmailsToOutputs(outputs, ownerEmailsByUserId),
   })
 }

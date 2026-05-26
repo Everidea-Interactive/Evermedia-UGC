@@ -180,11 +180,9 @@ function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
 }
 
 export function LibraryPage({
-  accountTag,
   ideations,
   outputs,
 }: {
-  accountTag?: string | null
   ideations: SavedIdeationHistoryEntry[]
   outputs: SavedOutputHistoryEntry[]
 }) {
@@ -216,6 +214,9 @@ export function LibraryPage({
   const activeRun = runGroups.find((run) => run.id === selectedRunId) ?? runGroups[0] ?? null
   const activeIdeation =
     ideations.find((ideation) => ideation.id === selectedIdeationId) ?? ideations[0] ?? null
+  const activeRunOwnerTag =
+    activeRun?.outputs[0]?.output.ownerEmail ?? activeRun?.outputs[0]?.output.userId ?? null
+  const activeIdeationOwnerTag = activeIdeation?.ownerEmail ?? activeIdeation?.userId ?? null
 
   const deleteOutput = async (outputId: string) => {
     const response = await fetch(`/api/outputs/${outputId}`, {
@@ -417,10 +418,10 @@ export function LibraryPage({
                       <p className="font-medium text-foreground">
                         {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
                       </p>
-                      {accountTag ? (
+                      {run.outputs[0]?.output.ownerEmail ?? run.outputs[0]?.output.userId ? (
                         <p className="mt-1">
                           <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            {accountTag}
+                            {run.outputs[0].output.ownerEmail ?? run.outputs[0].output.userId}
                           </span>
                         </p>
                       ) : null}
@@ -472,6 +473,13 @@ export function LibraryPage({
                       : 'Image media set'
                     : 'No media set selected'}
                 </h2>
+                {activeRunOwnerTag ? (
+                  <p className="mt-2">
+                    <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {activeRunOwnerTag}
+                    </span>
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -655,10 +663,10 @@ export function LibraryPage({
                       type="button"
                     >
                       <p className="font-medium text-foreground">Ideation</p>
-                      {accountTag ? (
+                      {ideation.ownerEmail ?? ideation.userId ? (
                         <p className="mt-1">
                           <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            {accountTag}
+                            {ideation.ownerEmail ?? ideation.userId}
                           </span>
                         </p>
                       ) : null}
@@ -701,10 +709,10 @@ export function LibraryPage({
                 <h2 className="mt-2 text-lg font-semibold">
                   {activeIdeation ? 'Saved ideation' : 'No ideation selected'}
                 </h2>
-                {activeIdeation && accountTag ? (
+                {activeIdeationOwnerTag ? (
                   <p className="mt-2">
                     <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      {accountTag}
+                      {activeIdeationOwnerTag}
                     </span>
                   </p>
                 ) : null}

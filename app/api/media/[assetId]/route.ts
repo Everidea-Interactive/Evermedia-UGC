@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { readStoredFileBuffer } from '@/lib/media/storage'
-import { getSavedOutputForUser } from '@/lib/persistence/repository'
+import { getSavedOutput } from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
 
@@ -17,7 +17,7 @@ export async function GET(
   }
 
   const { assetId } = await context.params
-  const output = await getSavedOutputForUser(user.id, assetId)
+  const output = await getSavedOutput(assetId)
 
   if (!output) {
     return new NextResponse('Not Found', { status: 404 })
