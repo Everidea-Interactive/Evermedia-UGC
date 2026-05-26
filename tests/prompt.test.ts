@@ -126,6 +126,62 @@ describe('compileGenerationPrompt', () => {
     )
   })
 
+  it('distinguishes primary and alternate face and product references in lifestyle image prompts', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [
+        makeAsset({ key: 'face1', label: 'Face 1' }),
+        makeAsset({
+          fieldName: 'asset_face2',
+          key: 'face2',
+          label: 'Face 2',
+          order: 1,
+          remoteUrl: 'https://example.com/face-2.png',
+        }),
+        makeAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://example.com/product-1.png',
+        }),
+        makeAsset({
+          fieldName: 'product_slot_2',
+          kind: 'product',
+          label: 'Product 2',
+          order: 101,
+          productId: 'product-2',
+          remoteUrl: 'https://example.com/product-2.png',
+        }),
+      ],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: '',
+      videoDuration: 'base',
+      workspace: 'image',
+    })
+
+    expect(prompt).toContain(
+      'Identity reference: Face 1. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.',
+    )
+    expect(prompt).toContain(
+      'Additional face reference: Face 2. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.',
+    )
+    expect(prompt).toContain(
+      'Product reference: Product 1. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.',
+    )
+    expect(prompt).toContain(
+      'Additional product reference: Product 2. Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.',
+    )
+  })
+
   it('adds anatomy safeguards for lifestyle image prompts', () => {
     const prompt = compileGenerationPrompt({
       assets: [makeAsset({ key: 'face1', label: 'Face 1' })],

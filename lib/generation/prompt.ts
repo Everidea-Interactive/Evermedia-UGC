@@ -180,6 +180,7 @@ export function compileGenerationPrompt(input: {
   const identityReference =
     input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
   const productReference = products[0] ?? null
+  const additionalProductReferences = products.slice(1)
   const clothingReference = named.get('clothing') ?? null
   const locationReference = named.get('location') ?? null
   const brandLogoReference = named.get('brandLogo') ?? null
@@ -198,19 +199,16 @@ export function compileGenerationPrompt(input: {
       identityReference?.fieldName,
       face1 && face2 ? face2.fieldName : null,
       productReference?.fieldName,
+      ...additionalProductReferences.map((reference) => reference.fieldName),
       clothingReference?.fieldName,
       locationReference?.fieldName,
+      brandLogoReference?.fieldName,
     ]) {
       if (fieldName) {
         explicitlyDescribedFieldNames.add(fieldName)
       }
     }
   }
-  const supportingReferenceLabels = input.assets
-    .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
-    .map((asset) => asset.label)
-    .slice()
-    .sort()
 
   const promptParts = [
     `Create a ${input.workspace === 'video' ? 'video' : 'high-quality image'} for a ${categoryPhrases[input.productCategory]} campaign.`,
@@ -294,6 +292,12 @@ export function compileGenerationPrompt(input: {
       )
     }
 
+    for (const reference of additionalProductReferences) {
+      promptParts.push(
+        `Additional product reference: ${reference.label}. Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.`,
+      )
+    }
+
     if (clothingReference) {
       promptParts.push(
         `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
@@ -310,9 +314,14 @@ export function compileGenerationPrompt(input: {
       promptParts.push(
         `Brand logo reference: ${brandLogoReference.label}. Use it for brand logo-placement, color palette guidance, and visual identity cues. Integrate the logo naturally into the composition.`,
       )
-      explicitlyDescribedFieldNames.add(brandLogoReference.fieldName)
     }
   }
+
+  const supportingReferenceLabels = input.assets
+    .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
+    .map((asset) => asset.label)
+    .slice()
+    .sort()
 
   if (supportingReferenceLabels.length > 0) {
     promptParts.push(

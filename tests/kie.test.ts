@@ -1213,7 +1213,7 @@ describe('KIE batch submission', () => {
     })
   })
 
-  it('prioritizes identity and product references for nano-banana and caps to three images', () => {
+  it('prioritizes identity and product references for nano-banana while keeping all supported references', () => {
     const submission = resolveSubmission({
       assets: [
         makeUploadedAsset(),
@@ -1270,9 +1270,118 @@ describe('KIE batch submission', () => {
           'https://files.example.com/face-1.png',
           'https://files.example.com/product.png',
           'https://files.example.com/clothing.png',
+          'https://files.example.com/location.png',
+          'https://files.example.com/face-2.png',
         ],
       },
     })
+    const prioritizedNanoBananaInput = submission.requestBody.input as {
+      prompt: string
+    }
+
+    expect(prioritizedNanoBananaInput.prompt).toContain(
+      'Image 5 (Face 2) Use it only as supplementary angle or expression guidance for the same person. Do not introduce a second identity.',
+    )
+    expect(prioritizedNanoBananaInput.prompt).toContain(
+      'Image 2 (Product 1) This is the primary product anchor. Preserve the exact same product design, packaging, branding, colors, materials, and proportions.',
+    )
+  })
+
+  it('passes through up to fourteen nano-banana references in stable priority order', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset(),
+        makeUploadedAsset({
+          fieldName: 'asset_face2',
+          key: 'face2',
+          label: 'Face 2',
+          order: 1,
+          remoteUrl: 'https://files.example.com/face-2.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_clothing',
+          key: 'clothing',
+          label: 'Clothing',
+          order: 2,
+          remoteUrl: 'https://files.example.com/clothing.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_location',
+          key: 'location',
+          label: 'Location',
+          order: 3,
+          remoteUrl: 'https://files.example.com/location.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_brandLogo',
+          key: 'brandLogo',
+          label: 'Brand Logo',
+          order: 4,
+          remoteUrl: 'https://files.example.com/brand-logo.png',
+        }),
+        ...Array.from({ length: 10 }, (_, index) =>
+          makeUploadedAsset({
+            fieldName: `product_slot_${index + 1}`,
+            kind: 'product',
+            label: `Product ${index + 1}`,
+            order: 100 + index,
+            productId: `product-${index + 1}`,
+            remoteUrl: `https://files.example.com/product-${index + 1}.png`,
+          }),
+        ),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished hero campaign image.',
+      subjectMode: 'lifestyle',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'veo-3.1',
+      workspace: 'image',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'nano-banana-2',
+      input: {
+        image_input: [
+          'https://files.example.com/face-1.png',
+          'https://files.example.com/product-1.png',
+          'https://files.example.com/clothing.png',
+          'https://files.example.com/location.png',
+          'https://files.example.com/face-2.png',
+          'https://files.example.com/brand-logo.png',
+          'https://files.example.com/product-2.png',
+          'https://files.example.com/product-3.png',
+          'https://files.example.com/product-4.png',
+          'https://files.example.com/product-5.png',
+          'https://files.example.com/product-6.png',
+          'https://files.example.com/product-7.png',
+          'https://files.example.com/product-8.png',
+          'https://files.example.com/product-9.png',
+        ],
+        prompt: expect.stringContaining(
+          'Treat the uploaded references as ordered images in the exact order provided.',
+        ),
+      },
+    })
+    const extendedNanoBananaInput = submission.requestBody.input as {
+      prompt: string
+    }
+
+    expect(extendedNanoBananaInput.prompt).toContain(
+      'Image 7 (Product 2) Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.',
+    )
+    const nanoBananaInput = submission.requestBody.input as {
+      image_input: string[]
+    }
+
+    expect(nanoBananaInput.image_input).toHaveLength(14)
+    expect(nanoBananaInput.image_input).not.toContain(
+      'https://files.example.com/product-10.png',
+    )
   })
 
   it('treats face2 as the identity anchor when it is the only face reference for nano-banana', () => {

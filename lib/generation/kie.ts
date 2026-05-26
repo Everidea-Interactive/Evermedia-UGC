@@ -62,7 +62,7 @@ const KIE_FILE_BASE64_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-base64-
 const KIE_COMMON_DOWNLOAD_URL_ENDPOINT = `${KIE_API_BASE_URL}/api/v1/common/download-url`
 export const KIE_REQUEST_TIMEOUT_MS = 60_000
 const VEO_DEFAULT_MODEL = 'veo3_fast'
-const NANO_BANANA_REFERENCE_LIMIT = 3
+const NANO_BANANA_REFERENCE_LIMIT = 14
 const namedAssetKeys = ['face1', 'face2', 'clothing', 'location', 'brandLogo', 'firstFrame', 'endFrame'] as const
 const kieCreditSources: Array<{
   endpoint: string
@@ -750,12 +750,15 @@ function collectNanoBananaReferenceAssets(
 function describeNanoBananaReference(
   asset: UploadedAssetDescriptor,
   options: {
+    isPrimaryProduct: boolean
     isIdentityAnchor: boolean
     subjectMode: SubjectMode
   },
 ) {
   if (asset.kind === 'product') {
-    return `Use it as the exact product reference. Preserve packaging, branding, colors, materials, and proportions.`
+    return options.isPrimaryProduct
+      ? 'This is the primary product anchor. Preserve the exact same product design, packaging, branding, colors, materials, and proportions.'
+      : 'Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.'
   }
 
   switch (asset.key) {
@@ -792,11 +795,14 @@ function buildNanoBananaPrompt(input: {
     input.subjectMode,
     input.referenceAssets,
   )
+  const primaryProductReference =
+    input.referenceAssets.find((asset) => asset.kind === 'product') ?? null
 
   const referenceInstructions = input.referenceAssets.map((asset, index) => {
     const imageIndex = index + 1
 
     return `Image ${imageIndex} (${asset.label}) ${describeNanoBananaReference(asset, {
+      isPrimaryProduct: asset.fieldName === primaryProductReference?.fieldName,
       isIdentityAnchor: asset.fieldName === identityReference?.fieldName,
       subjectMode: input.subjectMode,
     })}`
@@ -808,7 +814,7 @@ function buildNanoBananaPrompt(input: {
       : 'Do not let supporting references override the core product design.'
 
   return [
-    'Treat the uploaded references as image 1, image 2, and image 3 in the exact order provided when applicable.',
+    'Treat the uploaded references as ordered images in the exact order provided.',
     ...referenceInstructions,
     safeguard,
     trimmedPrompt,
