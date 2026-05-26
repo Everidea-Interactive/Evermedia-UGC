@@ -9,19 +9,40 @@ import { useGenerationStore } from '@/store/use-generation-store'
 
 const refreshMock = vi.fn()
 const pushMock = vi.fn()
+const replaceMock = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: pushMock,
+    replace: replaceMock,
     refresh: refreshMock,
   }),
 }))
+
+vi.mock('@/lib/persistence/repository', async () => {
+  const actual = await vi.importActual('@/lib/persistence/repository');
+  return {
+    ...actual,
+    listSavedOutputHistory: vi.fn(),
+    listSavedIdeationHistory: vi.fn(),
+    listSavedOutputHistoryPaginated: vi.fn(),
+    listSavedIdeationHistoryPaginated: vi.fn(),
+    countSavedOutputRuns: vi.fn(),
+    countSavedIdeations: vi.fn(),
+    getLibraryStats: vi.fn(),
+    applyOwnerEmailsToOutputs: vi.fn(),
+    applyOwnerEmailsToIdeations: vi.fn(),
+    listManagedAccountEmailsByUserId: vi.fn(),
+  };
+});
 
 describe('LibraryPage', () => {
   beforeEach(async () => {
     refreshMock.mockReset()
     pushMock.mockReset()
+    replaceMock.mockReset()
     vi.unstubAllGlobals()
+    window.history.replaceState({}, '', '/library')
 
     await act(async () => {
       useGenerationStore.getState().resetGenerationState()
@@ -30,6 +51,7 @@ describe('LibraryPage', () => {
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -92,8 +114,7 @@ describe('LibraryPage', () => {
 
     render(
       <LibraryPage
-        ideations={[]}
-        outputs={[
+        initialOutputs={[
           {
             output: {
               createdAt: '2026-05-12T00:00:00.000Z',
@@ -130,6 +151,11 @@ describe('LibraryPage', () => {
             },
           },
         ]}
+        initialIdeations={[]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 1, totalOutputs: 1, totalSizeBytes: 1024, totalIdeations: 0 }}
+        initialView="outputs"
       />,
     )
 
@@ -161,7 +187,14 @@ describe('LibraryPage', () => {
   it('translates library archive copy when the active locale is Indonesian', async () => {
     render(
       <LocaleProvider locale="id">
-        <LibraryPage ideations={[]} outputs={[]} />
+        <LibraryPage
+          initialIdeations={[]}
+          initialOutputs={[]}
+          currentPage={1}
+          currentPageSize={12}
+          stats={{ totalRuns: 0, totalOutputs: 0, totalSizeBytes: 0, totalIdeations: 0 }}
+          initialView="outputs"
+        />
       </LocaleProvider>,
     )
 
@@ -178,8 +211,8 @@ describe('LibraryPage', () => {
   it('shows the owner tag on saved sessions', async () => {
     render(
       <LibraryPage
-        ideations={[]}
-        outputs={[
+        initialIdeations={[]}
+        initialOutputs={[
           {
             output: {
               createdAt: '2026-05-12T00:00:00.000Z',
@@ -251,17 +284,32 @@ describe('LibraryPage', () => {
             },
           },
         ]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 2, totalOutputs: 2, totalSizeBytes: 2048, totalIdeations: 0 }}
+        initialView="outputs"
       />,
     )
 
     expect(await screen.findByText('owner-1@example.com')).toBeTruthy()
     expect(screen.getAllByText('owner-2@example.com').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '1' })).toBeTruthy()
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Go to previous page' })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true)
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Go to next page' })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true)
   })
 
   it('shows the owner tag in briefs view', async () => {
     render(
       <LibraryPage
-        ideations={[
+        initialIdeations={[
           {
             createdAt: '2026-05-12T00:00:00.000Z',
             id: 'ideation-1',
@@ -359,7 +407,11 @@ describe('LibraryPage', () => {
             userId: 'user-2',
           },
         ]}
-        outputs={[]}
+        initialOutputs={[]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 0, totalOutputs: 0, totalSizeBytes: 0, totalIdeations: 2 }}
+        initialView="outputs"
       />,
     )
 
@@ -367,5 +419,60 @@ describe('LibraryPage', () => {
     expect(await screen.findAllByText('owner-1@example.com')).toBeTruthy()
     expect(screen.getAllByText('owner-2@example.com').length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Delete brief' }).length).toBeGreaterThan(0)
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(window.location.search).toBe('?view=ideations&page=1&pageSize=12')
+  })
+
+  it('keeps a stable single render for the fixed library page size', async () => {
+    render(
+      <LibraryPage
+        initialOutputs={Array.from({ length: 10 }, (_, index) => ({
+          output: {
+            createdAt: `2026-05-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            fileSize: 1024,
+            id: `output-${index + 1}`,
+            label: `Output ${index + 1}`,
+            mimeType: 'image/png',
+            ownerEmail: `owner-${index + 1}@example.com`,
+            originalName: `output-${index + 1}.png`,
+            runId: `run-${index + 1}`,
+            storagePath: `/tmp/output-${index + 1}.png`,
+            userId: `user-${index + 1}`,
+          },
+          run: {
+            completedAt: null,
+            createdAt: `2026-05-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            id: `run-${index + 1}`,
+            model: 'model-a',
+            promptSnapshot: `sample prompt ${index + 1}`,
+            provider: 'market',
+            status: 'success',
+            workspace: 'image',
+          },
+          variant: {
+            completedAt: `2026-05-${String(index + 1).padStart(2, '0')}T00:00:05.000Z`,
+            createdAt: `2026-05-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+            error: null,
+            id: `variant-${index + 1}`,
+            profile: 'profile',
+            prompt: 'prompt',
+            status: 'success',
+            taskId: `task-${index + 1}`,
+            variantIndex: 1,
+          },
+        }))}
+        initialIdeations={[]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 20, totalOutputs: 20, totalSizeBytes: 20_480, totalIdeations: 0 }}
+        initialView="outputs"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Image media set/).length).toBeGreaterThan(0)
+    })
+    expect(replaceMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })

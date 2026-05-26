@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, countDistinct, desc, eq, inArray, max, sum } from 'drizzle-orm'
 
 import { getDatabase } from '@/lib/db/client'
 import {
@@ -420,6 +420,53 @@ export async function listSavedOutputHistory(): Promise<SavedOutputHistoryEntry[
   }))
 }
 
+export async function listSavedOutputHistoryPaginated(
+  limit: number,
+  offset: number,
+): Promise<SavedOutputHistoryEntry[]> {
+  try {
+    const db = getDatabase()
+
+    // Phase 1: Get paginated run_ids ordered by most recent output
+    const runIds = await db
+      .select({ runId: savedOutputs.runId })
+      .from(savedOutputs)
+      .groupBy(savedOutputs.runId)
+      .orderBy(desc(max(savedOutputs.createdAt)))
+      .limit(limit)
+      .offset(offset)
+
+    if (runIds.length === 0) {
+      return []
+    }
+
+    // Phase 2: Fetch full output data for these runs
+    const runIdValues = runIds.map((r) => r.runId)
+    const results = await db
+      .select({
+        output: savedOutputs,
+        run: generationRuns,
+        variant: generationVariants,
+      })
+      .from(savedOutputs)
+      .leftJoin(generationRuns, eq(savedOutputs.runId, generationRuns.id))
+      .leftJoin(
+        generationVariants,
+        eq(generationVariants.resultAssetId, savedOutputs.id),
+      )
+      .where(inArray(savedOutputs.runId, runIdValues))
+      .orderBy(desc(savedOutputs.createdAt))
+
+    return results as unknown as SavedOutputHistoryEntry[]
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_outputs')) {
+      return []
+    }
+
+    throw error
+  }
+}
+
 export async function createSavedIdeationForUser(input: {
   inputSnapshot: SavedIdeationRecord['inputSnapshot']
   result: SavedIdeationRecord['result']
@@ -488,6 +535,106 @@ export async function listSavedIdeationHistory(): Promise<SavedIdeationHistoryEn
   }
 
   return rows.map((row) => mapSavedIdeation(row))
+}
+
+export async function listSavedIdeationHistoryPaginated(
+  limit: number,
+  offset: number,
+): Promise<SavedIdeationHistoryEntry[]> {
+  const db = getDatabase()
+
+  try {
+    const results = await db
+      .select()
+      .from(savedIdeations)
+      .orderBy(desc(savedIdeations.createdAt))
+      .limit(limit)
+      .offset(offset)
+
+    return results as unknown as SavedIdeationHistoryEntry[]
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_ideations')) {
+      return []
+    }
+
+    throw error
+  }
+}
+
+export async function countSavedIdeations(): Promise<number> {
+  const db = getDatabase()
+
+  try {
+    const result = await db.select({ count: count() }).from(savedIdeations)
+
+    return result[0]?.count ?? 0
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_ideations')) {
+      return 0
+    }
+
+    throw error
+  }
+}
+
+export async function countSavedOutputRuns(): Promise<number> {
+  const db = getDatabase()
+
+  try {
+    const result = await db
+      .select({ count: countDistinct(savedOutputs.runId) })
+      .from(savedOutputs)
+
+    return result[0]?.count ?? 0
+  } catch (error) {
+    if (isMissingTableError(error, 'saved_outputs')) {
+      return 0
+    }
+
+    throw error
+  }
+}
+
+export async function getLibraryStats() {
+  try {
+    const db = getDatabase()
+
+    const [outputStats, ideationStats] = await Promise.all([
+      db
+        .select({
+          totalRuns: countDistinct(savedOutputs.runId),
+          totalOutputs: count(),
+          totalSize: sum(savedOutputs.fileSize),
+        })
+        .from(savedOutputs),
+      db
+        .select({
+          totalIdeations: count(),
+        })
+        .from(savedIdeations),
+    ])
+
+    return {
+      totalRuns: outputStats[0]?.totalRuns ?? 0,
+      totalOutputs: outputStats[0]?.totalOutputs ?? 0,
+      totalSizeBytes: Number(outputStats[0]?.totalSize ?? 0),
+      totalIdeations: ideationStats[0]?.totalIdeations ?? 0,
+    }
+  } catch (error) {
+    if (
+      isMissingTableError(error, 'saved_outputs') ||
+      isMissingTableError(error, 'saved_ideations')
+    ) {
+      return {
+        totalRuns: 0,
+        totalOutputs: 0,
+        totalSizeBytes: 0,
+        totalIdeations: 0,
+      }
+    }
+
+    throw error
+  }
 }
 
 export async function deleteSavedIdeationForUser(input: {

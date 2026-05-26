@@ -1,9 +1,10 @@
 'use client'
 
-import { Forward, LoaderCircle, Trash2 } from 'lucide-react'
-import { startTransition, useMemo, useState, useTransition } from 'react'
+import { ChevronLeft, ChevronRight, Forward, LoaderCircle, Trash2 } from 'lucide-react'
+import { startTransition, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
@@ -179,19 +180,36 @@ function buildRunGroups(outputs: SavedOutputHistoryEntry[]) {
     )
 }
 
+interface LibraryPageProps {
+  initialOutputs: SavedOutputHistoryEntry[]
+  initialIdeations: SavedIdeationHistoryEntry[]
+  currentPage: number
+  currentPageSize: number
+  stats: {
+    totalRuns: number
+    totalOutputs: number
+    totalSizeBytes: number
+    totalIdeations: number
+  }
+  initialView: ArchiveView
+}
 export function LibraryPage({
-  ideations,
-  outputs,
-}: {
-  ideations: SavedIdeationHistoryEntry[]
-  outputs: SavedOutputHistoryEntry[]
-}) {
+  initialOutputs,
+  initialIdeations,
+  currentPage,
+  currentPageSize,
+  stats,
+  initialView,
+}: LibraryPageProps) {
+  const outputs = initialOutputs
+  const ideations = initialIdeations
   const router = useRouter()
   const [isPending, startRefreshTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [forwardingOutputId, setForwardingOutputId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [archiveView, setArchiveView] = useState<ArchiveView>('outputs')
+  const [archiveView, setArchiveView] = useState<ArchiveView>(initialView)
+  const [page, setPage] = useState(currentPage)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
   const forwardManualImageResultToVideo = useGenerationStore(
@@ -204,16 +222,95 @@ export function LibraryPage({
     () => ({
       latestSavedAt: outputs[0]?.output.createdAt ?? null,
       latestIdeationAt: ideations[0]?.createdAt ?? null,
-      totalIdeations: ideations.length,
-      totalOutputs: outputs.length,
-      totalSize: outputs.reduce((sum, entry) => sum + entry.output.fileSize, 0),
+      totalIdeations: stats.totalIdeations,
+      totalOutputs: stats.totalOutputs,
+      totalSize: stats.totalSizeBytes,
     }),
-    [ideations, outputs],
+    [ideations, outputs, stats],
   )
+  const totalPages = useMemo(
+    () =>
+      Math.max(
+        1,
+        Math.ceil(
+          (archiveView === 'outputs' ? runGroups.length : ideations.length) / currentPageSize,
+        ),
+      ),
+    [archiveView, currentPageSize, ideations.length, runGroups.length],
+  )
+  const pagedRunGroups = useMemo(() => {
+    const start = (page - 1) * currentPageSize
 
-  const activeRun = runGroups.find((run) => run.id === selectedRunId) ?? runGroups[0] ?? null
+    return runGroups.slice(start, start + currentPageSize)
+  }, [currentPageSize, page, runGroups])
+  const pagedIdeations = useMemo(() => {
+    const start = (page - 1) * currentPageSize
+
+    return ideations.slice(start, start + currentPageSize)
+  }, [currentPageSize, ideations, page])
+
+  useEffect(() => {
+    const nextPage = Math.min(Math.max(1, currentPage), totalPages)
+    setPage(nextPage)
+  }, [currentPage, totalPages])
+
+  useEffect(() => {
+    if (page <= totalPages) {
+      return
+    }
+
+    setPage(totalPages)
+  }, [page, totalPages])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search)
+      const nextView = params.get('view')
+      const nextPageValue = Number.parseInt(params.get('page') ?? '1', 10)
+
+      setArchiveView(nextView === 'ideations' ? 'ideations' : 'outputs')
+      setPage(Number.isFinite(nextPageValue) && nextPageValue > 0 ? nextPageValue : 1)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  const updateLibraryUrl = (nextView: ArchiveView, nextPage: number) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    params.set('view', nextView)
+    params.set('page', nextPage.toString())
+    params.set('pageSize', currentPageSize.toString())
+    window.history.pushState({}, '', `/library?${params.toString()}`)
+  }
+
+  const navigateToPage = (newPage: number) => {
+    const nextPage = Math.min(Math.max(1, newPage), totalPages)
+    setPage(nextPage)
+    updateLibraryUrl(archiveView, nextPage)
+  }
+
+  const handleViewChange = (newView: ArchiveView) => {
+    setArchiveView(newView)
+    setPage(1)
+    updateLibraryUrl(newView, 1)
+  }
+
+  const activeRun =
+    pagedRunGroups.find((run) => run.id === selectedRunId) ?? pagedRunGroups[0] ?? null
   const activeIdeation =
-    ideations.find((ideation) => ideation.id === selectedIdeationId) ?? ideations[0] ?? null
+    pagedIdeations.find((ideation) => ideation.id === selectedIdeationId) ?? pagedIdeations[0] ?? null
   const activeRunOwnerTag =
     activeRun?.outputs[0]?.output.ownerEmail ?? activeRun?.outputs[0]?.output.userId ?? null
   const activeIdeationOwnerTag = activeIdeation?.ownerEmail ?? activeIdeation?.userId ?? null
@@ -370,14 +467,14 @@ export function LibraryPage({
       <section className="rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-wrap gap-2">
           <Button
-            onClick={() => setArchiveView('outputs')}
+            onClick={() => handleViewChange('outputs')}
             size="sm"
             variant={archiveView === 'outputs' ? 'default' : 'secondary'}
           >
             Saved media
           </Button>
           <Button
-            onClick={() => setArchiveView('ideations')}
+            onClick={() => handleViewChange('ideations')}
             size="sm"
             variant={archiveView === 'ideations' ? 'default' : 'secondary'}
           >
@@ -388,76 +485,85 @@ export function LibraryPage({
 
       {archiveView === 'outputs' ? (
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <section className="rounded-2xl border border-border bg-card p-4">
+          <section className="rounded-2xl border border-border bg-card p-4 xl:flex xl:h-full xl:flex-col">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               Media sets
             </p>
-            <div className="mt-4 grid gap-3">
-              {runGroups.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No saved media sets exist yet. Finished generations will appear here.
-                </p>
-              ) : null}
-              {runGroups.map((run) => (
-                <div
-                  key={run.id}
-                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                    run.id === activeRun?.id
-                      ? 'border-foreground/35 bg-secondary'
-                      : 'border-border bg-background hover:border-foreground/20'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <button
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => {
-                        setSelectedRunId(run.id)
-                      }}
-                      type="button"
+            <div className="mt-4 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+              <div className="xl:flex-1">
+                <div className="grid gap-3">
+                  {pagedRunGroups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No saved media sets exist yet. Finished generations will appear here.
+                    </p>
+                  ) : null}
+                  {pagedRunGroups.map((run) => (
+                    <div
+                      key={run.id}
+                      className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                        run.id === activeRun?.id
+                          ? 'border-foreground/35 bg-secondary'
+                          : 'border-border bg-background hover:border-foreground/20'
+                      }`}
                     >
-                      <p className="font-medium text-foreground">
-                        {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
-                      </p>
-                      {run.outputs[0]?.output.ownerEmail ?? run.outputs[0]?.output.userId ? (
-                        <p className="mt-1">
-                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            {run.outputs[0].output.ownerEmail ?? run.outputs[0].output.userId}
-                          </span>
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {run.outputs.length} saved media item
-                        {run.outputs.length === 1 ? '' : 's'} ·{' '}
-                        {formatLibraryTimestamp(
-                          run.outputs[0]?.output.createdAt ?? run.run.createdAt,
-                        )}
-                      </p>
-                    </button>
-                    <Button
-                      aria-label="Delete media set"
-                      className="-mr-2 text-destructive hover:text-destructive"
-                      disabled={isDeleting || isPending}
-                      onClick={() => {
-                        setDeleteTarget({
-                          id: run.id,
-                          kind: 'session',
-                          label:
-                            run.run.workspace === 'video'
-                              ? 'Video media set'
-                              : 'Image media set',
-                          outputCount: run.outputs.length,
-                        })
-                      }}
-                      size="icon"
-                      title="Delete media set"
-                      variant="ghost"
-                    >
-                      <Trash2 suppressHydrationWarning />
-                    </Button>
-                  </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => {
+                            setSelectedRunId(run.id)
+                          }}
+                          type="button"
+                        >
+                          <p className="font-medium text-foreground">
+                            {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
+                          </p>
+                          {run.outputs[0]?.output.ownerEmail ?? run.outputs[0]?.output.userId ? (
+                            <p className="mt-1">
+                              <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                {run.outputs[0].output.ownerEmail ?? run.outputs[0].output.userId}
+                              </span>
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {run.outputs.length} saved media item
+                            {run.outputs.length === 1 ? '' : 's'} ·{' '}
+                            {formatLibraryTimestamp(
+                              run.outputs[0]?.output.createdAt ?? run.run.createdAt,
+                            )}
+                          </p>
+                        </button>
+                        <Button
+                          aria-label="Delete media set"
+                          className="-mr-2 text-destructive hover:text-destructive"
+                          disabled={isDeleting || isPending}
+                          onClick={() => {
+                            setDeleteTarget({
+                              id: run.id,
+                              kind: 'session',
+                              label:
+                                run.run.workspace === 'video'
+                                  ? 'Video media set'
+                                  : 'Image media set',
+                              outputCount: run.outputs.length,
+                            })
+                          }}
+                          size="icon"
+                          title="Delete media set"
+                          variant="ghost"
+                        >
+                          <Trash2 suppressHydrationWarning />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={navigateToPage}
+            />
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
@@ -637,67 +743,76 @@ export function LibraryPage({
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <section className="rounded-2xl border border-border bg-card p-4">
+          <section className="rounded-2xl border border-border bg-card p-4 xl:flex xl:h-full xl:flex-col">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               Ideation
             </p>
-            <div className="mt-4 grid gap-3">
-              {ideations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No saved ideation exists yet.
-                </p>
-              ) : null}
-              {ideations.map((ideation) => (
-                <div
-                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                    ideation.id === activeIdeation?.id
-                      ? 'border-foreground/35 bg-secondary'
-                      : 'border-border bg-background hover:border-foreground/20'
-                  }`}
-                  key={ideation.id}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <button
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => setSelectedIdeationId(ideation.id)}
-                      type="button"
+            <div className="mt-4 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+              <div className="xl:flex-1">
+                <div className="grid gap-3">
+                  {pagedIdeations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No saved ideation exists yet.
+                    </p>
+                  ) : null}
+                  {pagedIdeations.map((ideation) => (
+                    <div
+                      className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                        ideation.id === activeIdeation?.id
+                          ? 'border-foreground/35 bg-secondary'
+                          : 'border-border bg-background hover:border-foreground/20'
+                      }`}
+                      key={ideation.id}
                     >
-                      <p className="font-medium text-foreground">Ideation</p>
-                      {ideation.ownerEmail ?? ideation.userId ? (
-                        <p className="mt-1">
-                          <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            {ideation.ownerEmail ?? ideation.userId}
-                          </span>
-                        </p>
-                      ) : null}
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {ideation.result.summary}
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {formatLibraryTimestamp(ideation.createdAt)}
-                      </p>
-                    </button>
-                    <Button
-                      aria-label="Delete brief"
-                      className="-mr-2 text-destructive hover:text-destructive"
-                      disabled={isDeleting || isPending}
-                      onClick={() => {
-                        setDeleteTarget({
-                          id: ideation.id,
-                          kind: 'ideation',
-                          label: 'this ideation brief',
-                        })
-                      }}
-                      size="icon"
-                      title="Delete brief"
-                      variant="ghost"
-                    >
-                      <Trash2 suppressHydrationWarning />
-                    </Button>
-                  </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => setSelectedIdeationId(ideation.id)}
+                          type="button"
+                        >
+                          <p className="font-medium text-foreground">Ideation</p>
+                          {ideation.ownerEmail ?? ideation.userId ? (
+                            <p className="mt-1">
+                              <span className="inline-flex max-w-full items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                {ideation.ownerEmail ?? ideation.userId}
+                              </span>
+                            </p>
+                          ) : null}
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {ideation.result.summary}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {formatLibraryTimestamp(ideation.createdAt)}
+                          </p>
+                        </button>
+                        <Button
+                          aria-label="Delete brief"
+                          className="-mr-2 text-destructive hover:text-destructive"
+                          disabled={isDeleting || isPending}
+                          onClick={() => {
+                            setDeleteTarget({
+                              id: ideation.id,
+                              kind: 'ideation',
+                              label: 'this ideation brief',
+                            })
+                          }}
+                          size="icon"
+                          title="Delete brief"
+                          variant="ghost"
+                        >
+                          <Trash2 suppressHydrationWarning />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={navigateToPage}
+            />
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
@@ -851,5 +966,123 @@ export function LibraryPage({
         }
       />
     </main>
+  )
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+      return pages
+    }
+
+    pages.push(1)
+
+    if (currentPage > 3) pages.push('...')
+    else pages.push(2)
+
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(totalPages - 1, currentPage + 1)
+
+    for (let i = start; i <= end; i++) {
+      if (!pages.includes(i)) pages.push(i)
+    }
+
+    if (currentPage < totalPages - 2) pages.push('...')
+    else if (!pages.includes(totalPages - 1)) pages.push(totalPages - 1)
+
+    if (!pages.includes(totalPages)) pages.push(totalPages)
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+      {/* Mobile */}
+      <div className="flex flex-1 justify-between sm:hidden">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Go to previous page"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Go to next page"
+        >
+          Next
+        </button>
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-center">
+        <div>
+          <nav className="isolate inline-flex items-center gap-1" aria-label="Pagination">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50"
+              aria-label="Go to previous page"
+            >
+              <span className="sr-only">Previous</span>
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+
+            {pageNumbers.map((page, idx) =>
+              typeof page === 'string' ? (
+                <span
+                  key={`ellipsis-${idx}`}
+                  className="inline-flex size-10 items-center justify-center text-sm text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  &hellip;
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => onPageChange(page)}
+                  disabled={page === currentPage}
+                  aria-current={page === currentPage ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex size-10 items-center justify-center rounded-md border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none',
+                    page === currentPage
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground',
+                  )}
+                >
+                  {page}
+                </button>
+              ),
+            )}
+
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50"
+              aria-label="Go to next page"
+            >
+              <span className="sr-only">Next</span>
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </button>
+          </nav>
+        </div>
+      </div>
+    </div>
   )
 }
