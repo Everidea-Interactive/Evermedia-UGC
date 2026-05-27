@@ -10,6 +10,7 @@ import {
   productCategories,
   shotEnvironments,
   subjectModes,
+  cameraMovements,
 } from '@/components/dashboard/manual-workspace-config'
 import {
   ControlGroup,
@@ -22,6 +23,7 @@ import {
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
 import type {
+  CameraMovement,
   CharacterAgeGroup,
   CharacterGender,
   CreativeStyle,
@@ -65,6 +67,10 @@ export function RefineRenderSection({ className }: { className?: string }) {
   )
   const setFigureArtDirection = useGenerationStore(
     (state) => state.setFigureArtDirection,
+  )
+  const cameraMovement = useGenerationStore((state) => state.cameraMovement)
+  const setCameraMovement = useGenerationStore(
+    (state) => state.setCameraMovement,
   )
   const isLifestyle = subjectMode === 'lifestyle'
   const face1 = useGenerationStore((state) => state.assets.face1)
@@ -260,81 +266,111 @@ export function RefineRenderSection({ className }: { className?: string }) {
             ) : null}
           </ControlGroup>
 
-          <ControlGroup
-            className={cn(presetGroupClassName, 'xl:col-span-12')}
-            description="Lifestyle presets can bias cast attributes without changing the reference board."
-            title="Character Demographics (Auto-Prompt)"
-          >
-            <div
-              className={cn(
-                'grid gap-3 lg:grid-cols-2 lg:gap-x-3',
-                !showDemographics && 'opacity-60',
-              )}
+          {activeTab === 'video' ? (
+            <ControlGroup
+              className={cn(presetGroupClassName, 'xl:col-span-12')}
+              description="Camera movement is treated as a structured prompt modifier."
+              title="Movement language"
             >
-              <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
-                <PresetGroupLabel>Gender</PresetGroupLabel>
-                <ToggleGroup
-                  aria-label="Character Gender"
-                  className="grid grid-cols-[repeat(auto-fit,minmax(6.75rem,1fr))] gap-2"
-                  onValueChange={(value) => {
-                    if (value) {
-                      setCharacterGender(value as CharacterGender)
-                    }
-                  }}
-                  type="single"
-                  value={characterGender}
-                >
-                  {characterGenders.map((option) => (
-                    <ToggleGroupItem
-                      className={presetCompactTileClassName}
-                      disabled={!showDemographics}
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
+              <ToggleGroup
+                aria-label="Camera Movement"
+                className="grid grid-cols-2 gap-2"
+                onValueChange={(value) =>
+                  setCameraMovement(value ? (value as CameraMovement) : null)
+                }
+                type="single"
+                value={cameraMovement ?? ''}
+              >
+                {cameraMovements.map((movement) => (
+                  <ToggleGroupItem
+                    className={presetCompactTileClassName}
+                    key={movement.value}
+                    value={movement.value}
+                  >
+                    {movement.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </ControlGroup>
+          ) : null}
 
-              <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
-                <PresetGroupLabel>Age Group</PresetGroupLabel>
-                <ToggleGroup
-                  aria-label="Character Age Group"
-                  className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2"
-                  onValueChange={(value) => {
-                    if (value) {
-                      setCharacterAgeGroup(value as CharacterAgeGroup)
-                    }
-                  }}
-                  type="single"
-                  value={characterAgeGroup}
-                >
-                  {characterAgeGroups.map((option) => (
-                    <ToggleGroupItem
-                      className={presetCompactTileClassName}
-                      disabled={!showDemographics}
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
+          {activeTab !== 'video' && (
+            <ControlGroup
+              className={cn(presetGroupClassName, 'xl:col-span-12')}
+              description="Lifestyle presets can bias cast attributes without changing the reference board."
+              title="Character Demographics (Auto-Prompt)"
+            >
+              <div
+                className={cn(
+                  'grid gap-3 lg:grid-cols-2 lg:gap-x-3',
+                  !showDemographics && 'opacity-60',
+                )}
+              >
+                <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
+                  <PresetGroupLabel>Gender</PresetGroupLabel>
+                  <ToggleGroup
+                    aria-label="Character Gender"
+                    className="grid grid-cols-[repeat(auto-fit,minmax(6.75rem,1fr))] gap-2"
+                    onValueChange={(value) => {
+                      if (value) {
+                        setCharacterGender(value as CharacterGender)
+                      }
+                    }}
+                    type="single"
+                    value={characterGender}
+                  >
+                    {characterGenders.map((option) => (
+                      <ToggleGroupItem
+                        className={presetCompactTileClassName}
+                        disabled={!showDemographics}
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
+
+                <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
+                  <PresetGroupLabel>Age Group</PresetGroupLabel>
+                  <ToggleGroup
+                    aria-label="Character Age Group"
+                    className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2"
+                    onValueChange={(value) => {
+                      if (value) {
+                        setCharacterAgeGroup(value as CharacterAgeGroup)
+                      }
+                    }}
+                    type="single"
+                    value={characterAgeGroup}
+                  >
+                    {characterAgeGroups.map((option) => (
+                      <ToggleGroupItem
+                        className={presetCompactTileClassName}
+                        disabled={!showDemographics}
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
               </div>
-            </div>
-            {!showDemographics ? (
-              hasFaceReference && isLifestyle ? (
-                <p className="text-xs text-muted-foreground">
-                  Demographics disabled — face reference defines the character.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Demographics only apply to lifestyle presets.
-                </p>
-              )
-            ) : null}
-          </ControlGroup>
+              {!showDemographics ? (
+                hasFaceReference && isLifestyle ? (
+                  <p className="text-xs text-muted-foreground">
+                    Demographics disabled — face reference defines the character.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Demographics only apply to lifestyle presets.
+                  </p>
+                )
+              ) : null}
+            </ControlGroup>
+          )}
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-12')}

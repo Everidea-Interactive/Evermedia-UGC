@@ -3,16 +3,13 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 
-import { MotionControlsSection } from '@/components/dashboard/manual-motion-controls-section'
 import { ManualRunControlPanelShell } from '@/components/dashboard/manual-run-control-panel-shell'
 import { ReferenceWorkspaceSection } from '@/components/dashboard/manual-reference-workspace-section'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
   KiePricingResponse,
   KieStatusResponse,
-  WorkspaceTab,
 } from '@/lib/generation/types'
-import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 const RefineRenderSection = dynamic(() =>
@@ -27,16 +24,11 @@ const OutputPanel = dynamic(() =>
   ),
 )
 
-type ManualSection = 'references' | 'preset' | 'motion' | 'outputs'
+type ManualSection = 'references' | 'preset' | 'outputs'
 
 export function normalizeManualSection(
   manualSection: ManualSection,
-  activeTab: WorkspaceTab,
 ): ManualSection {
-  if (activeTab !== 'video' && manualSection === 'motion') {
-    return 'references'
-  }
-
   return manualSection
 }
 
@@ -60,7 +52,7 @@ export function DashboardShell({
   const [manualSection, setManualSection] = useState<ManualSection>('references')
   const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
-  const visibleManualSection = normalizeManualSection(manualSection, activeTab)
+  const visibleManualSection = normalizeManualSection(manualSection)
 
   useEffect(() => {
     if (experience !== 'manual' || activeTab !== 'video' || manualVideoStageEventId === 0) {
@@ -132,16 +124,10 @@ export function DashboardShell({
           >
             <TabsList
               aria-label="Workspace Sections"
-              className={cn(
-                'w-full',
-                activeTab === 'video' ? 'grid-cols-4' : 'grid-cols-3',
-              )}
+              className="w-full grid-cols-3"
             >
               <TabsTrigger value="references">References</TabsTrigger>
               <TabsTrigger value="preset">Preset</TabsTrigger>
-              {activeTab === 'video' ? (
-                <TabsTrigger value="motion">Motion</TabsTrigger>
-              ) : null}
               <TabsTrigger value="outputs">Outputs</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -149,7 +135,6 @@ export function DashboardShell({
           <div className="min-w-0">
             {visibleManualSection === 'references' ? <ReferenceWorkspaceSection /> : null}
             {visibleManualSection === 'preset' ? <RefineRenderSection /> : null}
-            {visibleManualSection === 'motion' ? <MotionControlsSection /> : null}
             {visibleManualSection === 'outputs' ? <OutputPanel /> : null}
           </div>
         </div>

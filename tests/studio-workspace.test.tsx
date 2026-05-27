@@ -167,14 +167,13 @@ describe('StudioWorkspace', () => {
     })
   })
 
-  it('normalizes the manual section when image mode cannot show motion controls', async () => {
+  it('returns the same section regardless of active tab', async () => {
     const { normalizeManualSection } = await import(
       '@/components/dashboard/dashboard-shell'
     )
 
-    expect(normalizeManualSection('motion', 'image')).toBe('references')
-    expect(normalizeManualSection('motion', 'video')).toBe('motion')
-    expect(normalizeManualSection('outputs', 'image')).toBe('outputs')
+    expect(normalizeManualSection('outputs')).toBe('outputs')
+    expect(normalizeManualSection('references')).toBe('references')
   })
 
   it('renders the manual shell without mounting guided or ideation workspaces', async () => {
@@ -594,7 +593,7 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Pilih file').length).toBeGreaterThan(0)
   })
 
-  it('translates review, motion, and output helper copy when the active locale is Indonesian', async () => {
+  it('translates review, preset (including motion), and output helper copy when the active locale is Indonesian', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
     const { useGenerationStore } = await import('@/store/use-generation-store')
 
@@ -648,15 +647,10 @@ describe('StudioWorkspace', () => {
       ),
     ).toBeTruthy()
     expect(screen.getByText('Makanan & Minuman')).toBeTruthy()
-
-    const motionTab = screen.getByRole('tab', { name: 'Gerakan' })
-    fireEvent.mouseDown(motionTab)
-    fireEvent.click(motionTab)
-
-    expect(await screen.findByText('Kontrol gerakan')).toBeTruthy()
+    expect(screen.getByText('Bahasa pergerakan')).toBeTruthy()
     expect(
       screen.getByText(
-        'Bagian ini ditempatkan setelah papan referensi karena baru relevan setelah materi input dan brief siap.',
+        'Pergerakan kamera diperlakukan sebagai pengubah prompt terstruktur.',
       ),
     ).toBeTruthy()
 
