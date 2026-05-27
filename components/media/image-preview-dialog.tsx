@@ -348,9 +348,6 @@ export function ImagePreviewDialog({
       return
     }
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
     const syncViewer = () => {
       refreshMetrics()
       resetViewer()
@@ -402,7 +399,6 @@ export function ImagePreviewDialog({
       window.cancelAnimationFrame(resizeFrame)
       document.removeEventListener('wheel', handleBrowserZoomWheel, true)
       window.removeEventListener('resize', handleResize)
-      document.body.style.overflow = previousOverflow
       metricsRef.current = null
       clearGestures()
       lastTapRef.current = null
@@ -417,6 +413,7 @@ export function ImagePreviewDialog({
       return
     }
 
+    event.preventDefault()
     zoomFromWheelEvent(event)
   }
 
@@ -631,13 +628,23 @@ export function ImagePreviewDialog({
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger asChild>{children}</Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="image-preview-backdrop fixed inset-0 z-50" />
+        <Dialog.Overlay
+          className="image-preview-backdrop fixed inset-0 z-50"
+          onWheel={(event) => event.preventDefault()}
+          onTouchMove={(event) => event.preventDefault()}
+        />
         <Dialog.Content
           className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none sm:p-6"
           onOpenAutoFocus={(event) => {
             event.preventDefault()
             closeButtonRef.current?.focus({ preventScroll: true })
           }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+          }}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onWheel={(event) => event.preventDefault()}
+          onTouchMove={(event) => event.preventDefault()}
         >
           <Dialog.Title className="sr-only">{label ?? alt}</Dialog.Title>
           <Dialog.Description className="sr-only">

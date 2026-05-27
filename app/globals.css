@@ -99,10 +99,12 @@
       radial-gradient(circle at top, rgb(255 255 255 / 0.08), transparent 42%),
       rgb(0 0 0 / 0.9);
     backdrop-filter: blur(4px);
+    overscroll-behavior: none;
   }
 
   .image-preview-canvas {
     touch-action: none;
+    overscroll-behavior: none;
   }
 
   .image-preview-canvas[data-scale='fit'] {
