@@ -32,6 +32,7 @@ import type {
 } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
+import { useEffect } from 'react'
 
 export function RefineRenderSection({ className }: { className?: string }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
@@ -66,6 +67,17 @@ export function RefineRenderSection({ className }: { className?: string }) {
     (state) => state.setFigureArtDirection,
   )
   const isLifestyle = subjectMode === 'lifestyle'
+  const face1 = useGenerationStore((state) => state.assets.face1)
+  const face2 = useGenerationStore((state) => state.assets.face2)
+  const hasFaceReference = Boolean(face1.file) || Boolean(face2.file)
+  const showDemographics = isLifestyle && !hasFaceReference
+
+  useEffect(() => {
+    if (hasFaceReference) {
+      setCharacterGender('any')
+      setCharacterAgeGroup('any')
+    }
+  }, [hasFaceReference, setCharacterGender, setCharacterAgeGroup])
 
   return (
     <section className={cn(panelClassName, 'preset-surface p-4 sm:p-5', className)}>
@@ -256,7 +268,7 @@ export function RefineRenderSection({ className }: { className?: string }) {
             <div
               className={cn(
                 'grid gap-3 lg:grid-cols-2 lg:gap-x-3',
-                !isLifestyle && 'opacity-60',
+                !showDemographics && 'opacity-60',
               )}
             >
               <div className={cn(presetSubgroupClassName, 'grid gap-1.5 self-start')}>
@@ -275,7 +287,7 @@ export function RefineRenderSection({ className }: { className?: string }) {
                   {characterGenders.map((option) => (
                     <ToggleGroupItem
                       className={presetCompactTileClassName}
-                      disabled={!isLifestyle}
+                      disabled={!showDemographics}
                       key={option.value}
                       value={option.value}
                     >
@@ -301,7 +313,7 @@ export function RefineRenderSection({ className }: { className?: string }) {
                   {characterAgeGroups.map((option) => (
                     <ToggleGroupItem
                       className={presetCompactTileClassName}
-                      disabled={!isLifestyle}
+                      disabled={!showDemographics}
                       key={option.value}
                       value={option.value}
                     >
@@ -311,10 +323,16 @@ export function RefineRenderSection({ className }: { className?: string }) {
                 </ToggleGroup>
               </div>
             </div>
-            {!isLifestyle ? (
-              <p className="text-xs text-muted-foreground">
-                Demographics only apply to lifestyle presets and reset when the subject is product-only.
-              </p>
+            {!showDemographics ? (
+              hasFaceReference && isLifestyle ? (
+                <p className="text-xs text-muted-foreground">
+                  Demographics disabled — face reference defines the character.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Demographics only apply to lifestyle presets.
+                </p>
+              )
             ) : null}
           </ControlGroup>
 

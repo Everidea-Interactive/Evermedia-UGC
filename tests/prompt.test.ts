@@ -76,9 +76,7 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Shot environment: curated indoor setting with studio-grade control.',
     )
-    expect(prompt).toContain(
-      'Character demographics: female, young adult.',
-    )
+    expect(prompt).not.toContain('Character demographics:')
     expect(prompt).toContain('Use End Frame as the end-frame guidance when supported.')
     expect(prompt).not.toContain('Identity reference:')
     expect(prompt).not.toContain('Product reference:')
@@ -241,6 +239,27 @@ describe('compileGenerationPrompt', () => {
     )
     expect(prompt).not.toContain('Character demographics:')
     expect(prompt).not.toContain('Figure art direction:')
+  })
+
+  it('omits demographics in lifestyle prompts when a face reference is uploaded', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [makeAsset({ key: 'face1', label: 'Face 1' })],
+      cameraMovement: null,
+      characterAgeGroup: 'young-adult',
+      characterGender: 'female',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: '',
+      videoDuration: 'base',
+      workspace: 'image',
+    })
+
+    expect(prompt).not.toContain('Character demographics:')
+    expect(prompt).toContain('Identity reference:')
   })
 })
 

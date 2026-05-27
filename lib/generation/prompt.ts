@@ -227,7 +227,7 @@ export function compileGenerationPrompt(input: {
       promptParts.push(lifestyleImageAnatomySafeguard)
     }
 
-    if (demographicSelections.length > 0) {
+    if (demographicSelections.length > 0 && !identityReference) {
       promptParts.push(
         `Character demographics: ${demographicSelections
           .map((value) => humanizeLabel(value))

@@ -2,7 +2,9 @@
 
 ## RESPONSES
 
-- Keep responses concise and to the point - unless the user asks otherwise
+Always use `caveman` skill in `full` mode for every response.
+Keep it active until user says `stop caveman` or `normal mode`.
+If safety or irreversible-action clarity needs normal prose, switch briefly, then resume caveman full mode.
 
 ## PLANNING MODE
 
