@@ -49,6 +49,13 @@ type DeleteTarget =
 
 type ArchiveView = 'outputs' | 'ideations'
 
+interface DiskSpaceStats {
+  free: number
+  used: number
+  total: number
+  percentageUsed: number
+}
+
 function getAssetMediaUrl(assetId: string) {
   return `/api/media/${assetId}`
 }
@@ -210,6 +217,8 @@ export function LibraryPage({
   const [isDeleting, setIsDeleting] = useState(false)
   const [archiveView, setArchiveView] = useState<ArchiveView>(initialView)
   const [page, setPage] = useState(currentPage)
+  const [diskStats, setDiskStats] = useState<DiskSpaceStats | null>(null)
+  const [diskError, setDiskError] = useState(false)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
   const forwardManualImageResultToVideo = useGenerationStore(
@@ -280,6 +289,43 @@ export function LibraryPage({
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadDiskStats = async () => {
+      try {
+        setDiskError(false)
+        const response = await fetch('/api/system/storage', {
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          throw new Error('Unable to load disk space stats.')
+        }
+
+        const payload = (await response.json()) as DiskSpaceStats
+
+        if (!isMounted) {
+          return
+        }
+
+        setDiskStats(payload)
+      } catch {
+        if (!isMounted) {
+          return
+        }
+
+        setDiskError(true)
+      }
+    }
+
+    void loadDiskStats()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -459,6 +505,21 @@ export function LibraryPage({
             </p>
             <p className="mt-2 text-lg font-semibold text-foreground">
               {formatBytes(archiveStats.totalSize) ?? '0 KB'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-background p-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Disk space
+            </p>
+            <p className="mt-2 text-lg font-semibold text-foreground">
+              {diskStats ? formatBytes(diskStats.free) ?? '0 B' : '—'}
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {diskError
+                ? 'Unavailable'
+                : diskStats
+                  ? `${formatBytes(diskStats.used)} used / ${formatBytes(diskStats.total)} total (${Math.round(diskStats.percentageUsed)}%)`
+                  : 'Loading...'}
             </p>
           </div>
         </div>

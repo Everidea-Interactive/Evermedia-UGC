@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildGenerationFormData,
+  formatBytes,
   getGenerationValidation,
 } from '@/lib/generation/client'
 import type { AssetSlot, GenerationSnapshot, NamedAssetSlots } from '@/lib/generation/types'
@@ -64,6 +65,14 @@ function createSnapshot(overrides: Partial<GenerationSnapshot> = {}): Generation
 }
 
 describe('manual generation client payloads', () => {
+  it('formats gigabytes with whole-number precision', () => {
+    expect(formatBytes(125 * 1024 * 1024 * 1024)).toBe('125.0 GB')
+  })
+
+  it('formats terabytes for very large archives', () => {
+    expect(formatBytes(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 TB')
+  })
+
   it('rejects manual video generation when both prompt and generic references are missing', () => {
     const validation = getGenerationValidation(createSnapshot())
     expect(validation.canGenerate).toBe(false)

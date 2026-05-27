@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, statfs, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 function sanitizeSegment(value: string) {
@@ -108,4 +108,18 @@ export async function getStoredFileStats(storagePath: string) {
   const absolutePath = resolveAbsoluteStoragePath(storagePath)
 
   return stat(absolutePath)
+}
+
+export async function getDiskSpaceStats() {
+  const stats = await statfs(getMediaStorageRoot())
+  const total = stats.bsize * stats.blocks
+  const free = stats.bsize * stats.bfree
+  const used = total - free
+
+  return {
+    free,
+    percentageUsed: total > 0 ? (used / total) * 100 : 0,
+    total,
+    used,
+  }
 }
