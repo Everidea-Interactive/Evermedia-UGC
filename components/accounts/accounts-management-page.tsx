@@ -59,7 +59,7 @@ function AccountFormDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-background/72 backdrop-blur-sm" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 w-[min(calc(100vw-2rem),34rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.25rem] border border-border bg-card p-6 shadow-2xl outline-none"
+          className="fixed left-1/2 top-1/2 z-[51] w-[min(calc(100vw-2rem),34rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.25rem] border border-border bg-card p-6 shadow-2xl outline-none"
           onCloseAutoFocus={(event) => {
             event.preventDefault()
             triggerRef.current?.blur()

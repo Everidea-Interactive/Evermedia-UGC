@@ -27,7 +27,7 @@ export function ErrorNoticeDialog({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-background/72 backdrop-blur-sm" />
         <Dialog.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card shadow-2xl',
+            'fixed left-1/2 top-1/2 z-[51] w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card shadow-2xl',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           )}
         >
