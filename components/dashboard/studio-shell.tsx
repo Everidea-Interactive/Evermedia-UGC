@@ -116,13 +116,18 @@ export function StudioShell() {
               </TabsList>
             </Tabs>
 
-            {experience !== 'ideation' ? (
+            {experience === 'manual' || experience === 'guided' ? (
               <Tabs
                 onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
                 value={activeTab}
               >
-                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-3 p-1.5">
-                  {workspaceTabs.map((tab) => {
+                <TabsList
+                  aria-label="Workspace Tabs"
+                  className={cn("w-full p-1.5", experience === 'manual' ? "grid-cols-3" : "grid-cols-2")}
+                >
+                  {workspaceTabs
+                    .filter((tab) => experience !== 'guided' || tab.value !== 'carousel')
+                    .map((tab) => {
                     const Icon = tab.icon
 
                     return (
