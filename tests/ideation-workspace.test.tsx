@@ -127,6 +127,23 @@ describe('IdeationWorkspace', () => {
     expect(formData.get('outputLanguage')).toBe('en')
   })
 
+  it('uses the shared manual workspace section and preview sizing tokens', async () => {
+    const { workspacePreviewMinHeightClassName, workspaceSectionClassName } = await import(
+      '@/components/dashboard/manual-workspace-ui'
+    )
+
+    renderIdeationWorkspace('en')
+
+    const analyzeHeading = await screen.findByText('Analyze input')
+    const analyzeSection = analyzeHeading.closest('section')
+
+    expect(analyzeSection?.className).toContain(workspaceSectionClassName)
+    // Upload Image button is a direct child of the outer preview flex container
+    expect(screen.getByText('Upload Image').closest('div')?.className).toContain(
+      workspacePreviewMinHeightClassName,
+    )
+  })
+
   it('submits the selected ideation content format to the analyze endpoint', async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({

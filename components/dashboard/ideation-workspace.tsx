@@ -44,13 +44,14 @@ import type {
 import type { Locale } from '@/lib/i18n'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
+import {
+  insetPanelClassName,
+  rowClassName,
+  workspaceFieldLabelClassName,
+  workspacePreviewMinHeightClassName,
+  workspaceSectionClassName,
+} from '@/components/dashboard/manual-workspace-ui'
 import { useGenerationStore } from '@/store/use-generation-store'
-
-const panelClassName = 'rounded-2xl border border-border bg-card'
-const insetPanelClassName = 'rounded-xl border border-border bg-background'
-const rowClassName = 'rounded-lg border border-border bg-background'
-const fieldLabelClassName =
-  'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 
 const conceptCopy = {
   affiliate: {
@@ -183,7 +184,7 @@ function IdeationHeroUploadCard({
   return (
     <div className={cn(insetPanelClassName, 'flex h-full flex-col gap-5 p-4 sm:p-5')}>
       <div className="grid gap-1">
-        <p className={fieldLabelClassName}>Hero Product</p>
+        <p className={workspaceFieldLabelClassName}>Hero Product</p>
         <p className="text-sm leading-6 text-muted-foreground">
           Optional. Upload a single product image to give ideation direct visual context.
           Use PNG, JPG, JPEG, WEBP, or GIF.
@@ -200,7 +201,7 @@ function IdeationHeroUploadCard({
 
       {slot.previewUrl ? (
         <>
-          <div className="relative min-h-[24rem] flex-1 overflow-hidden rounded-2xl border border-border bg-secondary/30 sm:min-h-[30rem] lg:min-h-[34rem]">
+          <div className={cn(workspacePreviewMinHeightClassName, 'relative flex-1 overflow-hidden rounded-2xl border border-border bg-secondary/30')}>
             {slot.mimeType && isImageMimeType(slot.mimeType) ? (
               <ImagePreviewDialog alt={slot.label} label={slot.label} src={slot.previewUrl}>
                 <button
@@ -251,7 +252,7 @@ function IdeationHeroUploadCard({
           </div>
         </>
       ) : (
-        <div className="flex min-h-[24rem] flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-8 text-center sm:min-h-[30rem] lg:min-h-[34rem]">
+        <div className={cn(workspacePreviewMinHeightClassName, 'flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-8 text-center')}>
           <div className="flex size-14 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground">
             <ImageIcon className="size-6" suppressHydrationWarning />
           </div>
@@ -347,7 +348,7 @@ function IdeationAnalyzePanel({
   setIdeationProductUrl: (productUrl: string) => void
 }) {
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+    <section className={workspaceSectionClassName}>
       <div className="grid gap-5">
         <div className="grid gap-2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -377,7 +378,7 @@ function IdeationAnalyzePanel({
           <div className="grid gap-4">
             <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
               <div className="grid gap-1">
-                <label className={fieldLabelClassName} htmlFor="ideation-product-url">
+                <label className={workspaceFieldLabelClassName} htmlFor="ideation-product-url">
                   Product URL
                 </label>
                 <p className="text-sm leading-6 text-muted-foreground">
@@ -409,7 +410,7 @@ function IdeationAnalyzePanel({
 
             <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
               <div className="grid gap-1">
-                <label className={fieldLabelClassName} htmlFor="ideation-brief-text">
+                <label className={workspaceFieldLabelClassName} htmlFor="ideation-brief-text">
                   Written Brief
                 </label>
                 <p className="text-sm leading-6 text-muted-foreground">
@@ -428,7 +429,7 @@ function IdeationAnalyzePanel({
 
             <div className={cn(insetPanelClassName, 'grid gap-3 p-4')}>
               <div className="grid gap-1">
-                <p className={fieldLabelClassName}>Content Concept</p>
+                <p className={workspaceFieldLabelClassName}>Content Concept</p>
                 <p className="text-sm leading-6 text-muted-foreground">
                   Pick the strategic bias before ideation runs.
                 </p>
@@ -485,7 +486,7 @@ function IdeationResultsSection({
   onCopyFullBrief: () => void
 }) {
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+    <section className={workspaceSectionClassName}>
       <div className="grid gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -513,7 +514,7 @@ function IdeationResultsSection({
         {ideationResult ? (
           <>
             <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
-              <p className={fieldLabelClassName}>Summary</p>
+              <p className={workspaceFieldLabelClassName}>Summary</p>
               <p className="mt-3 max-w-[70ch] text-[15px] leading-7 text-foreground/90">
                 {ideationResult.summary}
               </p>
@@ -585,7 +586,7 @@ function IdeationControlPanel({
 
   return (
     <aside className="xl:sticky xl:top-6">
-      <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+      <section className={workspaceSectionClassName}>
         <div className="grid gap-4">
           <div className="grid gap-2">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
@@ -601,7 +602,7 @@ function IdeationControlPanel({
 
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
             <div className="grid gap-1">
-              <label className={fieldLabelClassName} htmlFor="ideation-content-format">
+              <label className={workspaceFieldLabelClassName} htmlFor="ideation-content-format">
                 Content Format
               </label>
               <p className="text-sm leading-6 text-muted-foreground">
@@ -624,7 +625,7 @@ function IdeationControlPanel({
             </Select>
 
             <div className="grid gap-1">
-              <label className={fieldLabelClassName} htmlFor="ideation-output-language">
+              <label className={workspaceFieldLabelClassName} htmlFor="ideation-output-language">
                 Output Language
               </label>
               <p className="text-sm leading-6 text-muted-foreground">
@@ -647,7 +648,7 @@ function IdeationControlPanel({
             </Select>
 
             <div className="grid gap-1">
-              <label className={fieldLabelClassName} htmlFor="ideation-analysis-model">
+              <label className={workspaceFieldLabelClassName} htmlFor="ideation-analysis-model">
                 KIE Analysis Model
               </label>
               <p className="text-sm leading-6 text-muted-foreground">
@@ -676,7 +677,7 @@ function IdeationControlPanel({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={fieldLabelClassName}>Run Status</p>
+                <p className={workspaceFieldLabelClassName}>Run Status</p>
                 <p className="mt-1 font-medium text-foreground">{statusCopy.title}</p>
               </div>
               <Badge variant={statusCopy.badgeVariant}>{statusCopy.label}</Badge>
