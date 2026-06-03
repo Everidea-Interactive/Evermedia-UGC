@@ -1,15 +1,15 @@
 'use client'
 
-import { type ChangeEvent, useState } from 'react'
-import { ChevronDown, ChevronUp, Image, Trash2, Upload, X } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronUp, Image as ImageIcon, Trash2 } from 'lucide-react'
 
 import {
-  assetAccept,
   panelClassName,
   presetCompactTileClassName,
   presetGroupClassName,
   PresetGroupLabel,
   presetSubgroupClassName,
+  ReferenceCard,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,23 @@ function createPanelAssetSlot(file: File): AssetSlot {
     uploadStatus: 'staged',
   }
 }
+
+function createEmptyReferenceSlot(id: string, label: string): AssetSlot {
+  return {
+    error: null,
+    file: null,
+    id,
+    label,
+    mimeType: null,
+    previewUrl: null,
+    size: null,
+    uploadStatus: 'idle',
+  }
+}
+
+const carouselReferenceCardClassName = 'min-h-[13rem] sm:min-h-[13rem] sm:aspect-[16/10]'
+const carouselReferencePreviewContainerClassName = 'bg-secondary/30 p-3'
+const carouselReferencePreviewMediaClassName = 'object-contain'
 
 export function ManualCarouselSetupSection({ className }: { className?: string }) {
   const baseTemplateMode = useGenerationStore((state) => state.carouselDraft.baseTemplateMode)
@@ -116,7 +133,7 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
 
           {panels.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-background/40 px-4 py-10 text-center">
-              <Image className="mb-3 size-8 text-muted-foreground/60" />
+              <ImageIcon className="mb-3 size-8 text-muted-foreground/60" />
               <p className="text-sm font-medium text-muted-foreground">
                 No panels yet
               </p>
@@ -169,63 +186,17 @@ function BaseTemplateUploadZone({
 }) {
   const inputId = 'base-template-upload'
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null
-    if (file) {
-      onUpload(file)
-    }
-    event.target.value = ''
-  }
-
-  if (asset?.previewUrl) {
-    return (
-      <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt="Base template"
-          className="h-auto max-h-48 w-full rounded-lg object-cover"
-          src={asset.previewUrl}
-        />
-        <div className="mt-2 flex items-center justify-between">
-          <p className="truncate text-sm text-muted-foreground">{asset.label}</p>
-          <Button aria-label="Clear image" onClick={onClear} size="sm" variant="ghost">
-            <X className="mr-1 size-3.5" />
-            Clear
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <>
-      <input
-        accept={assetAccept}
-        className="sr-only"
-        id={inputId}
-        onChange={handleFileChange}
-        type="file"
-      />
-      <button
-        className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center transition-colors hover:border-foreground/30 hover:bg-background/60"
-        onClick={() => document.getElementById(inputId)?.click()}
-        type="button"
-      >
-        <div className="flex size-10 items-center justify-center rounded-full border border-border bg-secondary/60">
-          <Image className="size-4 text-muted-foreground" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">Choose image</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Upload a base template reference
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
-          <Upload className="size-3.5" />
-          Choose file
-        </div>
-      </button>
-    </>
+    <ReferenceCard
+      className={carouselReferenceCardClassName}
+      icon={ImageIcon}
+      inputId={inputId}
+      onClear={onClear}
+      onSelect={onUpload}
+      previewContainerClassName={carouselReferencePreviewContainerClassName}
+      previewMediaClassName={carouselReferencePreviewMediaClassName}
+      slot={asset ?? createEmptyReferenceSlot(inputId, 'Base template')}
+    />
   )
 }
 
@@ -411,17 +382,6 @@ function PanelImageSection({
 }) {
   const inputId = `panel-image-${panel.id}`
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null
-    if (file) {
-      updateCarouselPanel(panel.id, {
-        imageMode: 'manual',
-        imageAsset: createPanelAssetSlot(file),
-      })
-    }
-    event.target.value = ''
-  }
-
   function handleClearImage() {
     if (panel.imageAsset?.previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(panel.imageAsset.previewUrl)
@@ -463,53 +423,24 @@ function PanelImageSection({
         />
       ) : (
         <div className="flex flex-col gap-2">
-          <input
-            accept={assetAccept}
-            className="sr-only"
-            id={inputId}
-            onChange={handleFileChange}
-            type="file"
+          <ReferenceCard
+            className={carouselReferenceCardClassName}
+            icon={ImageIcon}
+            inputId={inputId}
+            onClear={handleClearImage}
+            onSelect={(file) => {
+              updateCarouselPanel(panel.id, {
+                imageMode: 'manual',
+                imageAsset: file ? createPanelAssetSlot(file) : null,
+              })
+            }}
+            previewContainerClassName={carouselReferencePreviewContainerClassName}
+            previewMediaClassName={carouselReferencePreviewMediaClassName}
+            slot={
+              panel.imageAsset ??
+              createEmptyReferenceSlot(inputId, `Panel ${panel.order} image`)
+            }
           />
-
-          {panel.imageAsset?.previewUrl ? (
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={`Panel ${panel.order} image`}
-                className="h-auto max-h-40 w-full rounded-lg object-cover"
-                src={panel.imageAsset.previewUrl}
-              />
-              <div className="mt-2 flex items-center justify-between">
-                <p className="truncate text-sm text-muted-foreground">
-                  {panel.imageAsset.label}
-                </p>
-                <Button
-                  aria-label="Clear image"
-                  onClick={handleClearImage}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <X className="mr-1 size-3.5" />
-                  Clear
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <button
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-6 text-center transition-colors hover:border-foreground/30 hover:bg-background/60"
-              onClick={() => document.getElementById(inputId)?.click()}
-              type="button"
-            >
-              <Image className="size-5 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Upload image for panel {panel.order}
-              </p>
-              <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
-                <Upload className="size-3.5" />
-                Choose file
-              </div>
-            </button>
-          )}
         </div>
       )}
     </div>
