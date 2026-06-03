@@ -1,5 +1,7 @@
 import { normalizeKieAnalysisModel } from '@/lib/generation/guided'
 import type {
+  CarouselDraft,
+  CarouselPanelDraft,
   CreativeBrief,
   CreativePlan,
   GenerationRun,
@@ -32,6 +34,62 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   videoAudio: 'no-audio',
   videoDuration: 'base',
   videoModel: 'veo-3.1',
+}
+
+const defaultCarouselDraft: CarouselDraft = {
+  brief: '',
+  globalPanelStyle: '',
+  panels: [],
+}
+
+function normalizeCarouselPanelDraft(value: unknown): CarouselPanelDraft | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as Record<string, unknown>
+  const id = typeof candidate.id === 'string' ? candidate.id : ''
+
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    order: typeof candidate.order === 'number' ? Math.round(candidate.order) : 0,
+    styleMode: candidate.styleMode === 'override' ? 'override' : 'inherit',
+    styleGenerationEnabled:
+      typeof candidate.styleGenerationEnabled === 'boolean'
+        ? candidate.styleGenerationEnabled
+        : false,
+    stylePrompt: typeof candidate.stylePrompt === 'string' ? candidate.stylePrompt : '',
+    imageMode: candidate.imageMode === 'ai' ? 'ai' : 'manual',
+    imagePrompt: typeof candidate.imagePrompt === 'string' ? candidate.imagePrompt : '',
+    imageAsset: null,
+    textMode: candidate.textMode === 'ai' ? 'ai' : 'manual',
+    textPrompt: typeof candidate.textPrompt === 'string' ? candidate.textPrompt : '',
+    textValue: typeof candidate.textValue === 'string' ? candidate.textValue : '',
+  }
+}
+
+function normalizeCarouselDraft(value: unknown): CarouselDraft {
+  if (!value || typeof value !== 'object') {
+    return defaultCarouselDraft
+  }
+
+  const record = value as Record<string, unknown>
+  const panels = Array.isArray(record.panels)
+    ? record.panels.flatMap((panel) => {
+        const normalized = normalizeCarouselPanelDraft(panel)
+        return normalized ? [normalized] : []
+      })
+    : []
+
+  return {
+    brief: typeof record.brief === 'string' ? record.brief : '',
+    globalPanelStyle: typeof record.globalPanelStyle === 'string' ? record.globalPanelStyle : '',
+    panels,
+  }
 }
 
 function normalizeCreativeBrief(value: unknown): CreativeBrief | null {
@@ -287,6 +345,10 @@ export function normalizeProjectConfigSnapshot(
   const mergedSnapshot: GenerationConfigSnapshot = {
     ...defaultProjectConfigSnapshot,
     ...snapshot,
+    activeTab:
+      snapshot.activeTab === 'video' || snapshot.activeTab === 'carousel'
+        ? snapshot.activeTab
+        : 'image',
     experience:
       snapshot.experience === 'guided' ||
       snapshot.experience === 'ideation'
@@ -303,6 +365,7 @@ export function normalizeProjectConfigSnapshot(
       defaultProjectConfigSnapshot.videoModel,
     ),
     guided: normalizeGuidedSnapshot(snapshot.guided),
+    carouselDraft: normalizeCarouselDraft(snapshot.carouselDraft),
   }
 
   if (mergedSnapshot.subjectMode === 'lifestyle') {
@@ -334,6 +397,7 @@ function createResultForVariant(
   }
 
   return {
+    label: output.label,
     model,
     taskId: variant.taskId ?? output.id,
     thumbnailUrl:

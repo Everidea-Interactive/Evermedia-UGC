@@ -24,6 +24,24 @@ const OutputPanel = dynamic(() =>
   ),
 )
 
+const ManualCarouselReferenceSection = dynamic(() =>
+  import('@/components/dashboard/manual-carousel-reference-section').then(
+    (module) => module.ManualCarouselReferenceSection,
+  ),
+)
+
+const ManualCarouselPresetSection = dynamic(() =>
+  import('@/components/dashboard/manual-carousel-preset-section').then(
+    (module) => module.ManualCarouselPresetSection,
+  ),
+)
+
+const ManualCarouselOutputPanel = dynamic(() =>
+  import('@/components/dashboard/manual-carousel-output-panel').then(
+    (module) => module.ManualCarouselOutputPanel,
+  ),
+)
+
 type ManualSection = 'references' | 'preset' | 'outputs'
 
 export function normalizeManualSection(
@@ -49,10 +67,25 @@ export function DashboardShell({
   const manualVideoStageEventId = useGenerationStore(
     (state) => state.manualVideoStageEventId,
   )
+  const carouselStageEventId = useGenerationStore(
+    (state) => state.carouselStageEventId,
+  )
   const [manualSection, setManualSection] = useState<ManualSection>('references')
   const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
   const visibleManualSection = normalizeManualSection(manualSection)
+
+  const renderManualSection = () => {
+    if (activeTab === 'carousel') {
+      if (visibleManualSection === 'references') return <ManualCarouselReferenceSection />
+      if (visibleManualSection === 'preset') return <ManualCarouselPresetSection />
+      return <ManualCarouselOutputPanel />
+    }
+
+    if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
+    if (visibleManualSection === 'preset') return <RefineRenderSection />
+    return <OutputPanel />
+  }
 
   useEffect(() => {
     if (experience !== 'manual' || activeTab !== 'video' || manualVideoStageEventId === 0) {
@@ -67,6 +100,20 @@ export function DashboardShell({
       window.clearTimeout(timeoutId)
     }
   }, [activeTab, experience, manualVideoStageEventId])
+
+  useEffect(() => {
+    if (experience !== 'manual' || activeTab !== 'carousel' || carouselStageEventId === 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('references')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, experience, carouselStageEventId])
 
   useEffect(() => {
     if (generationRun.experience !== 'manual' || generationRun.status !== 'rendering' || !generationRun.runId) {
@@ -133,9 +180,7 @@ export function DashboardShell({
           </Tabs>
 
           <div className="min-w-0">
-            {visibleManualSection === 'references' ? <ReferenceWorkspaceSection /> : null}
-            {visibleManualSection === 'preset' ? <RefineRenderSection /> : null}
-            {visibleManualSection === 'outputs' ? <OutputPanel /> : null}
+            {renderManualSection()}
           </div>
         </div>
 

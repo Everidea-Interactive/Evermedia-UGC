@@ -1,5 +1,6 @@
 import type {
   AssetSlot,
+  CarouselDraft,
   CreativeBrief,
   CreativePlan,
   BatchSize,
@@ -175,7 +176,19 @@ export function getGenerationValidation(snapshot: GenerationSnapshot) {
   }
 }
 
-export function buildGenerationFormData(snapshot: GenerationSnapshot) {
+function serializeCarouselDraft(draft: CarouselDraft) {
+  return {
+    ...draft,
+    panels: draft.panels.map((panel) => ({
+      ...panel,
+      imageAsset: panel.imageAsset ? { ...panel.imageAsset, file: null } : null,
+    })),
+  }
+}
+
+export function buildGenerationFormData(
+  snapshot: GenerationSnapshot & { carouselDraft?: CarouselDraft },
+) {
   const formData = new FormData()
   const assetManifest: SubmittedAssetDescriptor[] = []
   const namedAssetKeys = getWorkspaceNamedAssetKeys(snapshot.activeTab)
@@ -196,6 +209,35 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
+
+  if (snapshot.activeTab === 'carousel') {
+    const carouselDraft = snapshot.carouselDraft
+
+    if (!carouselDraft || carouselDraft.panels.length === 0) {
+      throw new Error('Carousel workspace requires at least one panel.')
+    }
+
+    for (const panel of carouselDraft.panels) {
+      const hasManualImage =
+        panel.imageMode === 'manual' && panel.imageAsset?.file
+      const hasAiImage =
+        panel.imageMode === 'ai' && panel.imagePrompt.trim().length > 0
+
+      if (!hasManualImage && !hasAiImage) {
+        throw new Error('Each carousel panel needs a usable image source.')
+      }
+    }
+
+    formData.append('carouselDraft', JSON.stringify(serializeCarouselDraft(carouselDraft)))
+
+    for (const panel of carouselDraft.panels) {
+      if (panel.imageMode === 'manual' && panel.imageAsset?.file) {
+        formData.append(`carousel_panel_image_${panel.id}`, panel.imageAsset.file)
+      }
+    }
+
+    return { assetManifest: [], formData }
+  }
 
   if (snapshot.activeTab === 'video') {
     const firstFrame = snapshot.assets.firstFrame

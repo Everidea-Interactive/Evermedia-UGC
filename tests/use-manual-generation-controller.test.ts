@@ -113,6 +113,36 @@ describe('useManualGenerationController', () => {
     )
   })
 
+  it('includes carousel draft data in manual submission snapshots', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+    useGenerationStore.getState().setActiveTab('carousel')
+    useGenerationStore.getState().updateCarouselDraft({ globalPanelStyle: 'white card' })
+
+    const { useManualGenerationController } = await import(
+      '@/components/dashboard/use-manual-generation-controller'
+    )
+
+    const { result } = renderHook(() =>
+      useManualGenerationController({
+        enabled: true,
+        kiePricing: null,
+        kieStatus: {
+          connected: true,
+          credits: 200,
+          error: null,
+          fetchedAt: null,
+          source: 'user-credits',
+        },
+        pricingError: null,
+      }),
+    )
+
+    const snapshot = result.current.createSnapshot()
+
+    expect(snapshot.activeTab).toBe('carousel')
+    expect(snapshot.carouselDraft?.globalPanelStyle).toBe('white card')
+  })
+
   it('surfaces an HTML error response instead of crashing on JSON parsing', async () => {
     vi.stubGlobal(
       'fetch',

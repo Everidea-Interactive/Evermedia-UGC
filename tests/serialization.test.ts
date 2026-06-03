@@ -159,6 +159,35 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.experience).toBe('ideation')
   })
 
+  it('keeps carousel workspace snapshots with panel draft data', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      activeTab: 'carousel',
+      experience: 'manual',
+      carouselDraft: {
+        brief: 'homeless media carousel',
+        globalPanelStyle: 'white panel with image on top',
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            styleMode: 'inherit',
+            styleGenerationEnabled: false,
+            stylePrompt: '',
+            imageMode: 'manual',
+            imagePrompt: '',
+            imageAsset: null,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Panel one',
+          },
+        ],
+      },
+    })
+
+    expect(snapshot.activeTab).toBe('carousel')
+    expect(snapshot.carouselDraft?.panels).toHaveLength(1)
+  })
+
   it('falls back invalid persisted model values to defaults', () => {
     const snapshot = normalizeProjectConfigSnapshot({
       imageModel: 'grok-imagine' as never,

@@ -5,7 +5,12 @@ import {
   formatBytes,
   getGenerationValidation,
 } from '@/lib/generation/client'
-import type { AssetSlot, GenerationSnapshot, NamedAssetSlots } from '@/lib/generation/types'
+import type {
+  AssetSlot,
+  CarouselDraft,
+  GenerationSnapshot,
+  NamedAssetSlots,
+} from '@/lib/generation/types'
 
 function createSlot(id: string, label: string, file: File | null): AssetSlot {
   return {
@@ -292,10 +297,6 @@ describe('manual generation client payloads', () => {
       new File(['end'], 'end.png', { type: 'image/png' }),
     )
     const snapshot = createSnapshot({
-      assets: {
-        ...createNamedAssets(),
-        endFrame,
-      },
       videoModel: 'seedance-1.5-pro',
       videoReferences: [
         createSlot(
@@ -314,5 +315,70 @@ describe('manual generation client payloads', () => {
       'video_reference_1',
     ])
     expect(formData.get('asset_endFrame')).toBeNull()
+  })
+
+  it('rejects carousel submission without a usable panel source', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+
+    expect(() =>
+      buildGenerationFormData({
+        ...base,
+        carouselDraft: {
+          brief: '',
+          globalPanelStyle: '',
+          panels: [
+            {
+              id: 'panel-1',
+              order: 1,
+              styleMode: 'inherit',
+              styleGenerationEnabled: false,
+              stylePrompt: '',
+              imageMode: 'manual',
+              imagePrompt: '',
+              imageAsset: null,
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: '',
+            },
+          ],
+        },
+      } as GenerationSnapshot & { carouselDraft: CarouselDraft }),
+    ).toThrow(/usable image source/i)
+  })
+
+  it('serializes carousel panels into form data', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+    const imageAsset = createSlot(
+      'panel-1-asset',
+      'Panel 1',
+      new File(['img'], 'img.png', { type: 'image/png' }),
+    )
+    const carouselConfig: GenerationSnapshot & { carouselDraft: CarouselDraft } = {
+      ...base,
+      carouselDraft: {
+        brief: '',
+        globalPanelStyle: '',
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            styleMode: 'inherit',
+            styleGenerationEnabled: false,
+            stylePrompt: '',
+            imageMode: 'manual',
+            imagePrompt: '',
+            imageAsset,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: '',
+          },
+        ],
+      },
+    }
+
+    const { formData } = buildGenerationFormData(carouselConfig)
+
+    expect(formData.get('workspace')).toBe('carousel')
+    expect(formData.get('carouselDraft')).toContain('"panels"')
   })
 })

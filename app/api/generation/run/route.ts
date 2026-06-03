@@ -153,6 +153,7 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     activeTab: input.workspace,
     batchSize: input.batchSize,
     cameraMovement: input.cameraMovement,
+    carouselDraft: input.carouselDraft ?? undefined,
     characterAgeGroup: input.characterAgeGroup,
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,

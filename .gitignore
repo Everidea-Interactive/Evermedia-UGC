@@ -43,6 +43,7 @@ Thumbs.db
 /.agents
 /.playwright-mcp
 /docs/superpowers
+/.opencode-dux
 
 
 # output files

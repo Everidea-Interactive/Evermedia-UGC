@@ -12,17 +12,20 @@ import {
   updateGenerationVariantStatus,
 } from '@/lib/persistence/repository'
 import { createGenerationRunState } from '@/lib/persistence/serialization'
+import type { WorkspaceTab } from '@/lib/generation/types'
 
 export const runtime = 'nodejs'
 
-function getResultFileName(taskId: string, workspace: 'image' | 'video') {
+function getResultFileName(taskId: string, workspace: WorkspaceTab) {
   return `${taskId}.${workspace === 'video' ? 'mp4' : 'png'}`
 }
 
-function isManualImageGridRun(bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>) {
+function shouldSplitIntoGridVariants(
+  bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>,
+) {
   return (
-    bundle.run.workspace === 'image' &&
-    bundle.run.configSnapshot.experience === 'manual'
+    bundle.run.configSnapshot.experience === 'manual' &&
+    bundle.run.workspace === 'image'
   )
 }
 
@@ -57,7 +60,7 @@ export async function GET(
     const activeVariants = bundle.run.variants.filter(
       (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
     )
-    const shouldSplitImageGrid = isManualImageGridRun(bundle)
+    const shouldSplitImageGrid = shouldSplitIntoGridVariants(bundle)
     const variantGroups = shouldSplitImageGrid
       ? Array.from(
           activeVariants.reduce((groups, variant) => {
@@ -141,11 +144,13 @@ export async function GET(
             return
           }
 
+          const isCarousel = bundle.run.workspace === 'carousel'
+
           await saveGeneratedOutputForVariant({
             fileName: getResultFileName(variant.taskId, bundle.run.workspace),
             fileType:
               taskState.result.type === 'video' ? 'video/mp4' : 'image/png',
-            label: `Variation ${variant.variantIndex} Output`,
+            label: isCarousel ? variant.profile : `Variation ${variant.variantIndex} Output`,
             runId,
             sourceUrl: taskState.result.url,
             userId: bundle.run.userId,

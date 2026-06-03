@@ -722,6 +722,60 @@ describe('StudioWorkspace', () => {
     expect(source).toContain('runState.variants.map((variant) => (')
   })
 
+  it('renders carousel as a manual workspace tab', async () => {
+    const { StudioWorkspace } = await import('@/components/dashboard/studio-workspace')
+
+    render(<StudioWorkspace />)
+
+    expect(await screen.findByRole('tab', { name: /carousel/i })).toBeTruthy()
+  })
+
+  it('adds and removes carousel panels from the references section', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    useGenerationStore.getState().setActiveTab('carousel')
+    useGenerationStore.getState().addCarouselPanel()
+
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    render(<ManualWorkspace />)
+
+    await screen.findByText('Panel 1')
+
+    act(() => {
+      useGenerationStore.getState().addCarouselPanel()
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText(/panel \d/i)).toHaveLength(2)
+    })
+
+    act(() => {
+      const secondPanel = useGenerationStore.getState().carouselDraft.panels[1]
+      if (secondPanel) {
+        useGenerationStore.getState().deleteCarouselPanel(secondPanel.id)
+      }
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText(/panel \d/i)).toHaveLength(1)
+    })
+  })
+
+  it('returns to references after forwarding an image into carousel', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    useGenerationStore.getState().setActiveTab('carousel')
+    useGenerationStore.getState().forwardManualImageResultToCarousel(
+      new File(['seed'], 'seed.png', { type: 'image/png' }),
+    )
+
+    const { ManualWorkspace } = await import('@/components/dashboard/manual-workspace')
+
+    render(<ManualWorkspace />)
+    expect(await screen.findByRole('tab', { name: /references/i, selected: true })).toBeTruthy()
+  })
+
   it('keeps the manual workspace on the eager studio path', async () => {
     const source = await readFile(
       join(process.cwd(), 'components/dashboard/studio-shell.tsx'),
@@ -783,14 +837,16 @@ describe('StudioWorkspace', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response('manual-forward', {
-          headers: {
-            'Content-Disposition': 'attachment; filename="manual-forward.png"',
-            'Content-Type': 'image/png',
-          },
-          status: 200,
-        }),
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response('manual-forward', {
+            headers: {
+              'Content-Disposition': 'attachment; filename="manual-forward.png"',
+              'Content-Type': 'image/png',
+            },
+            status: 200,
+          }),
+        ),
       ),
     )
 
@@ -852,5 +908,198 @@ describe('StudioWorkspace', () => {
     expect(state.experience).toBe('manual')
     expect(state.videoReferences[0]?.file?.name).toBe('manual-forward.png')
     expect(state.videoReferences[1]?.file).toBeNull()
+  })
+
+  it('forwards a successful manual image result into carousel references from the output panel', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response('manual-carousel-forward', {
+            headers: {
+              'Content-Disposition': 'attachment; filename="manual-carousel-forward.png"',
+              'Content-Type': 'image/png',
+            },
+            status: 200,
+          }),
+        ),
+      ),
+    )
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('image')
+      useGenerationStore.getState().setExperience('manual')
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'manual-carousel-run',
+        status: 'success',
+        workspace: 'image',
+      })
+      useGenerationStore.getState().setGenerationVariants([
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Primary render',
+          prompt: 'Image prompt',
+          result: {
+            model: 'nano-banana',
+            taskId: 'task-1',
+            type: 'image',
+            url: '/api/media/carousel-output-1',
+          },
+          status: 'success',
+          taskId: 'task-1',
+          variantId: 'variant-carousel-1',
+        },
+      ])
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    const outputsTab = await screen.findByRole('tab', { name: 'Outputs' })
+    fireEvent.mouseDown(outputsTab)
+    fireEvent.click(outputsTab)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward to Carousel' }))
+
+    await waitFor(() => {
+      const state = useGenerationStore.getState()
+      expect(state.activeTab).toBe('carousel')
+    })
+
+    const finalState = useGenerationStore.getState()
+    expect(finalState.carouselDraft.panels[0]?.imageMode).toBe('manual')
+    expect(finalState.carouselDraft.panels[0]?.imageAsset?.file?.name).toBe('manual-carousel-forward.png')
+  })
+
+  it('supports global style with per-panel override in carousel preset', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('carousel')
+      useGenerationStore.getState().addCarouselPanel()
+    })
+
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    render(<ManualWorkspace />)
+
+    await screen.findByRole('tab', { name: 'References' })
+
+    const presetTab = screen.getByRole('tab', { name: 'Preset' })
+    fireEvent.mouseDown(presetTab)
+    fireEvent.click(presetTab)
+
+    const globalStyleInput = await screen.findByLabelText(/global panel style/i)
+    fireEvent.change(globalStyleInput, {
+      target: { value: 'white panel with top image' },
+    })
+
+    await waitFor(() => {
+      const state = useGenerationStore.getState()
+      expect(state.carouselDraft.globalPanelStyle).toContain('white panel')
+    })
+
+    fireEvent.click(screen.getByText('Override'))
+
+    await waitFor(() => {
+      const state = useGenerationStore.getState()
+      expect(state.carouselDraft.panels[0]?.styleMode).toBe('override')
+    })
+  })
+
+  it('shows carousel-specific run controls without image batch assumptions', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('carousel')
+    })
+
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    render(<ManualWorkspace />)
+
+    expect(await screen.findByText('Carousel workspace')).toBeTruthy()
+    expect(screen.queryByLabelText(/batch size/i)).toBeNull()
+  })
+
+  it('renders carousel outputs in panel order', async () => {
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    function makeCarouselOutputVariant(id: string, order: 1 | 2 | 3 | 4) {
+      return {
+        completedAt: '2026-06-03T00:00:00.000Z',
+        createdAt: '2026-06-03T00:00:00.000Z',
+        error: null,
+        index: order,
+        profile: `Panel ${order}`,
+        prompt: `Prompt for panel ${order}`,
+        result: {
+          label: `Panel ${order}`,
+          model: 'nano-banana-2',
+          taskId: `task-${id}`,
+          type: 'image' as const,
+          url: `/api/media/panel-${order}`,
+        },
+        status: 'success' as const,
+        taskId: `task-${id}`,
+        variantId: `variant-${id}`,
+      }
+    }
+
+    function seedCarouselRunState(
+      variants: ReturnType<typeof makeCarouselOutputVariant>[],
+    ) {
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'manual',
+        runId: 'carousel-run-1',
+        startedAt: Date.now(),
+        status: 'success',
+        workspace: 'carousel',
+      })
+      useGenerationStore.getState().setGenerationVariants(variants)
+    }
+
+    seedCarouselRunState([
+      makeCarouselOutputVariant('panel-2', 2),
+      makeCarouselOutputVariant('panel-1', 1),
+    ])
+
+    useGenerationStore.getState().setActiveTab('carousel')
+
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    render(<ManualWorkspace />)
+
+    const outputsTab = screen.getByRole('tab', { name: 'Outputs' })
+    fireEvent.mouseDown(outputsTab)
+    fireEvent.click(outputsTab)
+
+    const labels = await screen.findAllByText(/panel \d/i)
+    expect(labels.map((node) => node.textContent)).toEqual(['Panel 1', 'Panel 2'])
   })
 })

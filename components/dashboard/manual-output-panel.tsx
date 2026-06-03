@@ -43,9 +43,13 @@ export function OutputPanel({ className }: { className?: string }) {
   const forwardManualImageResultToVideo = useGenerationStore(
     (state) => state.forwardManualImageResultToVideo,
   )
+  const forwardManualImageResultToCarousel = useGenerationStore(
+    (state) => state.forwardManualImageResultToCarousel,
+  )
   const products = useGenerationStore((state) => state.products)
   const generationRun = useGenerationStore((state) => state.generationRun)
   const [forwardingVariantId, setForwardingVariantId] = useState<string | null>(null)
+  const [forwardingCarouselVariantId, setForwardingCarouselVariantId] = useState<string | null>(null)
 
   const loadedAssets = useMemo(
     () =>
@@ -68,6 +72,23 @@ export function OutputPanel({ className }: { className?: string }) {
       })
     } finally {
       setForwardingVariantId(null)
+    }
+  }
+
+  const handleForwardToCarousel = async (item: ReturnType<typeof getOutputGalleryItems>[number]) => {
+    if (item.type !== 'image') {
+      return
+    }
+
+    try {
+      setForwardingCarouselVariantId(item.variantId)
+      const file = await fetchForwardedResultFile(item.url)
+
+      startTransition(() => {
+        forwardManualImageResultToCarousel(file)
+      })
+    } finally {
+      setForwardingCarouselVariantId(null)
     }
   }
 
@@ -97,7 +118,9 @@ export function OutputPanel({ className }: { className?: string }) {
                 runMatchesWorkspace={runMatchesWorkspace}
                 runState={generationRun}
                 forwardingVariantId={forwardingVariantId}
+                forwardingCarouselVariantId={forwardingCarouselVariantId}
                 onForwardToVideo={handleForwardToVideo}
+                onForwardToCarousel={handleForwardToCarousel}
               />
             </div>
           </div>
@@ -109,15 +132,19 @@ export function OutputPanel({ className }: { className?: string }) {
 
 function PreviewStage({
   activeTab,
+  forwardingCarouselVariantId,
   forwardingVariantId,
   loadedAssets,
+  onForwardToCarousel,
   onForwardToVideo,
   runMatchesWorkspace,
   runState,
 }: {
   activeTab: WorkspaceTab
+  forwardingCarouselVariantId: string | null
   forwardingVariantId: string | null
   loadedAssets: number
+  onForwardToCarousel: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
   onForwardToVideo: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
   runMatchesWorkspace: boolean
   runState: ReturnType<typeof useGenerationStore.getState>['generationRun']
@@ -147,9 +174,11 @@ function PreviewStage({
               <div className="grid gap-3 sm:grid-cols-2">
                 {galleryItems.map((item) => (
                   <OutputGalleryCard
+                    forwardingCarouselVariantId={forwardingCarouselVariantId}
                     forwardingVariantId={forwardingVariantId}
                     item={item}
                     key={item.variantId}
+                    onForwardToCarousel={onForwardToCarousel}
                     onForwardToVideo={onForwardToVideo}
                   />
                 ))}
@@ -227,15 +256,20 @@ function PreviewStage({
 }
 
 function OutputGalleryCard({
+  forwardingCarouselVariantId,
   forwardingVariantId,
   item,
+  onForwardToCarousel,
   onForwardToVideo,
 }: {
+  forwardingCarouselVariantId: string | null
   forwardingVariantId: string | null
   item: ReturnType<typeof getOutputGalleryItems>[number]
+  onForwardToCarousel: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
   onForwardToVideo: (item: ReturnType<typeof getOutputGalleryItems>[number]) => void
 }) {
   const isForwarding = forwardingVariantId === item.variantId
+  const isForwardingCarousel = forwardingCarouselVariantId === item.variantId
   const canForwardToVideo = item.type === 'image'
   const media = item.type === 'image' ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -276,7 +310,7 @@ function OutputGalleryCard({
         )}
       </div>
       {canForwardToVideo ? (
-        <div className="mt-2 px-1">
+        <div className="mt-2 flex flex-col gap-2 px-1">
           <Button
             className="w-full"
             disabled={isForwarding}
@@ -291,6 +325,21 @@ function OutputGalleryCard({
               <Forward data-icon="inline-start" suppressHydrationWarning />
             )}
             {isForwarding ? 'Forwarding...' : 'Forward to Video'}
+          </Button>
+          <Button
+            className="w-full"
+            disabled={isForwardingCarousel}
+            onClick={() => onForwardToCarousel(item)}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            {isForwardingCarousel ? (
+              <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
+            ) : (
+              <Forward data-icon="inline-start" suppressHydrationWarning />
+            )}
+            {isForwardingCarousel ? 'Forwarding...' : 'Forward to Carousel'}
           </Button>
         </div>
       ) : null}

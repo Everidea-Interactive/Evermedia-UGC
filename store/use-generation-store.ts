@@ -6,6 +6,8 @@ import type {
   AssetSlot,
   BatchSize,
   CameraMovement,
+  CarouselDraft,
+  CarouselPanelDraft,
   CharacterAgeGroup,
   CharacterGender,
   ContentConcept,
@@ -73,6 +75,8 @@ type GenerationStateShape = {
   assets: NamedAssetSlots
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
+  carouselDraft: CarouselDraft
+  carouselStageEventId: number
   characterAgeGroup: CharacterAgeGroup
   creativeBrief: CreativeBrief
   creativePlan: CreativePlan | null
@@ -107,15 +111,21 @@ type GenerationStateShape = {
 }
 
 type GenerationStore = GenerationStateShape & {
+  addCarouselPanel: () => void
   clearNamedAsset: (slot: NamedAssetKey) => void
   clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
   clearProductSlot: (id: string) => void
   clearVideoReference: (id: string) => void
+  deleteCarouselPanel: (panelId: string) => void
   disposeGenerationState: () => void
   forwardGuidedImageResultToVideo: (file: File) => void
+  forwardManualImageResultToCarousel: (file: File) => void
   forwardManualImageResultToVideo: (file: File) => void
+  moveCarouselPanel: (panelId: string, direction: 'up' | 'down') => void
+  updateCarouselDraft: (patch: Partial<CarouselDraft>) => void
+  updateCarouselPanel: (panelId: string, patch: Partial<CarouselPanelDraft>) => void
   hydrateGenerationRun: (run: GenerationRun | null) => void
   hydrateProjectConfig: (configSnapshot: ProjectConfigSnapshot) => void
   resetGenerationRun: () => void
@@ -219,6 +229,30 @@ function createSlot(id: string, label: string): AssetSlot {
     previewUrl: null,
     size: null,
     uploadStatus: 'idle',
+  }
+}
+
+function createEmptyCarouselPanel(order: number): CarouselPanelDraft {
+  return {
+    id: crypto.randomUUID(),
+    order,
+    styleMode: 'inherit',
+    styleGenerationEnabled: false,
+    stylePrompt: '',
+    imageMode: 'ai',
+    imagePrompt: '',
+    imageAsset: null,
+    textMode: 'manual',
+    textPrompt: '',
+    textValue: '',
+  }
+}
+
+function createInitialCarouselDraft(): CarouselDraft {
+  return {
+    brief: '',
+    globalPanelStyle: '',
+    panels: [],
   }
 }
 
@@ -352,6 +386,8 @@ function createInitialState(): GenerationStateShape {
     },
     batchSize: 1,
     cameraMovement: 'orbit',
+    carouselDraft: createInitialCarouselDraft(),
+    carouselStageEventId: 0,
     characterAgeGroup: 'any',
     characterGender: 'any',
     creativeBrief: createCreativeBrief(),
@@ -500,8 +536,79 @@ function syncGenerationRun(run: GenerationRun, variants: GenerationVariant[]): G
   }
 }
 
+function createAssetSlotFromFile(file: File): AssetSlot {
+  return {
+    error: null,
+    file,
+    id: crypto.randomUUID(),
+    label: file.name,
+    mimeType: file.type,
+    previewUrl: createPreviewUrl(file),
+    size: file.size,
+    uploadStatus: 'staged',
+  }
+}
+
 export const useGenerationStore = create<GenerationStore>((set, get) => ({
   ...createInitialState(),
+  addCarouselPanel: () =>
+    set((state) => ({
+      carouselDraft: {
+        ...state.carouselDraft,
+        panels: [
+          ...state.carouselDraft.panels,
+          createEmptyCarouselPanel(state.carouselDraft.panels.length + 1),
+        ],
+      },
+    })),
+  deleteCarouselPanel: (panelId) =>
+    set((state) => {
+      const nextPanels = state.carouselDraft.panels
+        .filter((panel) => panel.id !== panelId)
+        .map((panel, index) => ({ ...panel, order: index + 1 }))
+
+      return {
+        carouselDraft: {
+          ...state.carouselDraft,
+          panels: nextPanels.length > 0 ? nextPanels : [createEmptyCarouselPanel(1)],
+        },
+      }
+    }),
+  moveCarouselPanel: (panelId, direction) =>
+    set((state) => {
+      const panels = [...state.carouselDraft.panels]
+      const index = panels.findIndex((p) => p.id === panelId)
+      if (index === -1) return state
+
+      const swapIndex = direction === 'up' ? index - 1 : index + 1
+      if (swapIndex < 0 || swapIndex >= panels.length) return state
+
+      const [movedPanel] = panels.splice(index, 1)
+      panels.splice(swapIndex, 0, movedPanel)
+
+      return {
+        carouselDraft: {
+          ...state.carouselDraft,
+          panels: panels.map((p, i) => ({ ...p, order: i + 1 })),
+        },
+      }
+    }),
+  updateCarouselPanel: (panelId, patch) =>
+    set((state) => ({
+      carouselDraft: {
+        ...state.carouselDraft,
+        panels: state.carouselDraft.panels.map((panel) =>
+          panel.id === panelId ? { ...panel, ...patch } : panel,
+        ),
+      },
+    })),
+  updateCarouselDraft: (patch) =>
+    set((state) => ({
+      carouselDraft: {
+        ...state.carouselDraft,
+        ...patch,
+      },
+    })),
   clearNamedAsset: (slot) =>
     set((state) => ({
       assets: {
@@ -571,6 +678,22 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       guidedVideoStageEventId: state.guidedVideoStageEventId + 1,
       outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
     })),
+  forwardManualImageResultToCarousel: (file) =>
+    set((state) => ({
+      activeTab: 'carousel',
+      carouselDraft: {
+        ...state.carouselDraft,
+        panels: [
+          {
+            ...createEmptyCarouselPanel(1),
+            imageMode: 'manual',
+            imageAsset: createAssetSlotFromFile(file),
+          },
+        ],
+      },
+      carouselStageEventId: state.carouselStageEventId + 1,
+      experience: 'manual',
+    })),
   forwardManualImageResultToVideo: (file) =>
     set((state) => {
       const nextVideoReferences = trimVideoReferenceSlots(
@@ -636,6 +759,8 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         analysisStatus: hydratedGuidedPlan ? 'ready' : 'idle',
         batchSize: normalizedConfig.batchSize,
         cameraMovement: normalizedConfig.cameraMovement,
+        carouselDraft:
+          normalizedConfig.carouselDraft ?? createInitialCarouselDraft(),
         characterAgeGroup: normalizedConfig.characterAgeGroup,
         characterGender: normalizedConfig.characterGender,
         creativeBrief:

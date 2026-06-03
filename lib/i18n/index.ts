@@ -73,6 +73,7 @@ export const dictionaries = {
       workspaceTabs: {
         image: 'Image',
         video: 'Video',
+        carousel: 'Carousel',
       },
     },
     ideation: {
@@ -163,6 +164,7 @@ export const dictionaries = {
       workspaceTabs: {
         image: 'Gambar',
         video: 'Video',
+        carousel: 'Karusel',
       },
     },
     ideation: {

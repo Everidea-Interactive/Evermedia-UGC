@@ -56,53 +56,58 @@ describe('LibraryPage', () => {
   })
 
   it('forwards a saved image result into the manual video workspace', async () => {
-    const forwardedFetch = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            configSnapshot: {
-              activeTab: 'image',
-              batchSize: 2,
-              cameraMovement: 'dolly',
-              characterAgeGroup: 'adult',
-              characterGender: 'female',
-              creativeStyle: 'cinematic',
-              experience: 'manual',
-              figureArtDirection: 'curvaceous-editorial',
-              guided: null,
-              imageModel: 'nano-banana',
-              outputQuality: '4k',
-              productCategory: 'jewelry',
-              shotEnvironment: 'outdoor',
-              subjectMode: 'lifestyle',
-              textPrompt: 'Recovered preset prompt',
-              videoAudio: 'no-audio',
-              videoDuration: 'base',
-              videoModel: 'veo-3.1',
-            },
-            run: {
-              runId: 'run-1',
-              status: 'success',
-            },
-          }),
-          {
+    const forwardedFetch = vi.fn().mockImplementation(
+      (url: string) => {
+        if (url.includes('/api/generation/runs/')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                configSnapshot: {
+                  activeTab: 'image',
+                  batchSize: 2,
+                  cameraMovement: 'dolly',
+                  characterAgeGroup: 'adult',
+                  characterGender: 'female',
+                  creativeStyle: 'cinematic',
+                  experience: 'manual',
+                  figureArtDirection: 'curvaceous-editorial',
+                  guided: null,
+                  imageModel: 'nano-banana',
+                  outputQuality: '4k',
+                  productCategory: 'jewelry',
+                  shotEnvironment: 'outdoor',
+                  subjectMode: 'lifestyle',
+                  textPrompt: 'Recovered preset prompt',
+                  videoAudio: 'no-audio',
+                  videoDuration: 'base',
+                  videoModel: 'veo-3.1',
+                },
+                run: {
+                  runId: 'run-1',
+                  status: 'success',
+                },
+              }),
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                status: 200,
+              },
+            ),
+          )
+        }
+
+        return Promise.resolve(
+          new Response('library-forward', {
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Disposition': 'attachment; filename="library-forward.png"',
+              'Content-Type': 'image/png',
             },
             status: 200,
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response('library-forward', {
-          headers: {
-            'Content-Disposition': 'attachment; filename="library-forward.png"',
-            'Content-Type': 'image/png',
-          },
-          status: 200,
-        }),
-      )
+          }),
+        )
+      },
+    )
 
     vi.stubGlobal('fetch', forwardedFetch)
 
@@ -182,6 +187,134 @@ describe('LibraryPage', () => {
     expect(state.outputQuality).toBe('1080p')
     expect(state.videoReferences[0]?.file?.name).toBe('library-forward.png')
     expect(state.videoReferences[1]?.file).toBeNull()
+  })
+
+  it('forwards a saved image result into the carousel workspace', async () => {
+    const forwardedFetch = vi.fn().mockImplementation(
+      (url: string) => {
+        if (url.includes('/api/generation/runs/')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                configSnapshot: {
+                  activeTab: 'image',
+                  batchSize: 2,
+                  cameraMovement: 'dolly',
+                  characterAgeGroup: 'adult',
+                  characterGender: 'female',
+                  creativeStyle: 'cinematic',
+                  experience: 'manual',
+                  figureArtDirection: 'curvaceous-editorial',
+                  guided: null,
+                  imageModel: 'nano-banana',
+                  outputQuality: '4k',
+                  productCategory: 'jewelry',
+                  shotEnvironment: 'outdoor',
+                  subjectMode: 'lifestyle',
+                  textPrompt: 'Recovered preset prompt',
+                  videoAudio: 'no-audio',
+                  videoDuration: 'base',
+                  videoModel: 'veo-3.1',
+                },
+                run: {
+                  runId: 'run-1',
+                  status: 'success',
+                },
+              }),
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                status: 200,
+              },
+            ),
+          )
+        }
+
+        return Promise.resolve(
+          new Response('library-carousel-forward', {
+            headers: {
+              'Content-Disposition': 'attachment; filename="library-carousel-forward.png"',
+              'Content-Type': 'image/png',
+            },
+            status: 200,
+          }),
+        )
+      },
+    )
+
+    vi.stubGlobal('fetch', forwardedFetch)
+
+    await act(async () => {
+      useGenerationStore.getState().resetGenerationState()
+      useGenerationStore.getState().setActiveTab('image')
+      useGenerationStore.getState().setExperience('manual')
+    })
+
+    render(
+      <LibraryPage
+        initialOutputs={[
+          {
+            output: {
+              createdAt: '2026-05-12T00:00:00.000Z',
+              fileSize: 1024,
+              id: 'output-1',
+              label: 'Output 1',
+              mimeType: 'image/png',
+              ownerEmail: 'owner-1@example.com',
+              originalName: 'output-1.png',
+              runId: 'run-1',
+              storagePath: '/tmp/output-1.png',
+              userId: 'user-1',
+            },
+            run: {
+              completedAt: null,
+              createdAt: '2026-05-12T00:00:00.000Z',
+              id: 'run-1',
+              model: 'model-a',
+              promptSnapshot: 'sample prompt',
+              provider: 'market',
+              status: 'success',
+              workspace: 'image',
+            },
+            variant: {
+              completedAt: '2026-05-12T00:00:05.000Z',
+              createdAt: '2026-05-12T00:00:00.000Z',
+              error: null,
+              id: 'variant-1',
+              profile: 'profile',
+              prompt: 'prompt',
+              status: 'success',
+              taskId: 'task-1',
+              variantIndex: 1,
+            },
+          },
+        ]}
+        initialIdeations={[]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 1, totalOutputs: 1, totalSizeBytes: 1024, totalIdeations: 0 }}
+        initialView="outputs"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward to Carousel' }))
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/')
+      expect(forwardedFetch).toHaveBeenCalledWith('/api/generation/runs/run-1', {
+        cache: 'no-store',
+      })
+      expect(forwardedFetch).toHaveBeenCalledWith('/api/media/output-1?download=1', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      })
+    })
+
+    const state = useGenerationStore.getState()
+    expect(state.activeTab).toBe('carousel')
+    expect(state.carouselDraft.panels[0]?.imageMode).toBe('manual')
+    expect(state.carouselDraft.panels[0]?.imageAsset?.file?.name).toBe('library-carousel-forward.png')
   })
 
   it('translates library archive copy when the active locale is Indonesian', async () => {

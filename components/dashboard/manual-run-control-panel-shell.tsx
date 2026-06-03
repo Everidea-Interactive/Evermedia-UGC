@@ -55,6 +55,7 @@ import type {
   VideoDuration,
   VideoAudio,
   VideoModelOption,
+  WorkspaceTab,
 } from '@/lib/generation/types'
 import {
   supportsVideoEndFrameGuidance,
@@ -145,6 +146,7 @@ function RunControlPanel({
   )
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const textPrompt = useGenerationStore((state) => state.textPrompt)
+  const carouselDraft = useGenerationStore((state) => state.carouselDraft)
   const generationRun = useGenerationStore((state) => state.generationRun)
 
   const loadedAssets = useMemo(
@@ -172,18 +174,23 @@ function RunControlPanel({
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
   const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
   const activeModelLabel =
-    activeTab === 'image'
-      ? getImageModelLabel(imageModel)
-      : getVideoModelLabel(videoModel)
-  const primaryInputLabel = getPrimaryInputSummary({
-    activeTab,
-    assets,
-    products,
-    subjectMode,
-    textPrompt,
-    videoModel,
-    videoReferences,
-  })
+    activeTab === 'carousel'
+      ? 'Carousel'
+      : activeTab === 'image'
+        ? getImageModelLabel(imageModel)
+        : getVideoModelLabel(videoModel)
+  const primaryInputLabel =
+    activeTab === 'carousel'
+      ? `${carouselDraft.panels.length} panels`
+      : getPrimaryInputSummary({
+          activeTab,
+          assets,
+          products,
+          subjectMode,
+          textPrompt,
+          videoModel,
+          videoReferences,
+        })
   const characterPresetLabel = getCharacterPresetSummary({
     characterAgeGroup,
     characterGender,
@@ -226,7 +233,7 @@ function RunControlPanel({
             </p>
           </div>
           <Badge className="self-start whitespace-nowrap" variant="outline">
-            {activeTab === 'video' ? 'Video workspace' : 'Image workspace'}
+            {activeTab === 'carousel' ? 'Carousel workspace' : activeTab === 'video' ? 'Video workspace' : 'Image workspace'}
           </Badge>
         </div>
 
@@ -317,148 +324,162 @@ function RunControlPanel({
                 </div>
               ) : null}
 
-              <div className="mt-2 grid gap-2.5">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {activeTab === 'image' ? 'Image model' : 'Video model'}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Curated provider options for the active workspace.
-                  </p>
+              {activeTab === 'carousel' ? (
+                <div className="mt-2 grid gap-2.5">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Panels
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Generating {carouselDraft.panels.length} configured carousel
+                      panel{carouselDraft.panels.length !== 1 ? 's' : ''}.
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <div className="mt-2 grid gap-2.5">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {activeTab === 'image' ? 'Image model' : 'Video model'}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Curated provider options for the active workspace.
+                    </p>
+                  </div>
 
-                {activeTab === 'image' ? (
-                  <Select
-                    aria-label="Image Model"
-                    onChange={(event) => {
-                      const nextModel = event.target.value as ImageModelOption
-                      setImageModel(nextModel)
-                      const supportedQualities = getImageQualityOptions(
-                        nextModel,
-                        kiePricing,
-                      )
-                      if (!supportedQualities.includes(outputQuality)) {
-                        setOutputQuality(supportedQualities[0] ?? '1080p')
-                      }
-                    }}
-                    value={imageModel}
-                  >
-                    {imageModels.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <>
+                  {activeTab === 'image' ? (
                     <Select
-                      aria-label="Video Model"
-                      onChange={(event) =>
-                        setVideoModel(event.target.value as VideoModelOption)
-                      }
-                      value={videoModel}
+                      aria-label="Image Model"
+                      onChange={(event) => {
+                        const nextModel = event.target.value as ImageModelOption
+                        setImageModel(nextModel)
+                        const supportedQualities = getImageQualityOptions(
+                          nextModel,
+                          kiePricing,
+                        )
+                        if (!supportedQualities.includes(outputQuality)) {
+                          setOutputQuality(supportedQualities[0] ?? '1080p')
+                        }
+                      }}
+                      value={imageModel}
                     >
-                      {videoModels.map((model) => (
+                      {imageModels.map((model) => (
                         <option key={model.value} value={model.value}>
                           {model.label}
                         </option>
                       ))}
                     </Select>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                      Clip length
-                    </p>
-                    <Select
-                      aria-label="Video Duration"
-                      onChange={(event) =>
-                        setVideoDuration(event.target.value as VideoDuration)
-                      }
-                      value={videoDuration}
-                    >
-                      {getVideoDurationOptions(videoModel).map((duration) => (
-                        <option key={duration} value={duration}>
-                          {getVideoDurationLabel(videoModel, duration)}
-                        </option>
-                      ))}
-                    </Select>
-                    {supportsVideoAudioSelection(videoModel) ? (
-                      <>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Audio
-                        </p>
-                        <Select
-                          aria-label="Video Audio"
-                          onChange={(event) =>
-                            setVideoAudio(event.target.value as VideoAudio)
-                          }
-                          value={videoAudio}
-                        >
-                          {videoAudioOptions.map((videoAudioOption) => (
-                            <option key={videoAudioOption} value={videoAudioOption}>
-                              {getVideoAudioLabel(videoAudioOption)}
-                            </option>
-                          ))}
-                        </Select>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Audio
-                        </p>
-                        <Select
-                          aria-label="Video Audio"
-                          disabled
-                          value="with-audio"
-                        >
-                          <option value="with-audio">Included by model</option>
-                        </Select>
-                      </>
-                    )}
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                      Video resolution
-                    </p>
-                    <Select
-                      aria-label="Video Resolution"
-                      onChange={(event) =>
-                        setOutputQuality(event.target.value as OutputQuality)
-                      }
-                      value={outputQuality}
-                    >
-                      {videoQualities.map((quality) => (
-                        <option key={quality} value={quality}>
-                          {quality}
-                        </option>
-                      ))}
-                    </Select>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <Select
+                        aria-label="Video Model"
+                        onChange={(event) =>
+                          setVideoModel(event.target.value as VideoModelOption)
+                        }
+                        value={videoModel}
+                      >
+                        {videoModels.map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Clip length
+                      </p>
+                      <Select
+                        aria-label="Video Duration"
+                        onChange={(event) =>
+                          setVideoDuration(event.target.value as VideoDuration)
+                        }
+                        value={videoDuration}
+                      >
+                        {getVideoDurationOptions(videoModel).map((duration) => (
+                          <option key={duration} value={duration}>
+                            {getVideoDurationLabel(videoModel, duration)}
+                          </option>
+                        ))}
+                      </Select>
+                      {supportsVideoAudioSelection(videoModel) ? (
+                        <>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                            Audio
+                          </p>
+                          <Select
+                            aria-label="Video Audio"
+                            onChange={(event) =>
+                              setVideoAudio(event.target.value as VideoAudio)
+                            }
+                            value={videoAudio}
+                          >
+                            {videoAudioOptions.map((videoAudioOption) => (
+                              <option key={videoAudioOption} value={videoAudioOption}>
+                                {getVideoAudioLabel(videoAudioOption)}
+                              </option>
+                            ))}
+                          </Select>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                            Audio
+                          </p>
+                          <Select
+                            aria-label="Video Audio"
+                            disabled
+                            value="with-audio"
+                          >
+                            <option value="with-audio">Included by model</option>
+                          </Select>
+                        </>
+                      )}
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Video resolution
+                      </p>
+                      <Select
+                        aria-label="Video Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {videoQualities.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {quality}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
+                  )}
 
-                <p className="text-xs text-muted-foreground">
-                  {activeTab === 'image'
-                    ? selectedImageModel?.helper
-                    : selectedVideoModel?.helper}
-                </p>
+                  <p className="text-xs text-muted-foreground">
+                    {activeTab === 'image'
+                      ? selectedImageModel?.helper
+                      : selectedVideoModel?.helper}
+                  </p>
 
-                {activeTab === 'image' ? (
-                  <>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                      Image resolution
-                    </p>
-                    <Select
-                      aria-label="Image Resolution"
-                      onChange={(event) =>
-                        setOutputQuality(event.target.value as OutputQuality)
-                      }
-                      value={outputQuality}
-                    >
-                      {imageQualityOptions.map((quality) => (
-                        <option key={quality} value={quality}>
-                          {getImageQualityLabel(quality)}
-                        </option>
-                      ))}
-                    </Select>
-                  </>
-                ) : null}
-              </div>
+                  {activeTab === 'image' ? (
+                    <>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Image resolution
+                      </p>
+                      <Select
+                        aria-label="Image Resolution"
+                        onChange={(event) =>
+                          setOutputQuality(event.target.value as OutputQuality)
+                        }
+                        value={outputQuality}
+                      >
+                        {imageQualityOptions.map((quality) => (
+                          <option key={quality} value={quality}>
+                            {getImageQualityLabel(quality)}
+                          </option>
+                        ))}
+                      </Select>
+                    </>
+                  ) : null}
+                </div>
+              )}
 
               <div className="mt-2.5 flex w-full flex-col gap-2">
                 <GenerationEstimateStrip
@@ -507,7 +528,7 @@ function getPrimaryInputSummary({
   videoModel,
   videoReferences,
 }: {
-  activeTab: 'image' | 'video'
+  activeTab: WorkspaceTab
   assets: NamedAssetSlots
   products: AssetSlot[]
   subjectMode: SubjectMode

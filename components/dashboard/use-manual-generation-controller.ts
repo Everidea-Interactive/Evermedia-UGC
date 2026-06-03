@@ -15,6 +15,7 @@ import type {
   AssetSlot,
   BatchSize,
   CameraMovement,
+  CarouselDraft,
   CharacterAgeGroup,
   CharacterGender,
   CreativeStyle,
@@ -43,6 +44,7 @@ function createGenerationSnapshot(input: {
   assets: NamedAssetSlots
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
+  carouselDraft: CarouselDraft
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
@@ -58,8 +60,11 @@ function createGenerationSnapshot(input: {
   videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
-}): GenerationSnapshot {
-  return input
+}): GenerationSnapshot & { carouselDraft: CarouselDraft } {
+  return {
+    ...input,
+    carouselDraft: input.carouselDraft,
+  }
 }
 
 function hasActiveGeneration(run: GenerationRun) {
@@ -77,6 +82,7 @@ export function useManualGenerationController(input: {
   const assets = useGenerationStore((state) => state.assets)
   const batchSize = useGenerationStore((state) => state.batchSize)
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
+  const carouselDraft = useGenerationStore((state) => state.carouselDraft)
   const characterAgeGroup = useGenerationStore(
     (state) => state.characterAgeGroup,
   )
@@ -113,6 +119,7 @@ export function useManualGenerationController(input: {
         assets,
         batchSize,
         cameraMovement,
+        carouselDraft,
         characterAgeGroup,
         characterGender,
         creativeStyle,
@@ -134,6 +141,7 @@ export function useManualGenerationController(input: {
       assets,
       batchSize,
       cameraMovement,
+      carouselDraft,
       characterAgeGroup,
       characterGender,
       creativeStyle,
@@ -263,6 +271,7 @@ export function useManualGenerationController(input: {
       assets: state.assets,
       batchSize: state.batchSize,
       cameraMovement: state.cameraMovement,
+      carouselDraft: state.carouselDraft,
       characterAgeGroup: state.characterAgeGroup,
       characterGender: state.characterGender,
       creativeStyle: state.creativeStyle,
@@ -334,11 +343,38 @@ export function useManualGenerationController(input: {
     }
   }
 
+  const createSnapshot = () => {
+    const state = useGenerationStore.getState()
+    return createGenerationSnapshot({
+      activeTab: state.activeTab,
+      assets: state.assets,
+      batchSize: state.batchSize,
+      cameraMovement: state.cameraMovement,
+      carouselDraft: state.carouselDraft,
+      characterAgeGroup: state.characterAgeGroup,
+      characterGender: state.characterGender,
+      creativeStyle: state.creativeStyle,
+      figureArtDirection: state.figureArtDirection,
+      imageModel: state.imageModel,
+      outputQuality: state.outputQuality,
+      productCategory: state.productCategory,
+      products: state.products,
+      shotEnvironment: state.shotEnvironment,
+      subjectMode: state.subjectMode,
+      textPrompt: state.textPrompt,
+      videoReferences: state.videoReferences,
+      videoAudio: state.videoAudio,
+      videoDuration: state.videoDuration,
+      videoModel: state.videoModel,
+    })
+  }
+
   return {
     canGenerate:
       enabled && !isSubmittingGeneration
         ? validation.canGenerate && creditValidation.canGenerate
         : false,
+    createSnapshot,
     disabledReason,
     generationCostEstimate,
     generationCostReason:
