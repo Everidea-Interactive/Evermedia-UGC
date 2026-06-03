@@ -44,6 +44,7 @@ Thumbs.db
 /.playwright-mcp
 /docs/superpowers
 /.opencode-dux
+/.worktrees/
 
 
 # output files
