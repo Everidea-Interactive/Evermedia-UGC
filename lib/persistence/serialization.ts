@@ -1,5 +1,6 @@
 import { normalizeKieAnalysisModel } from '@/lib/generation/guided'
 import type {
+  CarouselBaseTemplateMode,
   CarouselDraft,
   CarouselPanelDraft,
   CreativeBrief,
@@ -37,8 +38,9 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
 }
 
 const defaultCarouselDraft: CarouselDraft = {
-  brief: '',
-  globalPanelStyle: '',
+  baseTemplateMode: 'ai',
+  baseTemplatePrompt: '',
+  baseTemplateAsset: null,
   panels: [],
 }
 
@@ -54,15 +56,20 @@ function normalizeCarouselPanelDraft(value: unknown): CarouselPanelDraft | null 
     return null
   }
 
+  // Migration: read old styleMode -> templateMode, stylePrompt -> templatePrompt
+  const templateMode = (candidate.templateMode === 'override' || candidate.styleMode === 'override')
+    ? 'override' : 'inherit'
+  const templatePrompt = typeof candidate.templatePrompt === 'string'
+    ? candidate.templatePrompt
+    : typeof candidate.stylePrompt === 'string'
+      ? candidate.stylePrompt
+      : ''
+
   return {
     id,
     order: typeof candidate.order === 'number' ? Math.round(candidate.order) : 0,
-    styleMode: candidate.styleMode === 'override' ? 'override' : 'inherit',
-    styleGenerationEnabled:
-      typeof candidate.styleGenerationEnabled === 'boolean'
-        ? candidate.styleGenerationEnabled
-        : false,
-    stylePrompt: typeof candidate.stylePrompt === 'string' ? candidate.stylePrompt : '',
+    templateMode,
+    templatePrompt,
     imageMode: candidate.imageMode === 'ai' ? 'ai' : 'manual',
     imagePrompt: typeof candidate.imagePrompt === 'string' ? candidate.imagePrompt : '',
     imageAsset: null,
@@ -85,11 +92,17 @@ function normalizeCarouselDraft(value: unknown): CarouselDraft {
       })
     : []
 
-  return {
-    brief: typeof record.brief === 'string' ? record.brief : '',
-    globalPanelStyle: typeof record.globalPanelStyle === 'string' ? record.globalPanelStyle : '',
-    panels,
-  }
+  const baseTemplateMode: CarouselBaseTemplateMode =
+    record.baseTemplateMode === 'manual' ? 'manual' : 'ai'
+  const baseTemplatePrompt =
+    typeof record.baseTemplatePrompt === 'string'
+      ? record.baseTemplatePrompt
+      : typeof record.globalPanelStyle === 'string'
+        ? record.globalPanelStyle        // legacy migration
+        : ''
+  const baseTemplateAsset = null           // never persisted with file data
+
+  return { baseTemplateMode, baseTemplatePrompt, baseTemplateAsset, panels }
 }
 
 function normalizeCreativeBrief(value: unknown): CreativeBrief | null {

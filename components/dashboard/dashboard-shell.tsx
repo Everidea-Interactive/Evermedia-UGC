@@ -10,6 +10,7 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
 } from '@/lib/generation/types'
+import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 const RefineRenderSection = dynamic(() =>
@@ -24,15 +25,9 @@ const OutputPanel = dynamic(() =>
   ),
 )
 
-const ManualCarouselReferenceSection = dynamic(() =>
-  import('@/components/dashboard/manual-carousel-reference-section').then(
-    (module) => module.ManualCarouselReferenceSection,
-  ),
-)
-
-const ManualCarouselPresetSection = dynamic(() =>
-  import('@/components/dashboard/manual-carousel-preset-section').then(
-    (module) => module.ManualCarouselPresetSection,
+const ManualCarouselSetupSection = dynamic(() =>
+  import('@/components/dashboard/manual-carousel-setup-section').then(
+    (module) => module.ManualCarouselSetupSection,
   ),
 )
 
@@ -42,7 +37,7 @@ const ManualCarouselOutputPanel = dynamic(() =>
   ),
 )
 
-type ManualSection = 'references' | 'preset' | 'outputs'
+type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
   manualSection: ManualSection,
@@ -77,9 +72,10 @@ export function DashboardShell({
 
   const renderManualSection = () => {
     if (activeTab === 'carousel') {
-      if (visibleManualSection === 'references') return <ManualCarouselReferenceSection />
-      if (visibleManualSection === 'preset') return <ManualCarouselPresetSection />
-      return <ManualCarouselOutputPanel />
+      if (visibleManualSection === 'setup') return <ManualCarouselSetupSection />
+      if (visibleManualSection === 'outputs') return <ManualCarouselOutputPanel />
+      // Carousel ignores references/preset — redirect to setup
+      return null
     }
 
     if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
@@ -107,7 +103,7 @@ export function DashboardShell({
     }
 
     const timeoutId = window.setTimeout(() => {
-      setManualSection('references')
+      setManualSection('setup')
     }, 0)
 
     return () => {
@@ -171,11 +167,20 @@ export function DashboardShell({
           >
             <TabsList
               aria-label="Workspace Sections"
-              className="w-full grid-cols-3"
+              className={cn("w-full", activeTab === 'carousel' ? "grid-cols-2" : "grid-cols-3")}
             >
-              <TabsTrigger value="references">References</TabsTrigger>
-              <TabsTrigger value="preset">Preset</TabsTrigger>
-              <TabsTrigger value="outputs">Outputs</TabsTrigger>
+              {activeTab === 'carousel' ? (
+                <>
+                  <TabsTrigger value="setup">Setup</TabsTrigger>
+                  <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="references">References</TabsTrigger>
+                  <TabsTrigger value="preset">Preset</TabsTrigger>
+                  <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                </>
+              )}
             </TabsList>
           </Tabs>
 

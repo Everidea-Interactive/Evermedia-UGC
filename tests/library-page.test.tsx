@@ -313,8 +313,8 @@ describe('LibraryPage', () => {
 
     const state = useGenerationStore.getState()
     expect(state.activeTab).toBe('carousel')
-    expect(state.carouselDraft.panels[0]?.imageMode).toBe('manual')
-    expect(state.carouselDraft.panels[0]?.imageAsset?.file?.name).toBe('library-carousel-forward.png')
+    expect(state.carouselDraft.baseTemplateMode).toBe('manual')
+    expect(state.carouselDraft.baseTemplateAsset?.file?.name).toBe('library-carousel-forward.png')
   })
 
   it('translates library archive copy when the active locale is Indonesian', async () => {

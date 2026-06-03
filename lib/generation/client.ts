@@ -179,6 +179,9 @@ export function getGenerationValidation(snapshot: GenerationSnapshot) {
 function serializeCarouselDraft(draft: CarouselDraft) {
   return {
     ...draft,
+    baseTemplateAsset: draft.baseTemplateAsset
+      ? { ...draft.baseTemplateAsset, file: null }
+      : null,
     panels: draft.panels.map((panel) => ({
       ...panel,
       imageAsset: panel.imageAsset ? { ...panel.imageAsset, file: null } : null,
@@ -217,6 +220,14 @@ export function buildGenerationFormData(
       throw new Error('Carousel workspace requires at least one panel.')
     }
 
+    if (carouselDraft.baseTemplateMode === 'ai' && !carouselDraft.baseTemplatePrompt.trim()) {
+      throw new Error('Base template AI mode requires a prompt.')
+    }
+
+    if (carouselDraft.baseTemplateMode === 'manual' && !carouselDraft.baseTemplateAsset?.file) {
+      throw new Error('Base template manual mode requires an uploaded image.')
+    }
+
     for (const panel of carouselDraft.panels) {
       const hasManualImage =
         panel.imageMode === 'manual' && panel.imageAsset?.file
@@ -229,6 +240,10 @@ export function buildGenerationFormData(
     }
 
     formData.append('carouselDraft', JSON.stringify(serializeCarouselDraft(carouselDraft)))
+
+    if (carouselDraft.baseTemplateMode === 'manual' && carouselDraft.baseTemplateAsset?.file) {
+      formData.append('carousel_base_template_image', carouselDraft.baseTemplateAsset.file)
+    }
 
     for (const panel of carouselDraft.panels) {
       if (panel.imageMode === 'manual' && panel.imageAsset?.file) {

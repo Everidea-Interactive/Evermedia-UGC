@@ -744,15 +744,15 @@ describe('POST /api/generation/run', () => {
         videoDuration: 'base',
         videoModel: 'veo-3.1',
         carouselDraft: {
-          brief: 'homeless media carousel',
-          globalPanelStyle: 'white card',
+          baseTemplateMode: 'ai',
+          baseTemplatePrompt: 'white card',
+          baseTemplateAsset: null,
           panels: [
             {
               id: 'panel-1',
               order: 1,
-              styleMode: 'inherit',
-              styleGenerationEnabled: false,
-              stylePrompt: '',
+              templateMode: 'inherit',
+              templatePrompt: '',
               imageMode: 'ai',
               imagePrompt: 'a portrait on top of a white panel',
               imageAsset: null,
@@ -798,15 +798,15 @@ describe('POST /api/generation/run', () => {
           videoDuration: 'base',
           videoModel: 'veo-3.1',
           carouselDraft: {
-            brief: 'homeless media carousel',
-            globalPanelStyle: 'white card',
+            baseTemplateMode: 'ai',
+            baseTemplatePrompt: 'white card',
+            baseTemplateAsset: null,
             panels: [
               {
                 id: 'panel-1',
                 order: 1,
-                styleMode: 'inherit',
-                styleGenerationEnabled: false,
-                stylePrompt: '',
+                templateMode: 'inherit',
+                templatePrompt: '',
                 imageMode: 'ai',
                 imagePrompt: 'a portrait on top of a white panel',
                 imageAsset: null,
@@ -865,15 +865,15 @@ describe('POST /api/generation/run', () => {
     formData.append(
       'carouselDraft',
       JSON.stringify({
-        brief: 'homeless media carousel',
-        globalPanelStyle: 'white card',
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
         panels: [
           {
             id: 'panel-1',
             order: 1,
-            styleMode: 'inherit',
-            styleGenerationEnabled: false,
-            stylePrompt: '',
+            templateMode: 'inherit',
+            templatePrompt: '',
             imageMode: 'ai',
             imagePrompt: 'a portrait on top of a white panel',
             textMode: 'manual',

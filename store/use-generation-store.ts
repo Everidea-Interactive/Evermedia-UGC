@@ -6,6 +6,7 @@ import type {
   AssetSlot,
   BatchSize,
   CameraMovement,
+  CarouselBaseTemplateMode,
   CarouselDraft,
   CarouselPanelDraft,
   CharacterAgeGroup,
@@ -113,6 +114,9 @@ type GenerationStateShape = {
 type GenerationStore = GenerationStateShape & {
   addCarouselPanel: () => void
   clearNamedAsset: (slot: NamedAssetKey) => void
+  setCarouselBaseTemplateMode: (mode: CarouselBaseTemplateMode) => void
+  setCarouselBaseTemplatePrompt: (prompt: string) => void
+  setCarouselBaseTemplateAsset: (file: File | null) => void
   clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
@@ -236,9 +240,8 @@ function createEmptyCarouselPanel(order: number): CarouselPanelDraft {
   return {
     id: crypto.randomUUID(),
     order,
-    styleMode: 'inherit',
-    styleGenerationEnabled: false,
-    stylePrompt: '',
+    templateMode: 'inherit',
+    templatePrompt: '',
     imageMode: 'ai',
     imagePrompt: '',
     imageAsset: null,
@@ -250,8 +253,9 @@ function createEmptyCarouselPanel(order: number): CarouselPanelDraft {
 
 function createInitialCarouselDraft(): CarouselDraft {
   return {
-    brief: '',
-    globalPanelStyle: '',
+    baseTemplateMode: 'ai',
+    baseTemplatePrompt: '',
+    baseTemplateAsset: null,
     panels: [],
   }
 }
@@ -678,18 +682,29 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       guidedVideoStageEventId: state.guidedVideoStageEventId + 1,
       outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
     })),
+  setCarouselBaseTemplateMode: (mode) =>
+    set((state) => ({
+      carouselDraft: { ...state.carouselDraft, baseTemplateMode: mode },
+    })),
+  setCarouselBaseTemplatePrompt: (prompt) =>
+    set((state) => ({
+      carouselDraft: { ...state.carouselDraft, baseTemplatePrompt: prompt },
+    })),
+  setCarouselBaseTemplateAsset: (file) =>
+    set((state) => ({
+      carouselDraft: {
+        ...state.carouselDraft,
+        baseTemplateAsset: file ? createAssetSlotFromFile(file) : null,
+      },
+    })),
   forwardManualImageResultToCarousel: (file) =>
     set((state) => ({
       activeTab: 'carousel',
       carouselDraft: {
-        ...state.carouselDraft,
-        panels: [
-          {
-            ...createEmptyCarouselPanel(1),
-            imageMode: 'manual',
-            imageAsset: createAssetSlotFromFile(file),
-          },
-        ],
+        ...createInitialCarouselDraft(),
+        panels: [createEmptyCarouselPanel(1)],
+        baseTemplateMode: 'manual',
+        baseTemplateAsset: createAssetSlotFromFile(file),
       },
       carouselStageEventId: state.carouselStageEventId + 1,
       experience: 'manual',

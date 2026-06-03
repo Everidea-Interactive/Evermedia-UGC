@@ -113,10 +113,10 @@ describe('useManualGenerationController', () => {
     )
   })
 
-  it('includes carousel draft data in manual submission snapshots', async () => {
+  it('includes carousel base template fields in manual submission snapshots', async () => {
     const { useGenerationStore } = await import('@/store/use-generation-store')
     useGenerationStore.getState().setActiveTab('carousel')
-    useGenerationStore.getState().updateCarouselDraft({ globalPanelStyle: 'white card' })
+    useGenerationStore.getState().updateCarouselDraft({ baseTemplatePrompt: 'white card' })
 
     const { useManualGenerationController } = await import(
       '@/components/dashboard/use-manual-generation-controller'
@@ -140,7 +140,7 @@ describe('useManualGenerationController', () => {
     const snapshot = result.current.createSnapshot()
 
     expect(snapshot.activeTab).toBe('carousel')
-    expect(snapshot.carouselDraft?.globalPanelStyle).toBe('white card')
+    expect(snapshot.carouselDraft?.baseTemplatePrompt).toBe('white card')
   })
 
   it('surfaces an HTML error response instead of crashing on JSON parsing', async () => {

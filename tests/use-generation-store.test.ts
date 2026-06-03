@@ -512,15 +512,18 @@ describe('useGenerationStore', () => {
       expect(useGenerationStore.getState().carouselDraft.panels).toHaveLength(1)
     })
 
-    it('forwards a saved image into carousel as a manual-image panel', () => {
+    it('forwards a saved image into carousel as a manual base template', () => {
       const file = new File(['seed'], 'seed.png', { type: 'image/png' })
       useGenerationStore.getState().forwardManualImageResultToCarousel(file)
 
       const state = useGenerationStore.getState()
       expect(state.activeTab).toBe('carousel')
       expect(state.experience).toBe('manual')
-      expect(state.carouselDraft.panels[0]?.imageMode).toBe('manual')
-      expect(state.carouselDraft.panels[0]?.imageAsset?.file?.name).toBe('seed.png')
+      expect(state.carouselDraft.baseTemplateMode).toBe('manual')
+      expect(state.carouselDraft.baseTemplateAsset?.file?.name).toBe('seed.png')
+      // Forwarding creates a default panel alongside base template
+      expect(state.carouselDraft.panels).toHaveLength(1)
+      expect(state.carouselDraft.panels[0]?.imageMode).toBe('ai')
     })
   })
 

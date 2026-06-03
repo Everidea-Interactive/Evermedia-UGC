@@ -179,9 +179,28 @@ function RunControlPanel({
       : activeTab === 'image'
         ? getImageModelLabel(imageModel)
         : getVideoModelLabel(videoModel)
+  const carouselStats = useMemo(() => {
+    if (activeTab !== 'carousel') return null
+    const { baseTemplateMode, baseTemplatePrompt, baseTemplateAsset, panels } = carouselDraft
+    return {
+      baseLabel: baseTemplateMode === 'ai'
+        ? baseTemplatePrompt
+          ? `Base panel: ${baseTemplatePrompt.slice(0, 60)}...`
+          : 'Base panel: AI'
+        : baseTemplateAsset?.file
+          ? `Base panel: Uploaded`
+          : 'Base panel: No asset',
+      imageAi: panels.filter(p => p.imageMode === 'ai').length,
+      imageManual: panels.filter(p => p.imageMode === 'manual').length,
+      textAi: panels.filter(p => p.textMode === 'ai').length,
+      textManual: panels.filter(p => p.textMode === 'manual').length,
+      overrides: panels.filter(p => p.templateMode === 'override').length,
+    }
+  }, [activeTab, carouselDraft])
+
   const primaryInputLabel =
     activeTab === 'carousel'
-      ? `${carouselDraft.panels.length} panels`
+      ? carouselStats?.baseLabel ?? `${carouselDraft.panels.length} panels`
       : getPrimaryInputSummary({
           activeTab,
           assets,
@@ -324,7 +343,7 @@ function RunControlPanel({
                 </div>
               ) : null}
 
-              {activeTab === 'carousel' ? (
+              {activeTab === 'carousel' && carouselStats ? (
                 <div className="mt-2 grid gap-2.5">
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -334,6 +353,28 @@ function RunControlPanel({
                       Generating {carouselDraft.panels.length} configured carousel
                       panel{carouselDraft.panels.length !== 1 ? 's' : ''}.
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Base: {carouselStats.baseLabel.split(':')[0] === 'Base panel' ? carouselStats.baseLabel.split(': ')[1] : carouselStats.baseLabel}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        AI img: {carouselStats.imageAi}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Manual img: {carouselStats.imageManual}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        AI text: {carouselStats.textAi}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Manual text: {carouselStats.textManual}
+                      </span>
+                      {carouselStats.overrides > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Overrides: {carouselStats.overrides}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ) : (

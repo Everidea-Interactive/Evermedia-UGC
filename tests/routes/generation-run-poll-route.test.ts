@@ -581,8 +581,9 @@ describe('GET /api/generation/runs/[runId]', () => {
             videoDuration: 'base',
             videoModel: 'veo-3.1',
             carouselDraft: {
-              brief: 'carousel',
-              globalPanelStyle: 'white card',
+              baseTemplateMode: 'ai',
+              baseTemplatePrompt: 'white card',
+              baseTemplateAsset: null,
               panels: [],
             },
           },
@@ -671,8 +672,9 @@ describe('GET /api/generation/runs/[runId]', () => {
             videoDuration: 'base',
             videoModel: 'veo-3.1',
             carouselDraft: {
-              brief: 'carousel',
-              globalPanelStyle: 'white card',
+              baseTemplateMode: 'ai',
+              baseTemplatePrompt: 'white card',
+              baseTemplateAsset: null,
               panels: [],
             },
           },

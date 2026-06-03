@@ -44,9 +44,8 @@ function makeCarouselAiPanel(id: string, order: number): CarouselPanelDraft {
   return {
     id,
     order,
-    styleMode: 'inherit',
-    styleGenerationEnabled: false,
-    stylePrompt: '',
+    templateMode: 'inherit',
+    templatePrompt: '',
     imageMode: 'ai',
     imagePrompt: 'A beautiful carousel panel',
     imageAsset: null,
@@ -60,9 +59,8 @@ function makeCarouselManualPanel(id: string, order: number): CarouselPanelDraft 
   return {
     id,
     order,
-    styleMode: 'inherit',
-    styleGenerationEnabled: false,
-    stylePrompt: '',
+    templateMode: 'inherit',
+    templatePrompt: '',
     imageMode: 'manual',
     imagePrompt: '',
     imageAsset: {
@@ -1514,8 +1512,9 @@ describe('carousel generation', () => {
     formData.set(
       'carouselDraft',
       JSON.stringify({
-        brief: 'carousel',
-        globalPanelStyle: 'white card',
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
         panels: [
           makeCarouselAiPanel('panel-1', 1),
           makeCarouselAiPanel('panel-2', 2),
@@ -1554,8 +1553,9 @@ describe('carousel generation', () => {
     formData.set(
       'carouselDraft',
       JSON.stringify({
-        brief: 'carousel',
-        globalPanelStyle: 'white card',
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
         panels: [
           makeCarouselManualPanel('panel-1', 1),
         ],

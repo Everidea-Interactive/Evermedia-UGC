@@ -27,6 +27,7 @@ import {
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
+  CarouselBaseTemplateMode,
   CarouselDraft,
   CarouselPanelDraft,
   CreativeBrief,
@@ -258,11 +259,17 @@ export function parseCarouselDraft(formData: FormData): CarouselDraft | null {
       })
     : []
 
-  return {
-    brief: typeof record.brief === 'string' ? record.brief : '',
-    globalPanelStyle: typeof record.globalPanelStyle === 'string' ? record.globalPanelStyle : '',
-    panels,
-  }
+  const baseTemplateMode: CarouselBaseTemplateMode =
+    record.baseTemplateMode === 'manual' ? 'manual' : 'ai'
+  const baseTemplatePrompt =
+    typeof record.baseTemplatePrompt === 'string'
+      ? record.baseTemplatePrompt
+      : typeof record.globalPanelStyle === 'string'
+        ? record.globalPanelStyle
+        : ''
+  const baseTemplateAsset = null  // file is separately uploaded
+
+  return { baseTemplateMode, baseTemplatePrompt, baseTemplateAsset, panels }
 }
 
 function normalizePanelDraft(value: unknown): CarouselPanelDraft | null {
@@ -280,12 +287,13 @@ function normalizePanelDraft(value: unknown): CarouselPanelDraft | null {
   return {
     id,
     order: typeof candidate.order === 'number' ? Math.round(candidate.order) : 0,
-    styleMode: candidate.styleMode === 'override' ? 'override' : 'inherit',
-    styleGenerationEnabled:
-      typeof candidate.styleGenerationEnabled === 'boolean'
-        ? candidate.styleGenerationEnabled
-        : false,
-    stylePrompt: typeof candidate.stylePrompt === 'string' ? candidate.stylePrompt : '',
+    templateMode: (candidate.templateMode === 'override' || candidate.styleMode === 'override')
+      ? 'override' : 'inherit',
+    templatePrompt: typeof candidate.templatePrompt === 'string'
+      ? candidate.templatePrompt
+      : typeof candidate.stylePrompt === 'string'
+        ? candidate.stylePrompt
+        : '',
     imageMode: candidate.imageMode === 'ai' ? 'ai' : 'manual',
     imagePrompt: typeof candidate.imagePrompt === 'string' ? candidate.imagePrompt : '',
     imageAsset: null,
@@ -1668,7 +1676,7 @@ async function submitCarouselGenerationRequest(
           model: 'nano-banana-2',
           input: {
             prompt,
-            image_input: collectCarouselPanelReferences(panel),
+            image_input: collectCarouselPanelReferences(panel, draft),
             aspect_ratio: '2:3',
             output_format: 'png',
             google_search: false,

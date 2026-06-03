@@ -174,6 +174,7 @@ describe('StudioWorkspace', () => {
 
     expect(normalizeManualSection('outputs')).toBe('outputs')
     expect(normalizeManualSection('references')).toBe('references')
+    expect(normalizeManualSection('setup')).toBe('setup')
   })
 
   it('renders the manual shell without mounting guided or ideation workspaces', async () => {
@@ -730,17 +731,25 @@ describe('StudioWorkspace', () => {
     expect(await screen.findByRole('tab', { name: /carousel/i })).toBeTruthy()
   })
 
-  it('adds and removes carousel panels from the references section', async () => {
+  it('adds and removes carousel panels from the setup section', async () => {
     const { useGenerationStore } = await import('@/store/use-generation-store')
-
-    useGenerationStore.getState().setActiveTab('carousel')
-    useGenerationStore.getState().addCarouselPanel()
 
     const { ManualWorkspace } = await import(
       '@/components/dashboard/manual-workspace'
     )
 
+    // Flush any pending setTimeout(0) from the previous test's unmount cleanup
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    useGenerationStore.getState().setActiveTab('carousel')
+    useGenerationStore.getState().addCarouselPanel()
+
     render(<ManualWorkspace />)
+
+    // Carousel starts with Setup tab — panel content renders there
+    const setupTab = await screen.findByRole('tab', { name: 'Setup' })
+    fireEvent.mouseDown(setupTab)
+    fireEvent.click(setupTab)
 
     await screen.findByText('Panel 1')
 
@@ -748,7 +757,8 @@ describe('StudioWorkspace', () => {
       useGenerationStore.getState().addCarouselPanel()
     })
     await waitFor(() => {
-      expect(screen.getAllByText(/panel \d/i)).toHaveLength(2)
+      // Matches only <span>Panel X</span> summary rows, not accordion headers
+      expect(screen.getAllByText(/panel \d/i, { selector: 'span' })).toHaveLength(2)
     })
 
     act(() => {
@@ -758,22 +768,26 @@ describe('StudioWorkspace', () => {
       }
     })
     await waitFor(() => {
-      expect(screen.getAllByText(/panel \d/i)).toHaveLength(1)
+      // Only Panel 2 summary row remains
+      expect(screen.getAllByText(/panel \d/i, { selector: 'span' })).toHaveLength(1)
     })
   })
 
-  it('returns to references after forwarding an image into carousel', async () => {
+  it('returns to setup tab after forwarding an image into carousel', async () => {
     const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    const { ManualWorkspace } = await import('@/components/dashboard/manual-workspace')
+
+    // Flush any pending setTimeout(0) from the previous test's unmount cleanup
+    await new Promise((resolve) => setTimeout(resolve, 5))
 
     useGenerationStore.getState().setActiveTab('carousel')
     useGenerationStore.getState().forwardManualImageResultToCarousel(
       new File(['seed'], 'seed.png', { type: 'image/png' }),
     )
 
-    const { ManualWorkspace } = await import('@/components/dashboard/manual-workspace')
-
     render(<ManualWorkspace />)
-    expect(await screen.findByRole('tab', { name: /references/i, selected: true })).toBeTruthy()
+    expect(await screen.findByRole('tab', { name: /setup/i, selected: true })).toBeTruthy()
   })
 
   it('keeps the manual workspace on the eager studio path', async () => {
@@ -986,45 +1000,49 @@ describe('StudioWorkspace', () => {
     })
 
     const finalState = useGenerationStore.getState()
-    expect(finalState.carouselDraft.panels[0]?.imageMode).toBe('manual')
-    expect(finalState.carouselDraft.panels[0]?.imageAsset?.file?.name).toBe('manual-carousel-forward.png')
+    expect(finalState.carouselDraft.baseTemplateMode).toBe('manual')
+    expect(finalState.carouselDraft.baseTemplateAsset?.file?.name).toBe('manual-carousel-forward.png')
   })
 
-  it('supports global style with per-panel override in carousel preset', async () => {
+  it('supports base template prompt with per-panel template override in carousel setup', async () => {
     const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    // Flush any pending setTimeout(0) from the previous test's unmount cleanup
+    await new Promise((resolve) => setTimeout(resolve, 5))
 
     await act(async () => {
       useGenerationStore.getState().setActiveTab('carousel')
       useGenerationStore.getState().addCarouselPanel()
     })
 
-    const { ManualWorkspace } = await import(
-      '@/components/dashboard/manual-workspace'
-    )
-
     render(<ManualWorkspace />)
 
-    await screen.findByRole('tab', { name: 'References' })
+    const setupTab = await screen.findByRole('tab', { name: 'Setup' })
+    fireEvent.mouseDown(setupTab)
+    fireEvent.click(setupTab)
 
-    const presetTab = screen.getByRole('tab', { name: 'Preset' })
-    fireEvent.mouseDown(presetTab)
-    fireEvent.click(presetTab)
-
-    const globalStyleInput = await screen.findByLabelText(/global panel style/i)
-    fireEvent.change(globalStyleInput, {
+    const baseTemplateInput = await screen.findByLabelText(/base template prompt/i)
+    fireEvent.change(baseTemplateInput, {
       target: { value: 'white panel with top image' },
     })
 
     await waitFor(() => {
       const state = useGenerationStore.getState()
-      expect(state.carouselDraft.globalPanelStyle).toContain('white panel')
+      expect(state.carouselDraft.baseTemplatePrompt).toContain('white panel')
     })
+
+    // Expand the override section for panel 1
+    fireEvent.click(screen.getByText('Override base panel template'))
 
     fireEvent.click(screen.getByText('Override'))
 
     await waitFor(() => {
       const state = useGenerationStore.getState()
-      expect(state.carouselDraft.panels[0]?.styleMode).toBe('override')
+      expect(state.carouselDraft.panels[0]?.templateMode).toBe('override')
     })
   })
 

@@ -160,32 +160,73 @@ describe('normalizeProjectConfigSnapshot', () => {
   })
 
   it('keeps carousel workspace snapshots with panel draft data', () => {
+    // Legacy old-format input to test migration
+    const legacyDraft = {
+      brief: 'homeless media carousel',
+      globalPanelStyle: 'white panel with image on top',
+      panels: [
+        {
+          id: 'panel-1',
+          order: 1,
+          styleMode: 'inherit',
+          styleGenerationEnabled: false,
+          stylePrompt: '',
+          imageMode: 'manual',
+          imagePrompt: '',
+          imageAsset: null,
+          textMode: 'manual',
+          textPrompt: '',
+          textValue: 'Panel one',
+        },
+      ],
+    } as never
+    const snapshot = normalizeProjectConfigSnapshot({
+      activeTab: 'carousel',
+      experience: 'manual',
+      carouselDraft: legacyDraft,
+    })
+
+    expect(snapshot.activeTab).toBe('carousel')
+    expect(snapshot.carouselDraft?.panels).toHaveLength(1)
+    // Legacy fields migrated to base template
+    expect(snapshot.carouselDraft?.baseTemplateMode).toBe('ai')
+    expect(snapshot.carouselDraft?.baseTemplatePrompt).toBe('white panel with image on top')
+    expect(snapshot.carouselDraft?.panels[0]?.templateMode).toBe('inherit')
+    expect(snapshot.carouselDraft?.panels[0]?.templatePrompt).toBe('')
+  })
+
+  it('normalizes carousel base template snapshot with new fields', () => {
     const snapshot = normalizeProjectConfigSnapshot({
       activeTab: 'carousel',
       experience: 'manual',
       carouselDraft: {
-        brief: 'homeless media carousel',
-        globalPanelStyle: 'white panel with image on top',
+        baseTemplateMode: 'manual',
+        baseTemplatePrompt: 'dark theme with neon accents',
+        baseTemplateAsset: null,
         panels: [
           {
             id: 'panel-1',
             order: 1,
-            styleMode: 'inherit',
-            styleGenerationEnabled: false,
-            stylePrompt: '',
-            imageMode: 'manual',
-            imagePrompt: '',
+            templateMode: 'override',
+            templatePrompt: 'bright variant',
+            imageMode: 'ai',
+            imagePrompt: 'Floating neon product',
             imageAsset: null,
-            textMode: 'manual',
-            textPrompt: '',
-            textValue: 'Panel one',
+            textMode: 'ai',
+            textPrompt: 'Highlight key features',
+            textValue: '',
           },
         ],
       },
     })
 
     expect(snapshot.activeTab).toBe('carousel')
+    expect(snapshot.carouselDraft?.baseTemplateMode).toBe('manual')
+    expect(snapshot.carouselDraft?.baseTemplatePrompt).toBe('dark theme with neon accents')
+    expect(snapshot.carouselDraft?.baseTemplateAsset).toBeNull()
     expect(snapshot.carouselDraft?.panels).toHaveLength(1)
+    expect(snapshot.carouselDraft?.panels[0]?.templateMode).toBe('override')
+    expect(snapshot.carouselDraft?.panels[0]?.templatePrompt).toBe('bright variant')
   })
 
   it('falls back invalid persisted model values to defaults', () => {

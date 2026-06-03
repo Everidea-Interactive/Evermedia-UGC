@@ -317,24 +317,24 @@ describe('manual generation client payloads', () => {
     expect(formData.get('asset_endFrame')).toBeNull()
   })
 
-  it('rejects carousel submission without a usable panel source', () => {
+  it('rejects carousel submission when ai mode lacks base template prompt', () => {
     const base = createSnapshot({ activeTab: 'carousel' })
 
     expect(() =>
       buildGenerationFormData({
         ...base,
         carouselDraft: {
-          brief: '',
-          globalPanelStyle: '',
+          baseTemplateMode: 'ai',
+          baseTemplatePrompt: '',
+          baseTemplateAsset: null,
           panels: [
             {
               id: 'panel-1',
               order: 1,
-              styleMode: 'inherit',
-              styleGenerationEnabled: false,
-              stylePrompt: '',
-              imageMode: 'manual',
-              imagePrompt: '',
+              templateMode: 'inherit',
+              templatePrompt: '',
+              imageMode: 'ai',
+              imagePrompt: 'A carousel panel',
               imageAsset: null,
               textMode: 'manual',
               textPrompt: '',
@@ -343,7 +343,36 @@ describe('manual generation client payloads', () => {
           ],
         },
       } as GenerationSnapshot & { carouselDraft: CarouselDraft }),
-    ).toThrow(/usable image source/i)
+    ).toThrow(/base template.*ai|ai.*prompt/i)
+  })
+
+  it('rejects carousel submission when manual mode lacks base template asset', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+
+    expect(() =>
+      buildGenerationFormData({
+        ...base,
+        carouselDraft: {
+          baseTemplateMode: 'manual',
+          baseTemplatePrompt: '',
+          baseTemplateAsset: null,
+          panels: [
+            {
+              id: 'panel-1',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              imageMode: 'ai',
+              imagePrompt: 'A carousel panel',
+              imageAsset: null,
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: '',
+            },
+          ],
+        },
+      } as GenerationSnapshot & { carouselDraft: CarouselDraft }),
+    ).toThrow(/base template.*upload|manual.*image/i)
   })
 
   it('serializes carousel panels into form data', () => {
@@ -356,15 +385,15 @@ describe('manual generation client payloads', () => {
     const carouselConfig: GenerationSnapshot & { carouselDraft: CarouselDraft } = {
       ...base,
       carouselDraft: {
-        brief: '',
-        globalPanelStyle: '',
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'A modern clean template',
+        baseTemplateAsset: null,
         panels: [
           {
             id: 'panel-1',
             order: 1,
-            styleMode: 'inherit',
-            styleGenerationEnabled: false,
-            stylePrompt: '',
+            templateMode: 'inherit',
+            templatePrompt: '',
             imageMode: 'manual',
             imagePrompt: '',
             imageAsset,

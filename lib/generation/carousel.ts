@@ -20,28 +20,39 @@ export function buildCarouselPanelPrompt(
 ): string {
   const parts: string[] = []
 
-  if (draft.brief) {
-    parts.push(draft.brief)
+  // 1. Base template instruction
+  if (draft.baseTemplatePrompt) {
+    parts.push(`Base template: ${draft.baseTemplatePrompt}`)
   }
 
-  if (draft.globalPanelStyle) {
-    parts.push(`Style: ${draft.globalPanelStyle}`)
+  // 2. Panel-specific template override
+  if (panel.templateMode === 'override' && panel.templatePrompt) {
+    parts.push(`Panel override: ${panel.templatePrompt}`)
   }
 
-  if (panel.styleMode === 'override' && panel.stylePrompt) {
-    parts.push(`Panel style: ${panel.stylePrompt}`)
-  }
-
+  // 3. Panel image content
   parts.push(panel.imagePrompt)
+
+  // 4. Panel text content (when AI mode)
+  if (panel.textMode === 'ai' && panel.textPrompt) {
+    parts.push(`Panel text: ${panel.textPrompt}`)
+  }
 
   return parts.join('\n\n')
 }
 
 export function collectCarouselPanelReferences(
-  _panel: CarouselPanelDraft,
+  panel: CarouselPanelDraft,
+  draft: CarouselDraft,
 ): string[] {
-  void _panel
-  return []
+  const references: string[] = []
+
+  // If base template has uploaded image guidance, use it as ordered reference
+  if (draft.baseTemplateAsset?.previewUrl) {
+    references.push(draft.baseTemplateAsset.previewUrl)
+  }
+
+  return references
 }
 
 export function buildCarouselVariants(

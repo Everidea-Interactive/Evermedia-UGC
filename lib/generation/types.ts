@@ -1,22 +1,24 @@
 export type WorkspaceTab = 'image' | 'video' | 'carousel'
 
+export type CarouselBaseTemplateMode = 'ai' | 'manual'
+
 export type CarouselPanelDraft = {
   id: string
   order: number
-  styleMode: 'inherit' | 'override'
-  styleGenerationEnabled: boolean
-  stylePrompt: string
   imageMode: 'ai' | 'manual'
   imagePrompt: string
   imageAsset: AssetSlot | null
   textMode: 'ai' | 'manual'
   textPrompt: string
   textValue: string
+  templateMode: 'inherit' | 'override'
+  templatePrompt: string
 }
 
 export type CarouselDraft = {
-  brief: string
-  globalPanelStyle: string
+  baseTemplateMode: CarouselBaseTemplateMode
+  baseTemplatePrompt: string
+  baseTemplateAsset: AssetSlot | null
   panels: CarouselPanelDraft[]
 }
 export type GenerationExperience = 'manual' | 'guided' | 'ideation'
