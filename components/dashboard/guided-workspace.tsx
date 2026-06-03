@@ -77,11 +77,13 @@ import { isImageMimeType } from '@/lib/media/image-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
-const panelClassName = 'rounded-2xl border border-border bg-card'
-const insetPanelClassName = 'rounded-xl border border-border bg-background'
-const rowClassName = 'rounded-lg border border-border bg-background'
-const fieldLabelClassName =
-  'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
+import {
+  insetPanelClassName,
+  rowClassName,
+  workspaceFieldLabelClassName,
+  workspacePreviewMinHeightClassName,
+  workspaceSectionClassName,
+} from '@/components/dashboard/manual-workspace-ui'
 
 const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 const videoQualities: OutputQuality[] = ['720p', '1080p']
@@ -468,11 +470,11 @@ function FieldBlock({
     <div className="grid gap-3">
       <div className="grid gap-1">
         {htmlFor ? (
-          <label className={fieldLabelClassName} htmlFor={htmlFor}>
+          <label className={workspaceFieldLabelClassName} htmlFor={htmlFor}>
             {label}
           </label>
         ) : (
-          <p className={fieldLabelClassName}>{label}</p>
+          <p className={workspaceFieldLabelClassName}>{label}</p>
         )}
         <p className="text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
@@ -507,7 +509,7 @@ function GuidedHeroUploadCard({
   return (
     <div className={cn(insetPanelClassName, 'grid gap-5 p-4 sm:p-5')}>
       <div className="grid gap-1">
-        <p className={fieldLabelClassName}>Hero Product</p>
+        <p className={workspaceFieldLabelClassName}>Hero Product</p>
         <p className="text-sm leading-6 text-muted-foreground">
           Upload the single product image that anchors the guided shot plan. Use PNG,
           JPG, JPEG, WEBP, or GIF.
@@ -526,7 +528,8 @@ function GuidedHeroUploadCard({
         <>
           <div
             className={cn(
-              'relative min-h-[24rem] overflow-hidden rounded-2xl border bg-secondary/30 sm:min-h-[30rem] lg:min-h-[34rem]',
+              workspacePreviewMinHeightClassName,
+              'relative overflow-hidden rounded-2xl border bg-secondary/30',
               previewUrl ? 'border-border' : 'border-dashed border-border/70',
             )}
           >
@@ -581,7 +584,7 @@ function GuidedHeroUploadCard({
           </div>
         </>
       ) : (
-        <div className="flex min-h-[24rem] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-8 text-center sm:min-h-[30rem] lg:min-h-[34rem]">
+        <div className={cn(workspacePreviewMinHeightClassName, 'flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-secondary/30 px-8 text-center')}>
           <div className="flex size-14 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground">
             <ImageIcon className="size-6" suppressHydrationWarning />
           </div>
@@ -647,7 +650,7 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
           <ScanLine className="size-5" suppressHydrationWarning />
         </div>
         <div className="min-w-0">
-          <p className={fieldLabelClassName}>Optional End Frame</p>
+          <p className={workspaceFieldLabelClassName}>Optional End Frame</p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             Add a final frame for video models that support first-and-last-frame
             guidance.
@@ -828,7 +831,7 @@ function GuidedAnalyzePanel({
   setGuidedShotCount: (shotCount: 1 | 2 | 3 | 4) => void
 }) {
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+    <section className={workspaceSectionClassName}>
       <div className="grid gap-5">
         <div className="grid gap-2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -965,7 +968,7 @@ function GuidedAnalyzePanel({
                   <>
                     <div className="grid gap-3">
                       <div className="grid gap-1">
-                        <label className={fieldLabelClassName} htmlFor="guided-shot-count">
+                        <label className={workspaceFieldLabelClassName} htmlFor="guided-shot-count">
                           Shot Count
                         </label>
                         <p className="text-sm leading-6 text-muted-foreground">
@@ -1014,7 +1017,7 @@ function GuidedAnalyzePanel({
                 )}
               >
                 <div className="grid gap-1">
-                  <label className={fieldLabelClassName} htmlFor="guided-analysis-model">
+                  <label className={workspaceFieldLabelClassName} htmlFor="guided-analysis-model">
                     KIE Analysis Model
                   </label>
                   <p className="text-sm leading-6 text-muted-foreground">
@@ -1100,7 +1103,7 @@ function GuidedPlanEditor({
   updateGuidedShotPrompt: (slug: string, prompt: string) => void
 }) {
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+    <section className={workspaceSectionClassName}>
       <div className="grid gap-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -1185,7 +1188,7 @@ function GuidedShotEditorCard({
       </div>
 
       <div className="grid gap-2">
-        <label className={fieldLabelClassName} htmlFor={textareaId}>
+        <label className={workspaceFieldLabelClassName} htmlFor={textareaId}>
           Prompt
         </label>
         <p className="text-sm leading-6 text-muted-foreground">
@@ -1268,7 +1271,7 @@ function GuidedRunPanel({
 
   return (
     <aside className="xl:sticky xl:top-6">
-      <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+      <section className={workspaceSectionClassName}>
         <div className="grid gap-4">
           <div className="grid gap-2">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
@@ -1286,7 +1289,7 @@ function GuidedRunPanel({
           <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={fieldLabelClassName}>Plan Summary</p>
+                <p className={workspaceFieldLabelClassName}>Plan Summary</p>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Keep the latest guided plan, storyboard state, and render controls
                   visible in one place while refining the batch.
@@ -1492,7 +1495,7 @@ function GuidedRunPanel({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={fieldLabelClassName}>Run Status</p>
+                <p className={workspaceFieldLabelClassName}>Run Status</p>
                 <p className="mt-1 font-medium text-foreground">{runStatus.title}</p>
               </div>
               <Badge variant={runStatus.badgeVariant}>{runStatus.label}</Badge>
@@ -1582,7 +1585,7 @@ function GuidedResultsSection({
   }
 
   return (
-    <section className={cn(panelClassName, 'p-4 sm:p-5')}>
+    <section className={workspaceSectionClassName}>
       <div className="grid gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
