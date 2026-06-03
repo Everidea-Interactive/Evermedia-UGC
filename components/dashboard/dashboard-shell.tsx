@@ -62,9 +62,6 @@ export function DashboardShell({
   const manualVideoStageEventId = useGenerationStore(
     (state) => state.manualVideoStageEventId,
   )
-  const carouselStageEventId = useGenerationStore(
-    (state) => state.carouselStageEventId,
-  )
   const [manualSection, setManualSection] = useState<ManualSection>('references')
   const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
@@ -98,7 +95,7 @@ export function DashboardShell({
   }, [activeTab, experience, manualVideoStageEventId])
 
   useEffect(() => {
-    if (experience !== 'manual' || activeTab !== 'carousel' || carouselStageEventId === 0) {
+    if (experience !== 'manual' || activeTab !== 'carousel') {
       return
     }
 
@@ -109,7 +106,7 @@ export function DashboardShell({
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [activeTab, experience, carouselStageEventId])
+  }, [activeTab, experience])
 
   useEffect(() => {
     if (generationRun.experience !== 'manual' || generationRun.status !== 'rendering' || !generationRun.runId) {
