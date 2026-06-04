@@ -757,8 +757,7 @@ describe('StudioWorkspace', () => {
       useGenerationStore.getState().addCarouselPanel()
     })
     await waitFor(() => {
-      // Matches only <span>Panel X</span> summary rows, not accordion headers
-      expect(screen.getAllByText(/panel \d/i, { selector: 'span' })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: /panel \d content/i })).toHaveLength(2)
     })
 
     act(() => {
@@ -768,8 +767,7 @@ describe('StudioWorkspace', () => {
       }
     })
     await waitFor(() => {
-      // Only Panel 2 summary row remains
-      expect(screen.getAllByText(/panel \d/i, { selector: 'span' })).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: /panel \d content/i })).toHaveLength(1)
     })
   })
 
@@ -1044,6 +1042,38 @@ describe('StudioWorkspace', () => {
       const state = useGenerationStore.getState()
       expect(state.carouselDraft.panels[0]?.templateMode).toBe('override')
     })
+  })
+
+  it('uses a single panel header for carousel panel controls', async () => {
+    const source = await readFile(
+      join(process.cwd(), 'components/dashboard/manual-carousel-setup-section.tsx'),
+      'utf8',
+    )
+
+    expect(source).not.toContain('function PanelSummaryRow(')
+
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+    const { ManualWorkspace } = await import(
+      '@/components/dashboard/manual-workspace'
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('carousel')
+      useGenerationStore.getState().addCarouselPanel()
+    })
+
+    render(<ManualWorkspace />)
+
+    const setupTab = await screen.findByRole('tab', { name: 'Setup' })
+    fireEvent.mouseDown(setupTab)
+    fireEvent.click(setupTab)
+
+    expect(screen.queryByText('Panel 1 — Content')).toBeNull()
+    expect(await screen.findByText('Panel 1')).toBeTruthy()
+    expect(screen.getByLabelText('Move panel down')).toBeTruthy()
+    expect(screen.getByLabelText('Delete panel')).toBeTruthy()
   })
 
   it('shows carousel-specific run controls without image batch assumptions', async () => {

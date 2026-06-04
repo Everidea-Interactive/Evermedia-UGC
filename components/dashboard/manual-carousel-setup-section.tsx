@@ -142,9 +142,9 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
               {panels.map((panel) => (
-                <PanelSummaryRow
+                <PanelDetailAccordion
                   isFirst={panel.order <= 1}
                   isLast={panel.order >= panels.length}
                   key={panel.id}
@@ -152,24 +152,12 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
                   onMoveDown={() => moveCarouselPanel(panel.id, 'down')}
                   onMoveUp={() => moveCarouselPanel(panel.id, 'up')}
                   panel={panel}
+                  updateCarouselPanel={updateCarouselPanel}
                 />
               ))}
             </div>
           )}
         </div>
-
-        {/* Group 3-5: Per-panel detail */}
-        {panels.length > 0 ? (
-          <div className="flex flex-col gap-4">
-            {panels.map((panel) => (
-              <PanelDetailAccordion
-                key={panel.id}
-                panel={panel}
-                updateCarouselPanel={updateCarouselPanel}
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
     </section>
   )
@@ -200,76 +188,20 @@ function BaseTemplateUploadZone({
   )
 }
 
-function PanelSummaryRow({
+function PanelDetailAccordion({
   isFirst,
   isLast,
   onDelete,
   onMoveDown,
   onMoveUp,
   panel,
+  updateCarouselPanel,
 }: {
   isFirst: boolean
   isLast: boolean
   onDelete: () => void
   onMoveDown: () => void
   onMoveUp: () => void
-  panel: CarouselPanelDraft
-}) {
-  return (
-    <div className={cn(panelClassName, 'flex items-center justify-between gap-2 px-4 py-2.5 sm:px-5')}>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm font-semibold shrink-0">Panel {panel.order}</span>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <ModeChip label="Image" value={panel.imageMode === 'ai' ? 'AI' : 'Manual'} />
-          <ModeChip label="Text" value={panel.textMode === 'ai' ? 'AI' : 'Manual'} />
-          <ModeChip
-            label="Template"
-            value={panel.templateMode === 'override' ? 'Override' : 'Inherit'}
-          />
-          {panel.imageAsset?.previewUrl ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Image
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex items-center gap-0.5 shrink-0">
-        <Button
-          aria-label="Move panel up"
-          disabled={isFirst}
-          onClick={onMoveUp}
-          size="icon"
-          variant="ghost"
-        >
-          <ChevronUp className="size-4" />
-        </Button>
-        <Button
-          aria-label="Move panel down"
-          disabled={isLast}
-          onClick={onMoveDown}
-          size="icon"
-          variant="ghost"
-        >
-          <ChevronDown className="size-4" />
-        </Button>
-        <Button
-          aria-label="Delete panel"
-          onClick={onDelete}
-          size="icon"
-          variant="ghost"
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function PanelDetailAccordion({
-  panel,
-  updateCarouselPanel,
-}: {
   panel: CarouselPanelDraft
   updateCarouselPanel: (panelId: string, patch: Partial<CarouselPanelDraft>) => void
 }) {
@@ -278,21 +210,76 @@ function PanelDetailAccordion({
 
   return (
     <div className={cn(panelClassName, 'overflow-hidden')}>
-      {/* Group 3 + 4: Content image & Text content — accordion, 1st panel open by default */}
-      <button
-        aria-expanded={contentExpanded}
-        aria-label={`Panel ${panel.order} content`}
-        className="flex w-full items-center justify-between border-b border-border px-4 py-3 text-left sm:px-5"
-        onClick={() => setContentExpanded(!contentExpanded)}
-        type="button"
-      >
-        <h4 className="text-sm font-semibold">Panel {panel.order} — Content</h4>
-        {contentExpanded ? (
-          <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-        )}
-      </button>
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+        <button
+          aria-expanded={contentExpanded}
+          aria-label={`Panel ${panel.order} content`}
+          className="flex min-w-0 flex-1 flex-col items-start gap-2 text-left"
+          onClick={() => setContentExpanded(!contentExpanded)}
+          type="button"
+        >
+          <h4 className="text-sm font-semibold">Panel {panel.order}</h4>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <ModeChip label="Image" value={panel.imageMode === 'ai' ? 'AI' : 'Manual'} />
+            <ModeChip label="Text" value={panel.textMode === 'ai' ? 'AI' : 'Manual'} />
+            <ModeChip
+              label="Template"
+              value={panel.templateMode === 'override' ? 'Override' : 'Inherit'}
+            />
+            {panel.imageAsset?.previewUrl ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                Image
+              </span>
+            ) : null}
+          </div>
+        </button>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            aria-label="Move panel up"
+            disabled={isFirst}
+            onClick={onMoveUp}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronUp className="size-4" />
+          </Button>
+          <Button
+            aria-label="Move panel down"
+            disabled={isLast}
+            onClick={onMoveDown}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronDown className="size-4" />
+          </Button>
+          <Button
+            aria-label="Delete panel"
+            className="text-destructive hover:text-destructive"
+            onClick={onDelete}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+          <Button
+            aria-label={contentExpanded ? `Collapse panel ${panel.order}` : `Expand panel ${panel.order}`}
+            onClick={() => setContentExpanded(!contentExpanded)}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            {contentExpanded ? (
+              <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            )}
+          </Button>
+        </div>
+      </div>
 
       {contentExpanded ? (
         <div className="flex flex-col gap-4 p-4 sm:p-5">
