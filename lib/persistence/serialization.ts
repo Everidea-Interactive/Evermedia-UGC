@@ -38,10 +38,23 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
 }
 
 const defaultCarouselDraft: CarouselDraft = {
-  baseTemplateMode: 'ai',
+  baseTemplateMode: 'manual',
   baseTemplatePrompt: '',
   baseTemplateAsset: null,
-  panels: [],
+  panels: [
+    {
+      id: 'default-carousel-panel',
+      order: 1,
+      templateMode: 'inherit',
+      templatePrompt: '',
+      imageMode: 'manual',
+      imagePrompt: '',
+      imageAsset: null,
+      textMode: 'manual',
+      textPrompt: '',
+      textValue: '',
+    },
+  ],
 }
 
 function normalizeCarouselPanelDraft(value: unknown): CarouselPanelDraft | null {
@@ -102,7 +115,12 @@ function normalizeCarouselDraft(value: unknown): CarouselDraft {
         : ''
   const baseTemplateAsset = null           // never persisted with file data
 
-  return { baseTemplateMode, baseTemplatePrompt, baseTemplateAsset, panels }
+  return {
+    baseTemplateMode,
+    baseTemplatePrompt,
+    baseTemplateAsset,
+    panels: panels.length > 0 ? panels : defaultCarouselDraft.panels,
+  }
 }
 
 function normalizeCreativeBrief(value: unknown): CreativeBrief | null {

@@ -242,7 +242,7 @@ function createEmptyCarouselPanel(order: number): CarouselPanelDraft {
     order,
     templateMode: 'inherit',
     templatePrompt: '',
-    imageMode: 'ai',
+    imageMode: 'manual',
     imagePrompt: '',
     imageAsset: null,
     textMode: 'manual',
@@ -253,10 +253,10 @@ function createEmptyCarouselPanel(order: number): CarouselPanelDraft {
 
 function createInitialCarouselDraft(): CarouselDraft {
   return {
-    baseTemplateMode: 'ai',
+    baseTemplateMode: 'manual',
     baseTemplatePrompt: '',
     baseTemplateAsset: null,
-    panels: [],
+    panels: [createEmptyCarouselPanel(1)],
   }
 }
 
