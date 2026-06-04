@@ -291,11 +291,6 @@ describe('manual generation client payloads', () => {
   })
 
   it('omits end-frame uploads for models that do not support end-frame guidance', () => {
-    const endFrame = createSlot(
-      'endFrame',
-      'End Frame',
-      new File(['end'], 'end.png', { type: 'image/png' }),
-    )
     const snapshot = createSnapshot({
       videoModel: 'seedance-1.5-pro',
       videoReferences: [
@@ -409,5 +404,67 @@ describe('manual generation client payloads', () => {
 
     expect(formData.get('workspace')).toBe('carousel')
     expect(formData.get('carouselDraft')).toContain('"panels"')
+  })
+
+  it('accepts carousel generation when draft is valid even without global textPrompt', () => {
+    const base = createSnapshot({ activeTab: 'carousel', textPrompt: '' })
+
+    const validation = getGenerationValidation({
+      ...base,
+      carouselDraft: {
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'Modern clean beauty panel template',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'ai',
+            imagePrompt: 'Premium serum hero image',
+            imageAsset: null,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Bright Skin In 7 Days',
+          },
+        ],
+      },
+    } as GenerationSnapshot & { carouselDraft: CarouselDraft })
+
+    expect(validation).toEqual({
+      canGenerate: true,
+      reason: null,
+    })
+  })
+
+  it('rejects carousel generation when a panel lacks image content', () => {
+    const base = createSnapshot({ activeTab: 'carousel', textPrompt: '' })
+
+    const validation = getGenerationValidation({
+      ...base,
+      carouselDraft: {
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'Modern clean beauty panel template',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'ai',
+            imagePrompt: '',
+            imageAsset: null,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Bright Skin In 7 Days',
+          },
+        ],
+      },
+    } as GenerationSnapshot & { carouselDraft: CarouselDraft })
+
+    expect(validation.canGenerate).toBe(false)
+    expect(validation.reason).toContain('Panel 1')
   })
 })

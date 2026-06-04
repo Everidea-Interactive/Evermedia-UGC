@@ -1091,9 +1091,12 @@ describe('StudioWorkspace', () => {
 
     expect(await screen.findByText('Carousel workspace')).toBeTruthy()
     expect(screen.queryByLabelText(/batch size/i)).toBeNull()
+    expect(screen.queryByText('Setup summary')).toBeNull()
+    expect(screen.getByLabelText('Image Model')).toBeTruthy()
+    expect(screen.getByLabelText('Image Resolution')).toBeTruthy()
   })
 
-  it('renders carousel outputs in panel order', async () => {
+  it('renders carousel outputs with shared image-card ordering and no redundant carousel-forward CTA', async () => {
     const { useGenerationStore } = await import('@/store/use-generation-store')
 
     function makeCarouselOutputVariant(id: string, order: 1 | 2 | 3 | 4) {
@@ -1147,7 +1150,8 @@ describe('StudioWorkspace', () => {
     fireEvent.mouseDown(outputsTab)
     fireEvent.click(outputsTab)
 
-    const labels = await screen.findAllByText(/panel \d/i)
-    expect(labels.map((node) => node.textContent)).toEqual(['Panel 1', 'Panel 2'])
+    const labels = await screen.findAllByText(/^#\d$/)
+    expect(labels.map((node) => node.textContent)).toEqual(['#1', '#2'])
+    expect(screen.queryByRole('button', { name: 'Forward to Carousel' })).toBeNull()
   })
 })

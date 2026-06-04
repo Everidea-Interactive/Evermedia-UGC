@@ -1506,7 +1506,7 @@ describe('carousel generation', () => {
     vi.unstubAllGlobals()
   })
 
-  it('creates one output per ai carousel panel without grid expansion', async () => {
+  it('batches up to four carousel panels into one shared provider task', async () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'carousel')
     formData.set(
@@ -1530,12 +1530,6 @@ describe('carousel generation', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     )
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ data: { taskId: 'task-2' } }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
     vi.stubGlobal('fetch', fetchMock)
 
     const parsedRequest = parseGenerationFormData(formData)
@@ -1543,11 +1537,12 @@ describe('carousel generation', () => {
 
     expect(result.variants).toHaveLength(2)
     expect(result.variants.map((v) => v.index)).toEqual([1, 2])
-    expect(result.variants.map((v) => v.taskId)).toEqual(['task-1', 'task-2'])
+    expect(result.variants.map((v) => v.taskId)).toEqual(['task-1', 'task-1'])
     expect(result.variants.every((v) => v.status === 'rendering')).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('skips provider generation for manual-image carousel panels', async () => {
+  it('submits provider generation for manual-image carousel panels', async () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'carousel')
     formData.set(
@@ -1562,16 +1557,53 @@ describe('carousel generation', () => {
       }),
     )
     formData.append('assetManifest', '[]')
+    formData.append(
+      'carousel_panel_image_panel-1',
+      new File(['image'], 'image.png', { type: 'image/png' }),
+    )
 
     const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { remoteUrl: 'https://files.example.com/panel-1.png' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { taskId: 'task-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const parsedRequest = parseGenerationFormData(formData)
     const result = await submitGenerationRequest(parsedRequest)
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const createTaskCall = fetchMock.mock.calls[1]
+    expect(createTaskCall?.[1]?.body).toContain('https://files.example.com/panel-1.png')
     expect(result.variants).toHaveLength(1)
-    expect(result.variants[0]?.taskId).toBeNull()
+    expect(result.variants[0]?.taskId).toBe('task-1')
+  })
+
+  it('parses carousel requests without assetManifest', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'carousel')
+    formData.set(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [makeCarouselAiPanel('panel-1', 1)],
+      }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('carousel')
+    expect(parsed.carouselDraft?.panels).toHaveLength(1)
   })
 })
 

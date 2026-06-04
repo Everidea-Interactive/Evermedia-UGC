@@ -31,12 +31,6 @@ const ManualCarouselSetupSection = dynamic(() =>
   ),
 )
 
-const ManualCarouselOutputPanel = dynamic(() =>
-  import('@/components/dashboard/manual-carousel-output-panel').then(
-    (module) => module.ManualCarouselOutputPanel,
-  ),
-)
-
 type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
@@ -70,7 +64,7 @@ export function DashboardShell({
   const renderManualSection = () => {
     if (activeTab === 'carousel') {
       if (visibleManualSection === 'setup') return <ManualCarouselSetupSection />
-      if (visibleManualSection === 'outputs') return <ManualCarouselOutputPanel />
+      if (visibleManualSection === 'outputs') return <OutputPanel />
       // Carousel ignores references/preset — redirect to setup
       return null
     }

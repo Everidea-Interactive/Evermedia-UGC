@@ -29,6 +29,12 @@ function shouldSplitIntoGridVariants(
   )
 }
 
+function shouldSplitCarouselGrid(
+  bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>,
+) {
+  return bundle.run.workspace === 'carousel'
+}
+
 async function downloadGeneratedOutputBuffer(sourceUrl: string) {
   const response = await fetch(sourceUrl, { cache: 'no-store' })
 
@@ -61,7 +67,8 @@ export async function GET(
       (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
     )
     const shouldSplitImageGrid = shouldSplitIntoGridVariants(bundle)
-    const variantGroups = shouldSplitImageGrid
+    const shouldSplitCarousel = shouldSplitCarouselGrid(bundle)
+    const variantGroups = shouldSplitImageGrid || shouldSplitCarousel
       ? Array.from(
           activeVariants.reduce((groups, variant) => {
             if (!variant.taskId) {
@@ -137,6 +144,35 @@ export async function GET(
                   label: `Variation ${gridVariant.variantIndex} Output`,
                   runId,
                   userId: user.id,
+                  variantId: gridVariant.id,
+                })
+              }),
+            )
+            return
+          }
+
+          if (shouldSplitCarousel && taskState.result.type === 'image') {
+            const gridBuffer = await downloadGeneratedOutputBuffer(taskState.result.url)
+            const quadrants = await splitImageGridBuffer(gridBuffer)
+            const orderedVariants = variants
+              .slice()
+              .sort((left, right) => left.variantIndex - right.variantIndex)
+
+            await Promise.all(
+              orderedVariants.map(async (gridVariant, index) => {
+                const quadrant = quadrants[index]
+
+                if (!quadrant) {
+                  throw new Error('Generated carousel grid did not contain enough panel outputs.')
+                }
+
+                await saveGeneratedOutputBufferForVariant({
+                  buffer: quadrant.buffer,
+                  fileName: `${variant.taskId}-panel-${gridVariant.variantIndex}.png`,
+                  fileType: 'image/png',
+                  label: gridVariant.profile,
+                  runId,
+                  userId: bundle.run.userId,
                   variantId: gridVariant.id,
                 })
               }),

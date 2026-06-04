@@ -156,6 +156,7 @@ function PreviewStage({
   const failedVariants = getFailedVariantCount(runState)
   const activeTaskCount = getActiveTaskCount(runState)
   const runSummaryItems = [`${completedCount}/${totalVariants} complete`]
+  const canForwardGalleryItemToCarousel = activeTab !== 'carousel'
 
   if (failedVariants > 0) {
     runSummaryItems.push(`${failedVariants} failed`)
@@ -174,6 +175,7 @@ function PreviewStage({
               <div className="grid gap-3 sm:grid-cols-2">
                 {galleryItems.map((item) => (
                   <OutputGalleryCard
+                    canForwardToCarousel={canForwardGalleryItemToCarousel}
                     forwardingCarouselVariantId={forwardingCarouselVariantId}
                     forwardingVariantId={forwardingVariantId}
                     item={item}
@@ -256,12 +258,14 @@ function PreviewStage({
 }
 
 function OutputGalleryCard({
+  canForwardToCarousel,
   forwardingCarouselVariantId,
   forwardingVariantId,
   item,
   onForwardToCarousel,
   onForwardToVideo,
 }: {
+  canForwardToCarousel: boolean
   forwardingCarouselVariantId: string | null
   forwardingVariantId: string | null
   item: ReturnType<typeof getOutputGalleryItems>[number]
@@ -326,21 +330,23 @@ function OutputGalleryCard({
             )}
             {isForwarding ? 'Forwarding...' : 'Forward to Video'}
           </Button>
-          <Button
-            className="w-full"
-            disabled={isForwardingCarousel}
-            onClick={() => onForwardToCarousel(item)}
-            size="sm"
-            type="button"
-            variant="secondary"
-          >
-            {isForwardingCarousel ? (
-              <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
-            ) : (
-              <Forward data-icon="inline-start" suppressHydrationWarning />
-            )}
-            {isForwardingCarousel ? 'Forwarding...' : 'Forward to Carousel'}
-          </Button>
+          {canForwardToCarousel ? (
+            <Button
+              className="w-full"
+              disabled={isForwardingCarousel}
+              onClick={() => onForwardToCarousel(item)}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              {isForwardingCarousel ? (
+                <LoaderCircle className="animate-spin" data-icon="inline-start" suppressHydrationWarning />
+              ) : (
+                <Forward data-icon="inline-start" suppressHydrationWarning />
+              )}
+              {isForwardingCarousel ? 'Forwarding...' : 'Forward to Carousel'}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -850,7 +850,6 @@ describe('POST /api/generation/run', () => {
     formData.append('imageModel', 'nano-banana')
     formData.append('videoModel', 'veo-3.1')
     formData.append('outputQuality', '1080p')
-    formData.append('assetManifest', '[]')
     formData.append('productCategory', 'cosmetics')
     formData.append('creativeStyle', 'ugc-lifestyle')
     formData.append('subjectMode', 'lifestyle')

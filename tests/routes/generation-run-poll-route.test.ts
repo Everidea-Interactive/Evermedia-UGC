@@ -555,7 +555,7 @@ describe('GET /api/generation/runs/[runId]', () => {
     expect(response.status).toBe(200)
   })
 
-  it('keeps carousel panel outputs one-to-one without 4-way expansion', async () => {
+  it('splits shared carousel batch output and saves only real panel quadrants', async () => {
     vi.mocked(getGenerationRunBundle)
       .mockResolvedValueOnce({
         outputs: [],
@@ -614,11 +614,11 @@ describe('GET /api/generation/runs/[runId]', () => {
               error: null,
               id: 'variant-p2',
               profile: 'Panel 2',
-              prompt: 'Prompt 2',
+              prompt: 'Prompt 1',
               resultAssetId: null,
               runId: 'run-carousel',
               status: 'rendering',
-              taskId: 'carousel-task-2',
+              taskId: 'carousel-task-1',
               variantIndex: 2,
             },
           ],
@@ -633,9 +633,9 @@ describe('GET /api/generation/runs/[runId]', () => {
             id: 'output-p1',
             label: 'Panel 1',
             mimeType: 'image/png',
-            originalName: 'carousel-task-1.png',
+            originalName: 'carousel-task-1-panel-1.png',
             runId: 'run-carousel',
-            storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1.png',
+            storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1-panel-1.png',
             userId: 'user-1',
           },
           {
@@ -644,9 +644,9 @@ describe('GET /api/generation/runs/[runId]', () => {
             id: 'output-p2',
             label: 'Panel 2',
             mimeType: 'image/png',
-            originalName: 'carousel-task-2.png',
+            originalName: 'carousel-task-1-panel-2.png',
             runId: 'run-carousel',
-            storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-2.png',
+            storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1-panel-2.png',
             userId: 'user-1',
           },
         ],
@@ -705,50 +705,53 @@ describe('GET /api/generation/runs/[runId]', () => {
               error: null,
               id: 'variant-p2',
               profile: 'Panel 2',
-              prompt: 'Prompt 2',
+              prompt: 'Prompt 1',
               resultAssetId: 'output-p2',
               runId: 'run-carousel',
               status: 'success',
-              taskId: 'carousel-task-2',
+              taskId: 'carousel-task-1',
               variantIndex: 2,
             },
           ],
           workspace: 'carousel',
         },
       })
-    vi.mocked(getTaskStatus)
-      .mockResolvedValueOnce({
-        error: null,
-        result: {
-          model: 'nano-banana-2',
-          taskId: 'carousel-task-1',
-          type: 'image',
-          url: 'https://example.com/panel-1.png',
-        },
-        status: 'success',
+    vi.mocked(getTaskStatus).mockResolvedValue({
+      error: null,
+      result: {
+        model: 'nano-banana-2',
         taskId: 'carousel-task-1',
-      })
-      .mockResolvedValueOnce({
-        error: null,
-        result: {
-          model: 'nano-banana-2',
-          taskId: 'carousel-task-2',
-          type: 'image',
-          url: 'https://example.com/panel-2.png',
-        },
-        status: 'success',
-        taskId: 'carousel-task-2',
-      })
-    vi.mocked(saveGeneratedOutputForVariant)
+        type: 'image',
+        url: 'https://example.com/carousel-grid.png',
+      },
+      status: 'success',
+      taskId: 'carousel-task-1',
+    })
+    vi.mocked(splitImageGridBuffer).mockResolvedValue([
+      { buffer: Buffer.from('panel-1'), label: 'Top left', position: 1 },
+      { buffer: Buffer.from('panel-2'), label: 'Top right', position: 2 },
+      { buffer: Buffer.from('filler-3'), label: 'Bottom left', position: 3 },
+      { buffer: Buffer.from('filler-4'), label: 'Bottom right', position: 4 },
+    ])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('carousel-grid', {
+          headers: { 'Content-Type': 'image/png' },
+          status: 200,
+        }),
+      ),
+    )
+    vi.mocked(saveGeneratedOutputBufferForVariant)
       .mockResolvedValueOnce({
         createdAt: '2026-04-09T00:00:05.000Z',
         fileSize: 123,
         id: 'output-p1',
         label: 'Panel 1',
         mimeType: 'image/png',
-        originalName: 'carousel-task-1.png',
+        originalName: 'carousel-task-1-panel-1.png',
         runId: 'run-carousel',
-        storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1.png',
+        storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1-panel-1.png',
         userId: 'user-1',
       })
       .mockResolvedValueOnce({
@@ -757,9 +760,9 @@ describe('GET /api/generation/runs/[runId]', () => {
         id: 'output-p2',
         label: 'Panel 2',
         mimeType: 'image/png',
-        originalName: 'carousel-task-2.png',
+        originalName: 'carousel-task-1-panel-2.png',
         runId: 'run-carousel',
-        storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-2.png',
+        storagePath: 'user-1/runs/run-carousel/outputs/carousel-task-1-panel-2.png',
         userId: 'user-1',
       })
     vi.mocked(syncGenerationRunStatus).mockResolvedValue(null)
@@ -799,16 +802,16 @@ describe('GET /api/generation/runs/[runId]', () => {
           error: null,
           index: 2,
           profile: 'Panel 2',
-          prompt: 'Prompt 2',
+          prompt: 'Prompt 1',
           result: {
             model: 'nano-banana-2',
-            taskId: 'carousel-task-2',
+            taskId: 'carousel-task-1',
             type: 'image',
             url: '/api/media/output-p2',
             label: 'Panel 2',
           },
           status: 'success',
-          taskId: 'carousel-task-2',
+          taskId: 'carousel-task-1',
           variantId: 'variant-p2',
         },
       ],
@@ -820,20 +823,24 @@ describe('GET /api/generation/runs/[runId]', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(saveGeneratedOutputForVariant).toHaveBeenCalledTimes(2)
-    expect(saveGeneratedOutputForVariant).toHaveBeenCalledWith(
+    expect(getTaskStatus).toHaveBeenCalledTimes(1)
+    expect(splitImageGridBuffer).toHaveBeenCalledWith(Buffer.from('carousel-grid'))
+    expect(saveGeneratedOutputBufferForVariant).toHaveBeenCalledTimes(2)
+    expect(saveGeneratedOutputBufferForVariant).toHaveBeenCalledWith(
       expect.objectContaining({
+        fileName: 'carousel-task-1-panel-1.png',
         label: 'Panel 1',
         variantId: 'variant-p1',
       }),
     )
-    expect(saveGeneratedOutputForVariant).toHaveBeenCalledWith(
+    expect(saveGeneratedOutputBufferForVariant).toHaveBeenCalledWith(
       expect.objectContaining({
+        fileName: 'carousel-task-1-panel-2.png',
         label: 'Panel 2',
         variantId: 'variant-p2',
       }),
     )
-    expect(saveGeneratedOutputBufferForVariant).not.toHaveBeenCalled()
+    expect(saveGeneratedOutputForVariant).not.toHaveBeenCalled()
 
     const payload = await response.json()
     expect(payload.run.variants).toHaveLength(2)

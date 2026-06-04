@@ -173,6 +173,7 @@ function RunControlPanel({
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
   const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
+  const isImageLikeWorkspace = activeTab === 'image' || activeTab === 'carousel'
   const activeModelLabel =
     activeTab === 'carousel'
       ? 'Carousel'
@@ -259,51 +260,55 @@ function RunControlPanel({
         <div className={cn(insetPanelClassName, 'overflow-hidden')}>
           <div className="px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-5">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Setup summary
-                </p>
-                <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-                  <PreviewSnapshotItem
-                    label="Primary input"
-                    value={primaryInputLabel}
-                  />
-                  <PreviewSnapshotItem
-                    label="Staged assets"
-                    value={getLoadedAssetLabel(loadedAssets.length)}
-                  />
-                </div>
-                <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-                  <StatusPill label="Model" value={activeModelLabel} />
-                  <StatusPill
-                    label="Category"
-                    value={getProductCategoryLabel(productCategory)}
-                  />
-                  <StatusPill
-                    label="Style"
-                    value={getCreativeStyleLabel(creativeStyle)}
-                  />
-                  <StatusPill
-                    label="Subject"
-                    value={getSubjectModeLabel(subjectMode)}
-                  />
-                  <StatusPill
-                    label="Environment"
-                    value={getShotEnvironmentLabel(shotEnvironment)}
-                  />
-                  {characterPresetLabel ? (
-                    <StatusPill label="Casting" value={characterPresetLabel} />
-                  ) : null}
-                  {activeTab === 'video' && cameraMovement ? (
-                    <StatusPill
-                      label="Camera"
-                      value={getCameraMovementLabel(cameraMovement)}
+              {activeTab === 'carousel' ? null : (
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    Setup summary
+                  </p>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                    <PreviewSnapshotItem
+                      label="Primary input"
+                      value={primaryInputLabel}
                     />
-                  ) : null}
+                    <PreviewSnapshotItem
+                      label="Staged assets"
+                      value={getLoadedAssetLabel(loadedAssets.length)}
+                    />
+                  </div>
+                  <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                    <StatusPill label="Model" value={activeModelLabel} />
+                    <StatusPill
+                      label="Category"
+                      value={getProductCategoryLabel(productCategory)}
+                    />
+                    <StatusPill
+                      label="Style"
+                      value={getCreativeStyleLabel(creativeStyle)}
+                    />
+                    <StatusPill
+                      label="Subject"
+                      value={getSubjectModeLabel(subjectMode)}
+                    />
+                    <StatusPill
+                      label="Environment"
+                      value={getShotEnvironmentLabel(shotEnvironment)}
+                    />
+                    {characterPresetLabel ? (
+                      <StatusPill label="Casting" value={characterPresetLabel} />
+                    ) : null}
+                    {activeTab === 'video' && cameraMovement ? (
+                      <StatusPill
+                        label="Camera"
+                        value={getCameraMovementLabel(cameraMovement)}
+                      />
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="h-px bg-border/70" />
+              {activeTab === 'carousel' ? null : (
+                <div className="h-px bg-border/70" />
+              )}
 
               {activeTab === 'image' ? (
                 <div className="min-w-0">
@@ -344,7 +349,7 @@ function RunControlPanel({
               ) : null}
 
               {activeTab === 'carousel' && carouselStats ? (
-                <div className="mt-2 grid gap-2.5">
+                <div className="mt-2 grid gap-4">
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       Panels
@@ -376,19 +381,73 @@ function RunControlPanel({
                       ) : null}
                     </div>
                   </div>
+
+                  <div className="grid gap-2.5">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Image model
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Final carousel panels render with active image model.
+                      </p>
+                    </div>
+
+                    <Select
+                      aria-label="Image Model"
+                      onChange={(event) => {
+                        const nextModel = event.target.value as ImageModelOption
+                        setImageModel(nextModel)
+                        const supportedQualities = getImageQualityOptions(
+                          nextModel,
+                          kiePricing,
+                        )
+                        if (!supportedQualities.includes(outputQuality)) {
+                          setOutputQuality(supportedQualities[0] ?? '1080p')
+                        }
+                      }}
+                      value={imageModel}
+                    >
+                      {imageModels.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </Select>
+
+                    <p className="text-xs text-muted-foreground">
+                      {selectedImageModel?.helper}
+                    </p>
+
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Image resolution
+                    </p>
+                    <Select
+                      aria-label="Image Resolution"
+                      onChange={(event) =>
+                        setOutputQuality(event.target.value as OutputQuality)
+                      }
+                      value={outputQuality}
+                    >
+                      {imageQualityOptions.map((quality) => (
+                        <option key={quality} value={quality}>
+                          {getImageQualityLabel(quality)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-2 grid gap-2.5">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                      {activeTab === 'image' ? 'Image model' : 'Video model'}
+                      {isImageLikeWorkspace ? 'Image model' : 'Video model'}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Curated provider options for the active workspace.
                     </p>
                   </div>
 
-                  {activeTab === 'image' ? (
+                  {isImageLikeWorkspace ? (
                     <Select
                       aria-label="Image Model"
                       onChange={(event) => {
@@ -494,12 +553,12 @@ function RunControlPanel({
                   )}
 
                   <p className="text-xs text-muted-foreground">
-                    {activeTab === 'image'
+                    {isImageLikeWorkspace
                       ? selectedImageModel?.helper
                       : selectedVideoModel?.helper}
                   </p>
 
-                  {activeTab === 'image' ? (
+                  {isImageLikeWorkspace ? (
                     <>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         Image resolution

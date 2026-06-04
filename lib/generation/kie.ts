@@ -1,9 +1,9 @@
 import 'server-only'
 
 import {
-  buildCarouselPanelPrompt,
+  buildCarouselBatchPrompt,
   buildCarouselVariants,
-  collectCarouselPanelReferences,
+  collectCarouselBatchReferences,
 } from '@/lib/generation/carousel'
 import {
   buildVariantPromptSet,
@@ -27,6 +27,7 @@ import {
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
+  AssetSlot,
   CarouselBaseTemplateMode,
   CarouselDraft,
   CarouselPanelDraft,
@@ -267,9 +268,32 @@ export function parseCarouselDraft(formData: FormData): CarouselDraft | null {
       : typeof record.globalPanelStyle === 'string'
         ? record.globalPanelStyle
         : ''
-  const baseTemplateAsset = null  // file is separately uploaded
+  const baseTemplateAsset =
+    baseTemplateMode === 'manual'
+      ? createCarouselAssetSlot(
+          formData.get('carousel_base_template_image'),
+          'carousel-base-template',
+          'Base template',
+        )
+      : null
+  const panelsWithAssets = panels.map((panel) => ({
+    ...panel,
+    imageAsset:
+      panel.imageMode === 'manual'
+        ? createCarouselAssetSlot(
+            formData.get(`carousel_panel_image_${panel.id}`),
+            `carousel-panel-image-${panel.id}`,
+            `Carousel panel ${panel.order} image`,
+          )
+        : null,
+  }))
 
-  return { baseTemplateMode, baseTemplatePrompt, baseTemplateAsset, panels }
+  return {
+    baseTemplateMode,
+    baseTemplatePrompt,
+    baseTemplateAsset,
+    panels: panelsWithAssets,
+  }
 }
 
 function normalizePanelDraft(value: unknown): CarouselPanelDraft | null {
@@ -300,6 +324,27 @@ function normalizePanelDraft(value: unknown): CarouselPanelDraft | null {
     textMode: candidate.textMode === 'ai' ? 'ai' : 'manual',
     textPrompt: typeof candidate.textPrompt === 'string' ? candidate.textPrompt : '',
     textValue: typeof candidate.textValue === 'string' ? candidate.textValue : '',
+  }
+}
+
+function createCarouselAssetSlot(
+  value: FormDataEntryValue | null,
+  id: string,
+  label: string,
+): AssetSlot | null {
+  if (!(value instanceof File) || value.size === 0) {
+    return null
+  }
+
+  return {
+    error: null,
+    file: value,
+    id,
+    label,
+    mimeType: value.type || null,
+    previewUrl: null,
+    size: value.size,
+    uploadStatus: 'staged',
   }
 }
 
@@ -1302,7 +1347,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       status: 400,
     })
   }
-  const manifestValue = readString(formData, 'assetManifest')
+  const manifestValue =
+    workspace === 'carousel'
+      ? (readOptionalString(formData, 'assetManifest') ?? '[]')
+      : readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
 
   if (!Array.isArray(parsedManifest)) {
@@ -1654,19 +1702,29 @@ async function submitCarouselGenerationRequest(
   }
 
   const orderedPanels = [...draft.panels].sort((a, b) => a.order - b.order)
-  const submissions = await Promise.all(
-    orderedPanels.map(async (panel) => {
-      const prompt = buildCarouselPanelPrompt(panel, draft)
+  const baseTemplateRemoteUrl = draft.baseTemplateAsset?.file
+    ? await uploadFileToKie(apiKey, draft.baseTemplateAsset.file, input.workspace)
+    : null
+  const panelImageRemoteUrlByPanelId = new Map<string, string>()
 
-      if (panel.imageMode === 'manual') {
-        return {
-          type: 'manual' as const,
-          panelId: panel.id,
-          order: panel.order,
-          prompt,
-          taskId: null as string | null,
-        }
-      }
+  for (const panel of orderedPanels) {
+    if (!panel.imageAsset?.file) {
+      continue
+    }
+
+    panelImageRemoteUrlByPanelId.set(
+      panel.id,
+      await uploadFileToKie(apiKey, panel.imageAsset.file, input.workspace),
+    )
+  }
+
+  const panelBatches = Array.from(
+    { length: Math.ceil(orderedPanels.length / 4) },
+    (_, index) => orderedPanels.slice(index * 4, index * 4 + 4),
+  )
+  const submissions = await Promise.all(
+    panelBatches.map(async (panels) => {
+      const prompt = buildCarouselBatchPrompt(panels, draft)
 
       const taskId = await submitProviderTask(apiKey, {
         endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
@@ -1676,8 +1734,13 @@ async function submitCarouselGenerationRequest(
           model: 'nano-banana-2',
           input: {
             prompt,
-            image_input: collectCarouselPanelReferences(panel, draft),
-            aspect_ratio: '2:3',
+            image_input: collectCarouselBatchReferences({
+              baseTemplateRemoteUrl,
+              panelImageRemoteUrlByPanelId,
+              panels,
+            }),
+            aspect_ratio: '1:1',
+            resolution: getNanoBananaResolution(input.outputQuality),
             output_format: 'png',
             google_search: false,
           },
@@ -1685,9 +1748,7 @@ async function submitCarouselGenerationRequest(
       })
 
       return {
-        type: 'ai' as const,
-        panelId: panel.id,
-        order: panel.order,
+        panels,
         prompt,
         taskId,
       }

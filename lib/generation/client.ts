@@ -133,6 +133,58 @@ export function getAssetPreviewUrl(slot: AssetSlot) {
 }
 
 export function getGenerationValidation(snapshot: GenerationSnapshot) {
+  if (snapshot.activeTab === 'carousel') {
+    const carouselDraft = (snapshot as GenerationSnapshot & {
+      carouselDraft?: CarouselDraft
+    }).carouselDraft
+
+    if (!carouselDraft || carouselDraft.panels.length === 0) {
+      return {
+        canGenerate: false,
+        reason: 'Add at least one carousel panel first.',
+      }
+    }
+
+    if (
+      carouselDraft.baseTemplateMode === 'ai' &&
+      carouselDraft.baseTemplatePrompt.trim().length === 0
+    ) {
+      return {
+        canGenerate: false,
+        reason: 'Add base template prompt first.',
+      }
+    }
+
+    if (
+      carouselDraft.baseTemplateMode === 'manual' &&
+      !carouselDraft.baseTemplateAsset?.file
+    ) {
+      return {
+        canGenerate: false,
+        reason: 'Upload base template image first.',
+      }
+    }
+
+    for (const panel of carouselDraft.panels) {
+      const hasManualImage =
+        panel.imageMode === 'manual' && Boolean(panel.imageAsset?.file)
+      const hasAiImage =
+        panel.imageMode === 'ai' && panel.imagePrompt.trim().length > 0
+
+      if (!hasManualImage && !hasAiImage) {
+        return {
+          canGenerate: false,
+          reason: `Panel ${panel.order} needs image content first.`,
+        }
+      }
+    }
+
+    return {
+      canGenerate: true,
+      reason: null,
+    }
+  }
+
   if (
     snapshot.activeTab === 'video' &&
     snapshot.videoModel === 'veo-3.1' &&
