@@ -28,6 +28,7 @@ import type {
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
+  PromptEnhancement,
   ProductCategory,
   ShotEnvironment,
   StoryboardShot,
@@ -45,6 +46,7 @@ import {
 } from '@/lib/generation/model-mapping'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
+import { createInitialPromptEnhancement } from '@/lib/generation/prompt-enhancements'
 
 type GuidedInputState = {
   analysisModel: KieAnalysisModel
@@ -93,6 +95,7 @@ type GenerationStateShape = {
   ideationStatus: GuidedAnalysisStatus
   imageModel: ImageModelOption
   outputQuality: OutputQuality
+  promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
   products: AssetSlot[]
   manualVideoStageEventId: number
@@ -163,6 +166,7 @@ type GenerationStore = GenerationStateShape & {
   setImageModel: (imageModel: ImageModelOption) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
+  setPromptEnhancement: (patch: Partial<PromptEnhancement>) => void
   setProductCategory: (productCategory: ProductCategory) => void
   setProductSlotFile: (id: string, file: File | null) => void
   setShotEnvironment: (shotEnvironment: ShotEnvironment) => void
@@ -372,6 +376,7 @@ function createInitialState(): GenerationStateShape {
     ideationStatus: 'idle',
     imageModel: 'nano-banana',
     outputQuality: '1080p',
+    promptEnhancement: createInitialPromptEnhancement(),
     productCategory: 'cosmetics',
     products: createProductSlots(),
     manualVideoStageEventId: 0,
@@ -661,6 +666,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         },
         guidedPlan: hydratedGuidedPlan,
         outputQuality: normalizedConfig.outputQuality,
+        promptEnhancement: createInitialPromptEnhancement(),
         productCategory: normalizedConfig.productCategory,
         sessionStats: state.sessionStats,
         shotEnvironment: normalizedConfig.shotEnvironment,
@@ -704,6 +710,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ideationStatus: nextState.ideationStatus,
         imageModel: nextState.imageModel,
       outputQuality: nextState.outputQuality,
+      promptEnhancement: nextState.promptEnhancement,
       productCategory: nextState.productCategory,
       products: nextState.products,
       sessionStats: state.sessionStats,
@@ -990,6 +997,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setOutputQuality: (outputQuality) => set({ outputQuality }),
+  setPromptEnhancement: (patch) =>
+    set((state) => ({
+      promptEnhancement: {
+        ...state.promptEnhancement,
+        ...patch,
+      },
+    })),
   setProductCategory: (productCategory) => set({ productCategory }),
   setProductSlotFile: (id, file) =>
     set((state) => ({
@@ -1230,6 +1244,7 @@ export type {
   KieAnalysisModel,
   NamedAssetKey,
   OutputQuality,
+  PromptEnhancement,
   PlatformPreset,
   ProductCategory,
   ShotEnvironment,

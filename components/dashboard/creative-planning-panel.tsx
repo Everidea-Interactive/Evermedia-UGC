@@ -57,6 +57,7 @@ const platformOptions: Array<{
 const ctaPlacementLabels: Record<CtaOption['placement'], string> = {
   caption: 'Caption',
   'closing-shot': 'Closing Shot',
+  'visual-overlay': 'Visual CTA',
   voiceover: 'Voiceover',
 }
 

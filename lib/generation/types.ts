@@ -1,5 +1,6 @@
 export type WorkspaceTab = 'image' | 'video'
 export type GenerationExperience = 'manual' | 'guided' | 'ideation'
+export type GenerationLocale = 'en' | 'id'
 export type ContentConcept = 'driven-ads' | 'affiliate'
 export type CreativeGoal = 'awareness' | 'consideration' | 'conversion'
 export type AudiencePreset =
@@ -151,8 +152,16 @@ export type CreativeBrief = {
 export type CtaOption = {
   id: string
   label: string
-  placement: 'closing-shot' | 'caption' | 'voiceover'
+  placement: 'closing-shot' | 'caption' | 'visual-overlay' | 'voiceover'
   rationale: string
+}
+
+export type PromptEnhancement = {
+  ctaEnabled: boolean
+  customCtaText: string
+  selectedCtaId: string
+  voiceoverEnabled: boolean
+  voiceoverScript: string
 }
 
 export type StoryboardShot = GuidedAnalysisShot & {
@@ -255,7 +264,9 @@ export type GenerationSnapshot = {
   creativeStyle: CreativeStyle
   figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
+  locale?: GenerationLocale
   outputQuality: OutputQuality
+  promptEnhancement?: PromptEnhancement
   productCategory: ProductCategory
   products: AssetSlot[]
   shotEnvironment: ShotEnvironment
