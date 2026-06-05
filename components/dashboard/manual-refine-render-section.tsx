@@ -2,6 +2,8 @@
 
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { PromptEnhancementControls } from '@/components/dashboard/prompt-enhancement-controls'
+import { useLocale } from '@/components/i18n/locale-provider'
 import {
   characterAgeGroups,
   characterGenders,
@@ -37,6 +39,7 @@ import { useGenerationStore } from '@/store/use-generation-store'
 import { useEffect } from 'react'
 
 export function RefineRenderSection({ className }: { className?: string }) {
+  const { locale } = useLocale()
   const activeTab = useGenerationStore((state) => state.activeTab)
   const creativeStyle = useGenerationStore((state) => state.creativeStyle)
   const setCreativeStyle = useGenerationStore((state) => state.setCreativeStyle)
@@ -52,6 +55,12 @@ export function RefineRenderSection({ className }: { className?: string }) {
   )
   const textPrompt = useGenerationStore((state) => state.textPrompt)
   const setTextPrompt = useGenerationStore((state) => state.setTextPrompt)
+  const promptEnhancement = useGenerationStore(
+    (state) => state.promptEnhancement,
+  )
+  const setPromptEnhancement = useGenerationStore(
+    (state) => state.setPromptEnhancement,
+  )
   const characterGender = useGenerationStore((state) => state.characterGender)
   const setCharacterGender = useGenerationStore(
     (state) => state.setCharacterGender,
@@ -392,6 +401,35 @@ export function RefineRenderSection({ className }: { className?: string }) {
             <p className="text-xs text-muted-foreground">
               Use this only for direction that does not fit the preset controls.
             </p>
+          </ControlGroup>
+
+          <ControlGroup
+            className={cn(presetGroupClassName, 'xl:col-span-12')}
+            description={
+              activeTab === 'image'
+                ? locale === 'id'
+                  ? 'CTA opsional ditambahkan saat tombol Generate diklik.'
+                  : 'Optional CTA appended when Generate is clicked.'
+                : locale === 'id'
+                  ? 'Kalimat VO opsional ditambahkan saat tombol Generate diklik.'
+                  : 'Optional voiceover line appended when Generate is clicked.'
+            }
+            key={`prompt-enhancement-${activeTab}-${locale}`}
+            title={
+              activeTab === 'image'
+                ? locale === 'id'
+                  ? 'Opsi CTA'
+                  : 'CTA Options'
+                : locale === 'id'
+                  ? 'Skrip VO'
+                  : 'VO Script'
+            }
+          >
+            <PromptEnhancementControls
+              enhancement={promptEnhancement}
+              onChange={setPromptEnhancement}
+              workspace={activeTab}
+            />
           </ControlGroup>
         </div>
       </div>

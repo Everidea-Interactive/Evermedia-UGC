@@ -152,6 +152,111 @@ describe('guided generation client payloads', () => {
     ])
   })
 
+  it('appends the selected CTA to the final guided image shot prompt', () => {
+    const heroAsset = createSlot(
+      'guided-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+
+    const { formData } = buildGuidedGenerationFormData({
+      analysisModel: 'gemini-2.5-flash',
+      contentConcept: 'affiliate',
+      creativeBrief,
+      creativePlan: null,
+      heroAsset,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      plan: multiShotGuidedPlan,
+      productUrl: '',
+      promptEnhancement: {
+        ctaEnabled: true,
+        customCtaText: '',
+        selectedCtaId: 'find-fit',
+        voiceoverEnabled: false,
+        voiceoverScript: '',
+      },
+    })
+
+    const guidedShots = JSON.parse(String(formData.get('guidedShots'))) as Array<{
+      prompt: string
+    }>
+
+    expect(guidedShots[0]?.prompt).toBe('Video prompt 1')
+    expect(guidedShots[1]?.prompt).toContain('Find your best fit')
+  })
+
+  it('appends editable VO script to guided video shot prompts', () => {
+    const heroAsset = createSlot(
+      'guided-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+
+    const { formData } = buildGuidedGenerationFormData({
+      analysisModel: 'gemini-2.5-flash',
+      contentConcept: 'affiliate',
+      creativeBrief,
+      creativePlan: null,
+      heroAsset,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      plan: multiShotGuidedPlan,
+      locale: 'id',
+      productUrl: '',
+      promptEnhancement: {
+        ctaEnabled: false,
+        customCtaText: '',
+        selectedCtaId: 'shop-now',
+        voiceoverEnabled: true,
+        voiceoverScript: 'Ini solusi praktis untuk rutinitas harian.',
+      },
+      workspace: 'video',
+    })
+
+    const guidedShots = JSON.parse(String(formData.get('guidedShots'))) as Array<{
+      prompt: string
+    }>
+
+    expect(guidedShots).toHaveLength(1)
+    expect(guidedShots[0]?.prompt).toContain(
+      'Ini solusi praktis untuk rutinitas harian.',
+    )
+  })
+
+  it('appends custom CTA text to guided image prompts when selected', () => {
+    const heroAsset = createSlot(
+      'guided-hero',
+      'Hero Product',
+      new File(['hero'], 'hero.png', { type: 'image/png' }),
+    )
+
+    const { formData } = buildGuidedGenerationFormData({
+      analysisModel: 'gemini-2.5-flash',
+      contentConcept: 'affiliate',
+      creativeBrief,
+      creativePlan: null,
+      heroAsset,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      plan: guidedPlan,
+      productUrl: '',
+      promptEnhancement: {
+        ctaEnabled: true,
+        customCtaText: 'Ambil promo hari ini',
+        selectedCtaId: 'custom',
+        voiceoverEnabled: false,
+        voiceoverScript: '',
+      },
+    })
+
+    const guidedShots = JSON.parse(String(formData.get('guidedShots'))) as Array<{
+      prompt: string
+    }>
+
+    expect(guidedShots[0]?.prompt).toContain('Ambil promo hari ini')
+  })
+
   it('sends guided Seedance 2.0 video settings and optional end frame in the generation payload', () => {
     const heroAsset = createSlot(
       'guided-hero',

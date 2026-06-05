@@ -15,8 +15,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { CreativePlanningPanel } from '@/components/dashboard/creative-planning-panel'
-import { StoryboardPlanner } from '@/components/dashboard/storyboard-planner'
+import { PromptEnhancementControls } from '@/components/dashboard/prompt-enhancement-controls'
 import { useLocale } from '@/components/i18n/locale-provider'
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +30,6 @@ import {
   getVideoDurationOptions,
 } from '@/components/dashboard/manual-workspace-config'
 import {
-  buildCreativePlanningFormData,
   buildGuidedAnalysisFormData,
   buildGuidedGenerationFormData,
   readJsonResponse,
@@ -55,7 +53,6 @@ import { isRunVisibleForExperience } from '@/lib/generation/run-visibility'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import type {
   AssetSlot,
-  CreativePlan,
   CameraMovement,
   ContentConcept,
   GenerationCostEstimate,
@@ -68,6 +65,7 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
   OutputQuality,
+  PromptEnhancement,
   VideoAudio,
   VideoDuration,
   VideoModelOption,
@@ -259,14 +257,12 @@ function getGenerateHelperText({
   activeRun,
   creditReason,
   hasHero,
-  hasCreativePlan,
   hasPlan,
   isVideoWorkspace,
 }: {
   activeRun: boolean
   creditReason: string | null
   hasHero: boolean
-  hasCreativePlan: boolean
   hasPlan: boolean
   isVideoWorkspace: boolean
 }) {
@@ -284,10 +280,6 @@ function getGenerateHelperText({
     return isVideoWorkspace
       ? 'Analyze the start frame first to unlock guided video prompt editing and rendering.'
       : 'Analyze the hero product first to unlock prompt editing and rendering.'
-  }
-
-  if (!hasCreativePlan) {
-    return 'Build the creative plan first so the storyboard and final prompts are ready for generation.'
   }
 
   if (creditReason) {
@@ -1093,10 +1085,16 @@ function GuidedAnalyzePanel({
 }
 
 function GuidedPlanEditor({
+  activeTab,
   plan,
+  promptEnhancement,
+  setPromptEnhancement,
   updateGuidedShotPrompt,
 }: {
+  activeTab: WorkspaceTab
   plan: GuidedAnalysisPlan | null
+  promptEnhancement: PromptEnhancement
+  setPromptEnhancement: (patch: Partial<PromptEnhancement>) => void
   updateGuidedShotPrompt: (slug: string, prompt: string) => void
 }) {
   return (
@@ -1124,15 +1122,23 @@ function GuidedPlanEditor({
         </div>
 
         {plan ? (
-          <div className="grid gap-3">
-            {plan.shots.map((shot, index) => (
-              <GuidedShotEditorCard
-                index={index}
-                key={shot.slug}
-                onUpdatePrompt={updateGuidedShotPrompt}
-                shot={shot}
-              />
-            ))}
+          <div className="grid gap-4">
+            <PromptEnhancementControls
+              enhancement={promptEnhancement}
+              onChange={setPromptEnhancement}
+              workspace={activeTab}
+            />
+
+            <div className="grid gap-3">
+              {plan.shots.map((shot, index) => (
+                <GuidedShotEditorCard
+                  index={index}
+                  key={shot.slug}
+                  onUpdatePrompt={updateGuidedShotPrompt}
+                  shot={shot}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-background/70 px-6 text-center">
@@ -1208,7 +1214,6 @@ function GuidedRunPanel({
   activeRunInGuidedMode,
   analysisStatus,
   canGenerate,
-  creativePlan,
   endFrameAsset,
   estimate,
   generateHelperText,
@@ -1232,7 +1237,6 @@ function GuidedRunPanel({
   activeRunInGuidedMode: boolean
   analysisStatus: GuidedAnalysisStatus
   canGenerate: boolean
-  creativePlan: CreativePlan | null
   endFrameAsset: AssetSlot
   estimate: GenerationCostEstimate
   generateHelperText: string
@@ -1272,7 +1276,7 @@ function GuidedRunPanel({
         <div className="grid gap-4">
           <div className="grid gap-2">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Step 4
+              Step 3
             </p>
             <h2 className="font-display text-xl font-semibold">
               Generate the guided batch
@@ -1288,13 +1292,11 @@ function GuidedRunPanel({
               <div>
                 <p className={fieldLabelClassName}>Plan Summary</p>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Keep the latest guided plan, storyboard state, and render controls
-                  visible in one place while refining the batch.
+                  Keep the latest guided shot plan and render controls visible in
+                  one place while refining the batch.
                 </p>
               </div>
-              <Badge variant="outline">
-                {creativePlan ? 'Storyboard Ready' : 'Planning In Progress'}
-              </Badge>
+              <Badge variant="outline">{plan ? 'Prompt Ready' : 'Waiting'}</Badge>
             </div>
 
             {plan ? (
@@ -1317,19 +1319,14 @@ function GuidedRunPanel({
                     value={`${plan.shots.length} ready`}
                   />
                   <SummaryStat
-                    label="Creative Plan"
-                    value={creativePlan ? 'Storyboard ready' : 'Not built yet'}
+                    label="Shot Plan"
+                    value={plan.shots.length ? 'Ready' : 'Not ready'}
                   />
                 </div>
 
                 <p className="text-sm leading-6 text-muted-foreground">
                   {plan.summary}
                 </p>
-                {creativePlan?.messageAngle ? (
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {creativePlan.messageAngle}
-                  </p>
-                ) : null}
               </>
             ) : (
               <div className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-secondary/25 px-5 text-center">
@@ -1658,13 +1655,6 @@ export function GuidedWorkspace({
   const analysisError = useGenerationStore((state) => state.analysisError)
   const analysisStatus = useGenerationStore((state) => state.analysisStatus)
   const creativeBrief = useGenerationStore((state) => state.creativeBrief)
-  const creativePlan = useGenerationStore((state) => state.creativePlan)
-  const creativePlanningError = useGenerationStore(
-    (state) => state.creativePlanningError,
-  )
-  const creativePlanningStatus = useGenerationStore(
-    (state) => state.creativePlanningStatus,
-  )
   const cameraMovement = useGenerationStore((state) => state.cameraMovement)
   const experience = useGenerationStore((state) => state.experience)
   const generationRun = useGenerationStore((state) => state.generationRun)
@@ -1675,24 +1665,14 @@ export function GuidedWorkspace({
   const guidedPlan = useGenerationStore((state) => state.guidedPlan)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const promptEnhancement = useGenerationStore(
+    (state) => state.promptEnhancement,
+  )
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoAudio = useGenerationStore((state) => state.videoAudio)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const setAnalysisError = useGenerationStore((state) => state.setAnalysisError)
   const setAnalysisStatus = useGenerationStore((state) => state.setAnalysisStatus)
-  const selectCreativePlanCta = useGenerationStore(
-    (state) => state.selectCreativePlanCta,
-  )
-  const setCreativeBriefField = useGenerationStore(
-    (state) => state.setCreativeBriefField,
-  )
-  const setCreativePlan = useGenerationStore((state) => state.setCreativePlan)
-  const setCreativePlanningError = useGenerationStore(
-    (state) => state.setCreativePlanningError,
-  )
-  const setCreativePlanningStatus = useGenerationStore(
-    (state) => state.setCreativePlanningStatus,
-  )
   const setCameraMovement = useGenerationStore((state) => state.setCameraMovement)
   const setGuidedAnalysisModel = useGenerationStore(
     (state) => state.setGuidedAnalysisModel,
@@ -1710,8 +1690,8 @@ export function GuidedWorkspace({
   const setGuidedShotCount = useGenerationStore((state) => state.setGuidedShotCount)
   const setImageModel = useGenerationStore((state) => state.setImageModel)
   const setOutputQuality = useGenerationStore((state) => state.setOutputQuality)
-  const updateStoryboardShot = useGenerationStore(
-    (state) => state.updateStoryboardShot,
+  const setPromptEnhancement = useGenerationStore(
+    (state) => state.setPromptEnhancement,
   )
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
@@ -1729,12 +1709,9 @@ export function GuidedWorkspace({
 
   const hasHero = isSlotLoaded(guidedInput.heroAsset)
   const hasPlan = Boolean(guidedPlan?.shots.length)
-  const hasCreativePlan = Boolean(creativePlan?.storyboard.length)
   const activeRunInGuidedMode =
     isSubmittingGeneration || hasActiveGeneration(generationRun)
   const canAnalyze = hasHero && analysisStatus !== 'analyzing'
-  const canGenerateCreativePlan =
-    hasPlan && creativePlanningStatus !== 'planning' && analysisStatus === 'ready'
 
   const estimate = useMemo(
     () =>
@@ -1779,7 +1756,6 @@ export function GuidedWorkspace({
   )
   const canGenerate =
     hasPlan &&
-    hasCreativePlan &&
     hasHero &&
     analysisStatus !== 'analyzing' &&
     !activeRunInGuidedMode &&
@@ -1794,7 +1770,6 @@ export function GuidedWorkspace({
   const generateHelperText = getGenerateHelperText({
     activeRun: activeRunInGuidedMode,
     creditReason: creditValidation.reason,
-    hasCreativePlan,
     hasHero,
     hasPlan,
     isVideoWorkspace: activeTab === 'video',
@@ -1828,6 +1803,22 @@ export function GuidedWorkspace({
       setVideoAudio(forcedAudio)
     }
   }, [activeTab, setVideoAudio, videoAudio, videoModel])
+
+  useEffect(() => {
+    if (activeTab !== 'video' || !guidedPlan || promptEnhancement.voiceoverScript) {
+      return
+    }
+
+    const firstSentence =
+      guidedPlan.summary
+        .split(/[.!?]/)
+        .map((sentence) => sentence.trim())
+        .find((sentence) => sentence.length > 0) ?? guidedPlan.shots[0]?.title ?? ''
+
+    if (firstSentence) {
+      setPromptEnhancement({ voiceoverScript: firstSentence })
+    }
+  }, [activeTab, guidedPlan, promptEnhancement.voiceoverScript, setPromptEnhancement])
 
   useEffect(() => {
     const runId = generationRun.runId
@@ -1930,9 +1921,6 @@ export function GuidedWorkspace({
       }
 
       setGuidedPlan(payload.plan)
-      setCreativePlan(null)
-      setCreativePlanningStatus('idle')
-      setCreativePlanningError(null)
       setAnalysisStatus('ready')
       setAnalysisError(payload.warning ?? null)
       return true
@@ -1975,58 +1963,10 @@ export function GuidedWorkspace({
     }
   }
 
-  const handleGenerateCreativePlan = async () => {
-    if (!guidedPlan) {
-      setCreativePlanningError('Analyze the product first to unlock creative planning.')
-      setCreativePlanningStatus('error')
-      return
-    }
-
-    try {
-      setCreativePlanningStatus('planning')
-      setCreativePlanningError(null)
-
-      const { formData } = buildCreativePlanningFormData({
-        brief: creativeBrief,
-        outputLanguage: locale,
-        plan: guidedPlan,
-      })
-      const response = await fetch('/api/guided/creative-plan', {
-        body: formData,
-        method: 'POST',
-      })
-      const payload = (await response.json()) as
-        | {
-            creativePlan?: CreativePlan
-            error?: string
-          }
-        | null
-
-      if (!response.ok || !payload?.creativePlan) {
-        throw new Error(payload?.error ?? 'Unable to build the creative plan.')
-      }
-
-      setCreativePlan(payload.creativePlan)
-    } catch (error) {
-      setCreativePlanningStatus('error')
-      setCreativePlanningError(
-        error instanceof Error ? error.message : 'Unable to build the creative plan.',
-      )
-    }
-  }
-
   const handleGenerate = async () => {
     if (!guidedPlan) {
       setAnalysisStatus('error')
       setAnalysisError('Analyze the product first to create the shot plan.')
-      return
-    }
-
-    if (!creativePlan) {
-      setCreativePlanningStatus('error')
-      setCreativePlanningError(
-        'Build the creative plan first so the storyboard prompts are ready.',
-      )
       return
     }
 
@@ -2063,14 +2003,16 @@ export function GuidedWorkspace({
       const { formData } = buildGuidedGenerationFormData({
         analysisModel: guidedInput.analysisModel,
         creativeBrief,
-        creativePlan,
+        creativePlan: null,
         cameraMovement,
         contentConcept: guidedInput.contentConcept,
         endFrameAsset: guidedInput.endFrameAsset,
         heroAsset: guidedInput.heroAsset,
         imageModel,
+        locale,
         outputQuality,
         plan: guidedPlan,
+        promptEnhancement,
         productUrl: guidedInput.productUrl,
         videoDuration,
         videoAudio,
@@ -2162,26 +2104,11 @@ export function GuidedWorkspace({
 
               <TabsContent className="mt-0" value="plan">
                 <div className="grid gap-4">
-                  <CreativePlanningPanel
-                    canGeneratePlan={canGenerateCreativePlan}
-                    creativeBrief={creativeBrief}
-                    creativePlan={creativePlan}
-                    error={creativePlanningError}
-                    onBriefChange={setCreativeBriefField}
-                    onGeneratePlan={() => {
-                      void handleGenerateCreativePlan()
-                    }}
-                    onSelectCta={selectCreativePlanCta}
-                    status={creativePlanningStatus}
-                  />
-
-                  <StoryboardPlanner
-                    creativePlan={creativePlan}
-                    updateStoryboardShot={updateStoryboardShot}
-                  />
-
                   <GuidedPlanEditor
+                    activeTab={activeTab}
                     plan={guidedPlan}
+                    promptEnhancement={promptEnhancement}
+                    setPromptEnhancement={setPromptEnhancement}
                     updateGuidedShotPrompt={updateGuidedShotPrompt}
                   />
                 </div>
@@ -2202,7 +2129,6 @@ export function GuidedWorkspace({
                 activeRunInGuidedMode={activeRunInGuidedMode}
                 analysisStatus={analysisStatus}
                 canGenerate={canGenerate}
-                creativePlan={creativePlan}
                 endFrameAsset={guidedInput.endFrameAsset}
                 estimate={estimate}
                 generateHelperText={generateHelperText}

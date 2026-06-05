@@ -22,6 +22,11 @@ import {
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
+import {
+  appendPromptEnhancement,
+  createInitialPromptEnhancement,
+} from '@/lib/generation/prompt-enhancements'
+import { defaultLocale, normalizeLocale } from '@/lib/i18n'
 
 function normalizeResponsePreview(text: string) {
   const normalized = text.replace(/\s+/g, ' ').trim()
@@ -191,7 +196,15 @@ export function buildGenerationFormData(snapshot: GenerationSnapshot) {
   formData.append('characterAgeGroup', snapshot.characterAgeGroup)
   formData.append('figureArtDirection', snapshot.figureArtDirection)
   formData.append('batchSize', String(snapshot.batchSize))
-  formData.append('textPrompt', snapshot.textPrompt)
+  formData.append(
+    'textPrompt',
+    appendPromptEnhancement({
+      enhancement: snapshot.promptEnhancement ?? createInitialPromptEnhancement(),
+      locale: normalizeLocale(snapshot.locale),
+      prompt: snapshot.textPrompt,
+      workspace: snapshot.activeTab,
+    }),
+  )
   formData.append('videoDuration', snapshot.videoDuration)
   formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
@@ -334,6 +347,8 @@ export function buildGuidedGenerationFormData(input: {
   imageModel: GenerationSnapshot['imageModel']
   outputQuality: GenerationSnapshot['outputQuality']
   plan: GuidedAnalysisPlan
+  locale?: GenerationSnapshot['locale']
+  promptEnhancement?: GenerationSnapshot['promptEnhancement']
   productUrl: string
   videoDuration?: VideoDuration
   videoAudio?: VideoAudio
@@ -349,8 +364,27 @@ export function buildGuidedGenerationFormData(input: {
   const supportsEndFrame =
     workspace === 'video' &&
     supportsVideoEndFrameGuidance(input.videoModel ?? 'veo-3.1')
-  const guidedShots =
+  const promptEnhancement =
+    input.promptEnhancement ?? createInitialPromptEnhancement()
+  const locale = normalizeLocale(input.locale ?? defaultLocale)
+  const guidedShots = (
     workspace === 'video' ? input.plan.shots.slice(0, 1) : input.plan.shots
+  ).map((shot, index, shots) => {
+    const shouldAppend =
+      workspace === 'video' || (workspace === 'image' && index === shots.length - 1)
+
+    return shouldAppend
+      ? {
+          ...shot,
+          prompt: appendPromptEnhancement({
+            enhancement: promptEnhancement,
+            locale,
+            prompt: shot.prompt,
+            workspace,
+          }),
+        }
+      : shot
+  })
   const assetManifest: SubmittedAssetDescriptor[] = []
 
   if (supportsEndFrame && input.endFrameAsset?.file) {

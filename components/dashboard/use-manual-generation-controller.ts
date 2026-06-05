@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import { useLocale } from '@/components/i18n/locale-provider'
 import {
   buildGenerationFormData,
   getGenerationValidation,
@@ -21,11 +22,13 @@ import type {
   FigureArtDirection,
   GenerationRun,
   GenerationSnapshot,
+  GenerationLocale,
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
   NamedAssetSlots,
   OutputQuality,
+  PromptEnhancement,
   ProductCategory,
   ShotEnvironment,
   SubjectMode,
@@ -48,7 +51,9 @@ function createGenerationSnapshot(input: {
   creativeStyle: CreativeStyle
   figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
+  locale: GenerationLocale
   outputQuality: OutputQuality
+  promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
   products: AssetSlot[]
   shotEnvironment: ShotEnvironment
@@ -73,6 +78,7 @@ export function useManualGenerationController(input: {
   pricingError: string | null
 }) {
   const { enabled, kiePricing, kieStatus, pricingError } = input
+  const { locale } = useLocale()
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
   const batchSize = useGenerationStore((state) => state.batchSize)
@@ -91,6 +97,9 @@ export function useManualGenerationController(input: {
   )
   const imageModel = useGenerationStore((state) => state.imageModel)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
+  const promptEnhancement = useGenerationStore(
+    (state) => state.promptEnhancement,
+  )
   const productCategory = useGenerationStore((state) => state.productCategory)
   const products = useGenerationStore((state) => state.products)
   const videoReferences = useGenerationStore((state) => state.videoReferences)
@@ -118,7 +127,9 @@ export function useManualGenerationController(input: {
         creativeStyle,
         figureArtDirection,
         imageModel,
+        locale,
         outputQuality,
+        promptEnhancement,
         productCategory,
         products,
         shotEnvironment,
@@ -139,7 +150,9 @@ export function useManualGenerationController(input: {
       creativeStyle,
       figureArtDirection,
       imageModel,
+      locale,
       outputQuality,
+      promptEnhancement,
       productCategory,
       products,
       shotEnvironment,
@@ -268,7 +281,9 @@ export function useManualGenerationController(input: {
       creativeStyle: state.creativeStyle,
       figureArtDirection: state.figureArtDirection,
       imageModel: state.imageModel,
+      locale,
       outputQuality: state.outputQuality,
+      promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
       products: state.products,
       shotEnvironment: state.shotEnvironment,

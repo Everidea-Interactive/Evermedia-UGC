@@ -245,6 +245,90 @@ describe('manual generation client payloads', () => {
     expect(formData.get('asset_endFrame')).toBe(endFrame.file)
   })
 
+  it('appends manual image CTA into the submitted prompt', () => {
+    const snapshot = createSnapshot({
+      activeTab: 'image',
+      products: [
+        createSlot(
+          'product-1',
+          'Product 1',
+          new File(['product'], 'product.png', { type: 'image/png' }),
+        ),
+        createSlot('product-2', 'Product 2', null),
+      ],
+      promptEnhancement: {
+        ctaEnabled: true,
+        customCtaText: '',
+        selectedCtaId: 'see-variant',
+        voiceoverEnabled: false,
+        voiceoverScript: '',
+      },
+      locale: 'id',
+      textPrompt: 'Use bright tabletop lighting.',
+    })
+
+    const { formData } = buildGenerationFormData(snapshot)
+
+    expect(formData.get('textPrompt')).toContain('Use bright tabletop lighting.')
+    expect(formData.get('textPrompt')).toContain('Lihat detail dan variannya')
+  })
+
+  it('appends manual custom CTA into the submitted prompt', () => {
+    const snapshot = createSnapshot({
+      activeTab: 'image',
+      products: [
+        createSlot(
+          'product-1',
+          'Product 1',
+          new File(['product'], 'product.png', { type: 'image/png' }),
+        ),
+        createSlot('product-2', 'Product 2', null),
+      ],
+      promptEnhancement: {
+        ctaEnabled: true,
+        customCtaText: 'Klik untuk klaim bonus',
+        selectedCtaId: 'custom',
+        voiceoverEnabled: false,
+        voiceoverScript: '',
+      },
+    })
+
+    const { formData } = buildGenerationFormData(snapshot)
+
+    expect(formData.get('textPrompt')).toContain('Klik untuk klaim bonus')
+  })
+
+  it('appends manual video VO into the submitted prompt', () => {
+    const snapshot = createSnapshot({
+      promptEnhancement: {
+        ctaEnabled: false,
+        customCtaText: '',
+        selectedCtaId: 'shop-now',
+        voiceoverEnabled: true,
+        voiceoverScript: 'Rasakan manfaatnya sejak pemakaian pertama.',
+      },
+      textPrompt: 'Open with a soft handheld product reveal.',
+      videoReferences: [
+        createSlot(
+          'video-reference-1',
+          'Reference 1',
+          new File(['ref-1'], 'ref-1.png', { type: 'image/png' }),
+        ),
+        createSlot('video-reference-2', 'Reference 2', null),
+        createSlot('video-reference-3', 'Reference 3', null),
+      ],
+    })
+
+    const { formData } = buildGenerationFormData(snapshot)
+
+    expect(formData.get('textPrompt')).toContain(
+      'Open with a soft handheld product reveal.',
+    )
+    expect(formData.get('textPrompt')).toContain(
+      'Rasakan manfaatnya sejak pemakaian pertama.',
+    )
+  })
+
   it('builds Kling manual video manifest using only first and optional end frame inputs', () => {
     const firstFrame = createSlot(
       'firstFrame',
