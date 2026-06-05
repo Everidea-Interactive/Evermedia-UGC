@@ -145,6 +145,7 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
             <div className="flex flex-col gap-4">
               {panels.map((panel) => (
                 <PanelDetailAccordion
+                  canDelete={panels.length > 1}
                   isFirst={panel.order <= 1}
                   isLast={panel.order >= panels.length}
                   key={panel.id}
@@ -189,6 +190,7 @@ function BaseTemplateUploadZone({
 }
 
 function PanelDetailAccordion({
+  canDelete,
   isFirst,
   isLast,
   onDelete,
@@ -197,6 +199,7 @@ function PanelDetailAccordion({
   panel,
   updateCarouselPanel,
 }: {
+  canDelete: boolean
   isFirst: boolean
   isLast: boolean
   onDelete: () => void
@@ -258,6 +261,7 @@ function PanelDetailAccordion({
           <Button
             aria-label="Delete panel"
             className="text-destructive hover:text-destructive"
+            disabled={!canDelete}
             onClick={onDelete}
             size="icon"
             type="button"
