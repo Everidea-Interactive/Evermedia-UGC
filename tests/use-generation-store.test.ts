@@ -496,6 +496,37 @@ describe('useGenerationStore', () => {
     expect(state.ideationStatus).toBe('idle')
   })
 
+  describe('carousel', () => {
+    it('adds, deletes, and reorders carousel panels', () => {
+      const store = useGenerationStore.getState()
+
+      store.addCarouselPanel()
+      store.addCarouselPanel()
+      expect(useGenerationStore.getState().carouselDraft.panels).toHaveLength(2)
+
+      const [first, second] = useGenerationStore.getState().carouselDraft.panels
+      store.moveCarouselPanel(second.id, 'up')
+      expect(useGenerationStore.getState().carouselDraft.panels[0]?.id).toBe(second.id)
+
+      store.deleteCarouselPanel(first.id)
+      expect(useGenerationStore.getState().carouselDraft.panels).toHaveLength(1)
+    })
+
+    it('forwards a saved image into carousel as a manual base template', () => {
+      const file = new File(['seed'], 'seed.png', { type: 'image/png' })
+      useGenerationStore.getState().forwardManualImageResultToCarousel(file)
+
+      const state = useGenerationStore.getState()
+      expect(state.activeTab).toBe('carousel')
+      expect(state.experience).toBe('manual')
+      expect(state.carouselDraft.baseTemplateMode).toBe('manual')
+      expect(state.carouselDraft.baseTemplateAsset?.file?.name).toBe('seed.png')
+      // Forwarding creates a default panel alongside base template
+      expect(state.carouselDraft.panels).toHaveLength(1)
+      expect(state.carouselDraft.panels[0]?.imageMode).toBe('ai')
+    })
+  })
+
   it('routes ideation failures through the shared error modal state', () => {
     const store = useGenerationStore.getState()
 

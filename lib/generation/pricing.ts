@@ -11,6 +11,7 @@ import {
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import type {
+  CarouselDraft,
   GenerationCostEstimate,
   GenerationCostRate,
   GenerationSnapshot,
@@ -719,6 +720,14 @@ function unavailableEstimate(reason: string): GenerationCostEstimate {
   }
 }
 
+function getCarouselGeneratedPanelCount(draft: CarouselDraft | null | undefined) {
+  if (!draft) {
+    return 0
+  }
+
+  return Math.ceil(draft.panels.length / 4)
+}
+
 export function formatCreditAmount(value: number) {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 1,
@@ -780,7 +789,9 @@ export function getGenerationCostEstimate(
     | 'videoDuration'
     | 'videoAudio'
     | 'videoModel'
-  >,
+  > & {
+    carouselDraft?: CarouselDraft | null
+  },
   pricingMatrix: KiePricingMatrix | null,
 ): GenerationCostEstimate {
   if (!pricingMatrix) {
@@ -805,7 +816,7 @@ export function getGenerationCostEstimate(
 
   let perTaskRate: GenerationCostRate | null = null
 
-  if (snapshot.activeTab === 'image') {
+  if (snapshot.activeTab === 'image' || snapshot.activeTab === 'carousel') {
     const imageResolution = getImageResolution(snapshot.outputQuality)
     perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
   } else if (snapshot.videoModel === 'veo-3.1') {
@@ -857,6 +868,19 @@ export function getGenerationCostEstimate(
     !Number.isFinite(perTaskRate.usd)
   ) {
     return unavailableEstimate('Live pricing unavailable for this video/audio configuration.')
+  }
+
+  if (snapshot.activeTab === 'carousel') {
+    const generatedPanelCount = getCarouselGeneratedPanelCount(
+      snapshot.carouselDraft,
+    )
+
+    return {
+      available: true,
+      credits: Number((perTaskRate.credits * generatedPanelCount).toFixed(3)),
+      reason: null,
+      usd: Number((perTaskRate.usd * generatedPanelCount).toFixed(3)),
+    }
   }
 
   return {

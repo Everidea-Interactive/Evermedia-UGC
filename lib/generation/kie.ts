@@ -1,6 +1,11 @@
 import 'server-only'
 
 import {
+  buildCarouselBatchPrompt,
+  buildCarouselVariants,
+  collectCarouselBatchReferences,
+} from '@/lib/generation/carousel'
+import {
   buildVariantPromptSet,
   compileGenerationPrompt,
   chooseEndFrameReference,
@@ -22,6 +27,10 @@ import {
 } from '@/lib/generation/model-mapping'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
+  AssetSlot,
+  CarouselBaseTemplateMode,
+  CarouselDraft,
+  CarouselPanelDraft,
   CreativeBrief,
   CreativePlan,
   BatchSize,
@@ -83,6 +92,7 @@ export type ParsedGenerationRequest = {
   assetDescriptors: Array<SubmittedAssetDescriptor & { file: File }>
   batchSize: BatchSize
   cameraMovement: CameraMovement | null
+  carouselDraft: CarouselDraft | null
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle
@@ -226,6 +236,115 @@ function safeJsonParse(value: string) {
     return JSON.parse(value) as unknown
   } catch {
     return null
+  }
+}
+
+export function parseCarouselDraft(formData: FormData): CarouselDraft | null {
+  const raw = readOptionalString(formData, 'carouselDraft')
+
+  if (!raw) {
+    return null
+  }
+
+  const parsed = safeJsonParse(raw)
+
+  if (!parsed || typeof parsed !== 'object') {
+    return null
+  }
+
+  const record = parsed as Record<string, unknown>
+  const panels = Array.isArray(record.panels)
+    ? record.panels.flatMap((panel) => {
+        const normalized = normalizePanelDraft(panel)
+        return normalized ? [normalized] : []
+      })
+    : []
+
+  const baseTemplateMode: CarouselBaseTemplateMode =
+    record.baseTemplateMode === 'manual' ? 'manual' : 'ai'
+  const baseTemplatePrompt =
+    typeof record.baseTemplatePrompt === 'string'
+      ? record.baseTemplatePrompt
+      : typeof record.globalPanelStyle === 'string'
+        ? record.globalPanelStyle
+        : ''
+  const baseTemplateAsset =
+    baseTemplateMode === 'manual'
+      ? createCarouselAssetSlot(
+          formData.get('carousel_base_template_image'),
+          'carousel-base-template',
+          'Base template',
+        )
+      : null
+  const panelsWithAssets = panels.map((panel) => ({
+    ...panel,
+    imageAsset:
+      panel.imageMode === 'manual'
+        ? createCarouselAssetSlot(
+            formData.get(`carousel_panel_image_${panel.id}`),
+            `carousel-panel-image-${panel.id}`,
+            `Carousel panel ${panel.order} image`,
+          )
+        : null,
+  }))
+
+  return {
+    baseTemplateMode,
+    baseTemplatePrompt,
+    baseTemplateAsset,
+    panels: panelsWithAssets,
+  }
+}
+
+function normalizePanelDraft(value: unknown): CarouselPanelDraft | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as Record<string, unknown>
+  const id = typeof candidate.id === 'string' ? candidate.id : ''
+
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    order: typeof candidate.order === 'number' ? Math.round(candidate.order) : 0,
+    templateMode: (candidate.templateMode === 'override' || candidate.styleMode === 'override')
+      ? 'override' : 'inherit',
+    templatePrompt: typeof candidate.templatePrompt === 'string'
+      ? candidate.templatePrompt
+      : typeof candidate.stylePrompt === 'string'
+        ? candidate.stylePrompt
+        : '',
+    imageMode: candidate.imageMode === 'ai' ? 'ai' : 'manual',
+    imagePrompt: typeof candidate.imagePrompt === 'string' ? candidate.imagePrompt : '',
+    imageAsset: null,
+    textMode: candidate.textMode === 'ai' ? 'ai' : 'manual',
+    textPrompt: typeof candidate.textPrompt === 'string' ? candidate.textPrompt : '',
+    textValue: typeof candidate.textValue === 'string' ? candidate.textValue : '',
+  }
+}
+
+function createCarouselAssetSlot(
+  value: FormDataEntryValue | null,
+  id: string,
+  label: string,
+): AssetSlot | null {
+  if (!(value instanceof File) || value.size === 0) {
+    return null
+  }
+
+  return {
+    error: null,
+    file: value,
+    id,
+    label,
+    mimeType: value.type || null,
+    previewUrl: null,
+    size: value.size,
+    uploadStatus: 'staged',
   }
 }
 
@@ -1189,7 +1308,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const experience =
     readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
     'manual'
-  const workspace = readEnum(formData, 'workspace', ['image', 'video'] as const)
+  const workspace = readEnum(formData, 'workspace', ['image', 'video', 'carousel'] as const)
   const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
   if (![1, 2, 3, 4].includes(requestedBatchSize)) {
@@ -1228,7 +1347,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       status: 400,
     })
   }
-  const manifestValue = readString(formData, 'assetManifest')
+  const manifestValue =
+    workspace === 'carousel'
+      ? (readOptionalString(formData, 'assetManifest') ?? '[]')
+      : readString(formData, 'assetManifest')
   const parsedManifest = safeJsonParse(manifestValue)
 
   if (!Array.isArray(parsedManifest)) {
@@ -1375,10 +1497,12 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     videoModel,
     requestedVideoAudio,
   )
+  const carouselDraft = workspace === 'carousel' ? parseCarouselDraft(formData) : null
 
   return {
     activeModel: workspace === 'image' ? imageModel : videoModel,
     assetDescriptors,
+    carouselDraft,
     batchSize: batchSize as BatchSize,
     cameraMovement: readOptionalEnum(
       formData,
@@ -1562,6 +1686,78 @@ async function uploadResolvedAssets(input: {
   )
 }
 
+async function submitCarouselGenerationRequest(
+  input: ParsedGenerationRequest,
+  apiKey: string,
+  runId: string,
+): Promise<RunSubmissionResponse> {
+  const draft = input.carouselDraft!
+
+  if (!draft || draft.panels.length === 0) {
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: 'Carousel draft is empty or missing panels.',
+      status: 400,
+    })
+  }
+
+  const orderedPanels = [...draft.panels].sort((a, b) => a.order - b.order)
+  const baseTemplateRemoteUrl = draft.baseTemplateAsset?.file
+    ? await uploadFileToKie(apiKey, draft.baseTemplateAsset.file, input.workspace)
+    : null
+  const panelImageRemoteUrlByPanelId = new Map<string, string>()
+
+  for (const panel of orderedPanels) {
+    if (!panel.imageAsset?.file) {
+      continue
+    }
+
+    panelImageRemoteUrlByPanelId.set(
+      panel.id,
+      await uploadFileToKie(apiKey, panel.imageAsset.file, input.workspace),
+    )
+  }
+
+  const panelBatches = Array.from(
+    { length: Math.ceil(orderedPanels.length / 4) },
+    (_, index) => orderedPanels.slice(index * 4, index * 4 + 4),
+  )
+  const submissions = await Promise.all(
+    panelBatches.map(async (panels) => {
+      const prompt = buildCarouselBatchPrompt(panels, draft)
+
+      const taskId = await submitProviderTask(apiKey, {
+        endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+        modelName: 'nano-banana-2',
+        provider: 'market' as const,
+        requestBody: {
+          model: 'nano-banana-2',
+          input: {
+            prompt,
+            image_input: collectCarouselBatchReferences({
+              baseTemplateRemoteUrl,
+              panelImageRemoteUrlByPanelId,
+              panels,
+            }),
+            aspect_ratio: '1:1',
+            resolution: getNanoBananaResolution(input.outputQuality),
+            output_format: 'png',
+            google_search: false,
+          },
+        },
+      })
+
+      return {
+        panels,
+        prompt,
+        taskId,
+      }
+    }),
+  )
+
+  return buildCarouselVariants(submissions, runId)
+}
+
 export async function submitGenerationRequest(
   input: ParsedGenerationRequest,
   options: {
@@ -1571,6 +1767,11 @@ export async function submitGenerationRequest(
 ): Promise<RunSubmissionResponse> {
   const apiKey = getKieApiKey()
   const runId = options.runId ?? createRunId()
+
+  if (input.workspace === 'carousel') {
+    return submitCarouselGenerationRequest(input, apiKey, runId)
+  }
+
   const resolvedAssets = await resolveAssetDescriptors(input)
   const uploadedAssets = await uploadResolvedAssets({
     apiKey,

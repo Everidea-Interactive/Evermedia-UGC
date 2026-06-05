@@ -364,6 +364,96 @@ describe('generation pricing', () => {
     })
   })
 
+  it('estimates carousel cost per shared batch instead of per panel or video model pricing', () => {
+    const estimate = getGenerationCostEstimate(
+      {
+        ...createSnapshot({
+          activeTab: 'carousel',
+          batchSize: 4,
+          outputQuality: '1080p',
+          videoModel: 'veo-3.1',
+        }),
+        carouselDraft: {
+          baseTemplateAsset: null,
+          baseTemplateMode: 'manual',
+          baseTemplatePrompt: '',
+          panels: [
+            {
+              id: 'panel-1',
+              imageAsset: null,
+              imageMode: 'ai',
+              imagePrompt: 'hero shot',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: 'Title',
+            },
+            {
+              id: 'panel-2',
+              imageAsset: createSlot('panel-2-image', 'Panel 2', true),
+              imageMode: 'manual',
+              imagePrompt: '',
+              order: 2,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              textMode: 'ai',
+              textPrompt: 'cta copy',
+              textValue: '',
+            },
+          ],
+        },
+      },
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 12,
+      reason: null,
+      usd: 0.06,
+    })
+  })
+
+  it('charges manual-image carousel panels because they still render through provider', () => {
+    const estimate = getGenerationCostEstimate(
+      {
+        ...createSnapshot({
+          activeTab: 'carousel',
+          outputQuality: '1080p',
+        }),
+        carouselDraft: {
+          baseTemplateAsset: createSlot('base-template', 'Base Template', true),
+          baseTemplateMode: 'manual',
+          baseTemplatePrompt: '',
+          panels: [
+            {
+              id: 'panel-1',
+              imageAsset: createSlot('panel-1-image', 'Panel 1', true),
+              imageMode: 'manual',
+              imagePrompt: '',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: 'Slide copy',
+            },
+          ],
+        },
+      },
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 12,
+      reason: null,
+      usd: 0.06,
+    })
+  })
+
   it('estimates Veo 3.1 fast text-to-video cost for batch size 4', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({

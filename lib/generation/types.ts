@@ -1,4 +1,26 @@
-export type WorkspaceTab = 'image' | 'video'
+export type WorkspaceTab = 'image' | 'video' | 'carousel'
+
+export type CarouselBaseTemplateMode = 'ai' | 'manual'
+
+export type CarouselPanelDraft = {
+  id: string
+  order: number
+  imageMode: 'ai' | 'manual'
+  imagePrompt: string
+  imageAsset: AssetSlot | null
+  textMode: 'ai' | 'manual'
+  textPrompt: string
+  textValue: string
+  templateMode: 'inherit' | 'override'
+  templatePrompt: string
+}
+
+export type CarouselDraft = {
+  baseTemplateMode: CarouselBaseTemplateMode
+  baseTemplatePrompt: string
+  baseTemplateAsset: AssetSlot | null
+  panels: CarouselPanelDraft[]
+}
 export type GenerationExperience = 'manual' | 'guided' | 'ideation'
 export type GenerationLocale = 'en' | 'id'
 export type ContentConcept = 'driven-ads' | 'affiliate'
@@ -214,6 +236,7 @@ export type GuidedGenerationConfig = {
 }
 
 export type GenerationResult = {
+  label?: string
   model: string
   taskId: string
   thumbnailUrl?: string

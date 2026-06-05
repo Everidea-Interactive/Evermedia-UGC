@@ -104,7 +104,9 @@ function createEstimateSnapshot(
   | 'videoDuration'
   | 'videoAudio'
   | 'videoModel'
-> {
+> & {
+  carouselDraft?: ParsedGenerationRequest['carouselDraft']
+} {
   const assets = createEmptyNamedAssetSlots()
   const products: AssetSlot[] = []
 
@@ -137,6 +139,7 @@ function createEstimateSnapshot(
     videoAudio: input.videoAudio,
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
+    carouselDraft: input.carouselDraft,
   }
 }
 
@@ -153,6 +156,7 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     activeTab: input.workspace,
     batchSize: input.batchSize,
     cameraMovement: input.cameraMovement,
+    carouselDraft: input.carouselDraft ?? undefined,
     characterAgeGroup: input.characterAgeGroup,
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,

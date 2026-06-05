@@ -14,6 +14,11 @@ import { cn } from '@/lib/utils'
 export const panelClassName = 'rounded-2xl border border-border bg-card'
 export const insetPanelClassName = 'rounded-xl border border-border bg-background'
 export const rowClassName = 'rounded-lg border border-border bg-background'
+export const workspaceSectionClassName = `${panelClassName} p-4 sm:p-5`
+export const workspaceFieldLabelClassName =
+  'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
+export const workspacePreviewMinHeightClassName =
+  'min-h-[24rem] sm:min-h-[30rem] lg:min-h-[34rem]'
 export const tileClassName =
   'min-h-10 w-full items-center justify-center whitespace-normal px-3 py-2.5 text-center leading-tight'
 export const presetTileClassName =
@@ -181,6 +186,8 @@ export function ReferenceCard({
   inputId,
   onClear,
   onSelect,
+  previewContainerClassName,
+  previewMediaClassName,
   slot,
 }: {
   className?: string
@@ -188,6 +195,8 @@ export function ReferenceCard({
   inputId: string
   onClear: () => void
   onSelect: (file: File | null) => void
+  previewContainerClassName?: string
+  previewMediaClassName?: string
   slot: AssetSlot
 }) {
   const previewSrc = slot.previewUrl
@@ -221,18 +230,22 @@ export function ReferenceCard({
             label={slot.label}
             src={previewSrc}
           >
-            <div className="absolute inset-0">
+            <div className={cn('absolute inset-0', previewContainerClassName)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt={`${slot.label} reference preview`}
-                className="h-full w-full object-cover"
+                className={cn('h-full w-full object-cover', previewMediaClassName)}
                 src={previewSrc}
               />
             </div>
           </ImagePreviewTrigger>
         ) : (
           <video
-            className="absolute inset-0 h-full w-full object-cover"
+            className={cn(
+              'absolute inset-0 h-full w-full object-cover',
+              previewContainerClassName,
+              previewMediaClassName,
+            )}
             controls
             playsInline
             preload="metadata"

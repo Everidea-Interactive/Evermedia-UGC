@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { LucideIcon } from 'lucide-react'
-import { Film, ImageIcon } from 'lucide-react'
+import { Film, ImageIcon, Images } from 'lucide-react'
 
 import { GenerationErrorNoticeDialog } from '@/components/dashboard/generation-error-notice-dialog'
 import { ManualWorkspace } from '@/components/dashboard/manual-workspace'
@@ -42,6 +42,12 @@ const workspaceTabs: Array<{
     icon: Film,
     label: 'Video',
     value: 'video',
+  },
+  {
+    helper: 'Multi-image panel posts',
+    icon: Images,
+    label: 'Carousel',
+    value: 'carousel',
   },
 ]
 
@@ -110,13 +116,18 @@ export function StudioShell() {
               </TabsList>
             </Tabs>
 
-            {experience !== 'ideation' ? (
+            {experience === 'manual' || experience === 'guided' ? (
               <Tabs
                 onValueChange={(value) => setActiveTab(value as WorkspaceTab)}
                 value={activeTab}
               >
-                <TabsList aria-label="Workspace Tabs" className="w-full grid-cols-2 p-1.5">
-                  {workspaceTabs.map((tab) => {
+                <TabsList
+                  aria-label="Workspace Tabs"
+                  className={cn("w-full p-1.5", experience === 'manual' ? "grid-cols-3" : "grid-cols-2")}
+                >
+                  {workspaceTabs
+                    .filter((tab) => experience !== 'guided' || tab.value !== 'carousel')
+                    .map((tab) => {
                     const Icon = tab.icon
 
                     return (

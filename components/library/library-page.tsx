@@ -214,6 +214,7 @@ export function LibraryPage({
   const [isPending, startRefreshTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [forwardingOutputId, setForwardingOutputId] = useState<string | null>(null)
+  const [forwardingCarouselOutputId, setForwardingCarouselOutputId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [archiveView, setArchiveView] = useState<ArchiveView>(initialView)
   const [page, setPage] = useState(currentPage)
@@ -223,6 +224,9 @@ export function LibraryPage({
   const [selectedIdeationId, setSelectedIdeationId] = useState<string | null>(null)
   const forwardManualImageResultToVideo = useGenerationStore(
     (state) => state.forwardManualImageResultToVideo,
+  )
+  const forwardManualImageResultToCarousel = useGenerationStore(
+    (state) => state.forwardManualImageResultToCarousel,
   )
   const hydrateProjectConfig = useGenerationStore((state) => state.hydrateProjectConfig)
 
@@ -446,6 +450,40 @@ export function LibraryPage({
       })
     } finally {
       setForwardingOutputId(null)
+    }
+  }
+
+  const forwardOutputToCarousel = async (outputId: string, runId: string) => {
+    try {
+      setForwardingCarouselOutputId(outputId)
+      const runResponse = await fetch(
+        `/api/generation/runs/${encodeURIComponent(runId)}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const runPayload = (await runResponse.json().catch(() => null)) as
+        | {
+            configSnapshot?: ProjectConfigSnapshot
+            error?: string
+            run?: GenerationRun
+          }
+        | null
+
+      if (!runResponse.ok || !runPayload?.configSnapshot) {
+        throw new Error(runPayload?.error ?? 'Unable to load the saved preset.')
+      }
+      const configSnapshot = runPayload.configSnapshot
+
+      const file = await fetchForwardedResultFile(getAssetMediaUrl(outputId))
+
+      startTransition(() => {
+        hydrateProjectConfig(configSnapshot)
+        forwardManualImageResultToCarousel(file)
+        router.push('/')
+      })
+    } finally {
+      setForwardingCarouselOutputId(null)
     }
   }
 
@@ -744,31 +782,58 @@ export function LibraryPage({
                             </a>
                           </Button>
                           {isImageMimeType(entry.output.mimeType) ? (
-                            <Button
-                              disabled={forwardingOutputId === entry.output.id}
-                              onClick={() => {
-                                void forwardOutputToVideo(entry.output.id, entry.run.id)
-                              }}
-                              size="sm"
-                              type="button"
-                              variant="secondary"
-                            >
-                              {forwardingOutputId === entry.output.id ? (
-                                <LoaderCircle
-                                  className="animate-spin"
-                                  data-icon="inline-start"
-                                  suppressHydrationWarning
-                                />
-                              ) : (
-                                <Forward
-                                  data-icon="inline-start"
-                                  suppressHydrationWarning
-                                />
-                              )}
-                              {forwardingOutputId === entry.output.id
-                                ? 'Forwarding...'
-                                : 'Forward to Video'}
-                            </Button>
+                            <>
+                              <Button
+                                disabled={forwardingOutputId === entry.output.id}
+                                onClick={() => {
+                                  void forwardOutputToVideo(entry.output.id, entry.run.id)
+                                }}
+                                size="sm"
+                                type="button"
+                                variant="secondary"
+                              >
+                                {forwardingOutputId === entry.output.id ? (
+                                  <LoaderCircle
+                                    className="animate-spin"
+                                    data-icon="inline-start"
+                                    suppressHydrationWarning
+                                  />
+                                ) : (
+                                  <Forward
+                                    data-icon="inline-start"
+                                    suppressHydrationWarning
+                                  />
+                                )}
+                                {forwardingOutputId === entry.output.id
+                                  ? 'Forwarding...'
+                                  : 'Forward to Video'}
+                              </Button>
+                              <Button
+                                disabled={forwardingCarouselOutputId === entry.output.id}
+                                onClick={() => {
+                                  void forwardOutputToCarousel(entry.output.id, entry.run.id)
+                                }}
+                                size="sm"
+                                type="button"
+                                variant="secondary"
+                              >
+                                {forwardingCarouselOutputId === entry.output.id ? (
+                                  <LoaderCircle
+                                    className="animate-spin"
+                                    data-icon="inline-start"
+                                    suppressHydrationWarning
+                                  />
+                                ) : (
+                                  <Forward
+                                    data-icon="inline-start"
+                                    suppressHydrationWarning
+                                  />
+                                )}
+                                {forwardingCarouselOutputId === entry.output.id
+                                  ? 'Forwarding...'
+                                  : 'Forward to Carousel'}
+                              </Button>
+                            </>
                           ) : null}
                           <Button
                             className="text-destructive hover:text-destructive"

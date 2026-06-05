@@ -11,21 +11,24 @@ export type OutputGalleryItem = {
 }
 
 export function getOutputGalleryItems(run: GenerationRun): OutputGalleryItem[] {
-  return run.variants.flatMap((variant) => {
-    if (!variant.result) {
-      return []
-    }
+  return run.variants
+    .slice()
+    .sort((left, right) => left.index - right.index)
+    .flatMap((variant) => {
+      if (!variant.result) {
+        return []
+      }
 
-    const label = `Variation ${variant.index}`
+      const label = `Variation ${variant.index}`
 
-    return [{
-      alt: `Generated result for variation ${variant.index}`,
-      inspectable: variant.result.type === 'image',
-      label,
-      type: variant.result.type,
-      url: variant.result.url,
-      variantId: variant.variantId,
-      variantIndex: variant.index,
-    }]
-  })
+      return [{
+        alt: `Generated result for variation ${variant.index}`,
+        inspectable: variant.result.type === 'image',
+        label,
+        type: variant.result.type,
+        url: variant.result.url,
+        variantId: variant.variantId,
+        variantIndex: variant.index,
+      }]
+    })
 }

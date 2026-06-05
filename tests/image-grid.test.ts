@@ -80,6 +80,19 @@ async function readFirstPixel(buffer: Buffer) {
   return Array.from(data.slice(0, 3))
 }
 
+async function addWhiteBorder(buffer: Buffer, border = 1) {
+  return sharp(buffer)
+    .extend({
+      background: '#ffffff',
+      bottom: border,
+      left: border,
+      right: border,
+      top: border,
+    })
+    .png()
+    .toBuffer()
+}
+
 describe('image grid splitting', () => {
   it('splits a 2x2 grid into four PNG quadrants in reading order', async () => {
     const grid = await createQuadrantFixture({
@@ -122,5 +135,24 @@ describe('image grid splitting', () => {
         expect.objectContaining({ height: 2, width: 2 }),
       ]),
     )
+  })
+
+  it('trims a small outer white frame before splitting quadrants', async () => {
+    const borderedGrid = await addWhiteBorder(
+      await createQuadrantFixture({
+        bottomLeft: '#0000ff',
+        bottomRight: '#ffff00',
+        topLeft: '#ff0000',
+        topRight: '#00ff00',
+      }),
+      1,
+    )
+
+    const quadrants = await splitImageGridBuffer(borderedGrid)
+
+    await expect(readFirstPixel(quadrants[0].buffer)).resolves.toEqual([255, 0, 0])
+    await expect(readFirstPixel(quadrants[1].buffer)).resolves.toEqual([0, 255, 0])
+    await expect(readFirstPixel(quadrants[2].buffer)).resolves.toEqual([0, 0, 255])
+    await expect(readFirstPixel(quadrants[3].buffer)).resolves.toEqual([255, 255, 0])
   })
 })

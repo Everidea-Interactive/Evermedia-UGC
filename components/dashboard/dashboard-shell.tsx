@@ -10,6 +10,7 @@ import type {
   KiePricingResponse,
   KieStatusResponse,
 } from '@/lib/generation/types'
+import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
 const RefineRenderSection = dynamic(() =>
@@ -24,7 +25,13 @@ const OutputPanel = dynamic(() =>
   ),
 )
 
-type ManualSection = 'references' | 'preset' | 'outputs'
+const ManualCarouselSetupSection = dynamic(() =>
+  import('@/components/dashboard/manual-carousel-setup-section').then(
+    (module) => module.ManualCarouselSetupSection,
+  ),
+)
+
+type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
   manualSection: ManualSection,
@@ -54,6 +61,19 @@ export function DashboardShell({
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
   const visibleManualSection = normalizeManualSection(manualSection)
 
+  const renderManualSection = () => {
+    if (activeTab === 'carousel') {
+      if (visibleManualSection === 'setup') return <ManualCarouselSetupSection />
+      if (visibleManualSection === 'outputs') return <OutputPanel />
+      // Carousel ignores references/preset — redirect to setup
+      return null
+    }
+
+    if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
+    if (visibleManualSection === 'preset') return <RefineRenderSection />
+    return <OutputPanel />
+  }
+
   useEffect(() => {
     if (experience !== 'manual' || activeTab !== 'video' || manualVideoStageEventId === 0) {
       return
@@ -67,6 +87,20 @@ export function DashboardShell({
       window.clearTimeout(timeoutId)
     }
   }, [activeTab, experience, manualVideoStageEventId])
+
+  useEffect(() => {
+    if (experience !== 'manual' || activeTab !== 'carousel') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setManualSection('setup')
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, experience])
 
   useEffect(() => {
     if (generationRun.experience !== 'manual' || generationRun.status !== 'rendering' || !generationRun.runId) {
@@ -124,18 +158,25 @@ export function DashboardShell({
           >
             <TabsList
               aria-label="Workspace Sections"
-              className="w-full grid-cols-3"
+              className={cn("w-full", activeTab === 'carousel' ? "grid-cols-2" : "grid-cols-3")}
             >
-              <TabsTrigger value="references">References</TabsTrigger>
-              <TabsTrigger value="preset">Preset</TabsTrigger>
-              <TabsTrigger value="outputs">Outputs</TabsTrigger>
+              {activeTab === 'carousel' ? (
+                <>
+                  <TabsTrigger value="setup">Setup</TabsTrigger>
+                  <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="references">References</TabsTrigger>
+                  <TabsTrigger value="preset">Preset</TabsTrigger>
+                  <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                </>
+              )}
             </TabsList>
           </Tabs>
 
           <div className="min-w-0">
-            {visibleManualSection === 'references' ? <ReferenceWorkspaceSection /> : null}
-            {visibleManualSection === 'preset' ? <RefineRenderSection /> : null}
-            {visibleManualSection === 'outputs' ? <OutputPanel /> : null}
+            {renderManualSection()}
           </div>
         </div>
 

@@ -13,6 +13,39 @@ afterEach(() => {
 })
 
 describe('GuidedWorkspace', () => {
+  it('uses the shared manual workspace section and preview sizing tokens', async () => {
+    const { workspacePreviewMinHeightClassName, workspaceSectionClassName } = await import(
+      '@/components/dashboard/manual-workspace-ui'
+    )
+
+    render(
+      <GuidedWorkspace
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    const analyzeHeading = await screen.findByText('Analyze input')
+    const analyzeSection = analyzeHeading.closest('section')
+
+    expect(analyzeSection?.className).toContain(workspaceSectionClassName)
+
+    // The "Upload Image" button is a direct child of the preview flex container,
+    // so closest('div') reliably reaches the outer container with min-height tokens.
+    const uploadBtn = screen.getByRole('button', { name: 'Upload Image' })
+    expect(uploadBtn.closest('div')?.className).toContain(
+      workspacePreviewMinHeightClassName,
+    )
+  })
+
   it('only exposes active guided video generation models', async () => {
     await act(async () => {
       useGenerationStore.getState().setActiveTab('video')

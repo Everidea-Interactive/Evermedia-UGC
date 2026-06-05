@@ -12,18 +12,27 @@ import {
   updateGenerationVariantStatus,
 } from '@/lib/persistence/repository'
 import { createGenerationRunState } from '@/lib/persistence/serialization'
+import type { WorkspaceTab } from '@/lib/generation/types'
 
 export const runtime = 'nodejs'
 
-function getResultFileName(taskId: string, workspace: 'image' | 'video') {
+function getResultFileName(taskId: string, workspace: WorkspaceTab) {
   return `${taskId}.${workspace === 'video' ? 'mp4' : 'png'}`
 }
 
-function isManualImageGridRun(bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>) {
+function shouldSplitIntoGridVariants(
+  bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>,
+) {
   return (
-    bundle.run.workspace === 'image' &&
-    bundle.run.configSnapshot.experience === 'manual'
+    bundle.run.configSnapshot.experience === 'manual' &&
+    bundle.run.workspace === 'image'
   )
+}
+
+function shouldSplitCarouselGrid(
+  bundle: NonNullable<Awaited<ReturnType<typeof getGenerationRunBundle>>>,
+) {
+  return bundle.run.workspace === 'carousel'
 }
 
 async function downloadGeneratedOutputBuffer(sourceUrl: string) {
@@ -57,8 +66,9 @@ export async function GET(
     const activeVariants = bundle.run.variants.filter(
       (variant) => variant.status === 'rendering' && Boolean(variant.taskId),
     )
-    const shouldSplitImageGrid = isManualImageGridRun(bundle)
-    const variantGroups = shouldSplitImageGrid
+    const shouldSplitImageGrid = shouldSplitIntoGridVariants(bundle)
+    const shouldSplitCarousel = shouldSplitCarouselGrid(bundle)
+    const variantGroups = shouldSplitImageGrid || shouldSplitCarousel
       ? Array.from(
           activeVariants.reduce((groups, variant) => {
             if (!variant.taskId) {
@@ -141,11 +151,42 @@ export async function GET(
             return
           }
 
+          if (shouldSplitCarousel && taskState.result.type === 'image') {
+            const gridBuffer = await downloadGeneratedOutputBuffer(taskState.result.url)
+            const quadrants = await splitImageGridBuffer(gridBuffer)
+            const orderedVariants = variants
+              .slice()
+              .sort((left, right) => left.variantIndex - right.variantIndex)
+
+            await Promise.all(
+              orderedVariants.map(async (gridVariant, index) => {
+                const quadrant = quadrants[index]
+
+                if (!quadrant) {
+                  throw new Error('Generated carousel grid did not contain enough panel outputs.')
+                }
+
+                await saveGeneratedOutputBufferForVariant({
+                  buffer: quadrant.buffer,
+                  fileName: `${variant.taskId}-panel-${gridVariant.variantIndex}.png`,
+                  fileType: 'image/png',
+                  label: gridVariant.profile,
+                  runId,
+                  userId: bundle.run.userId,
+                  variantId: gridVariant.id,
+                })
+              }),
+            )
+            return
+          }
+
+          const isCarousel = bundle.run.workspace === 'carousel'
+
           await saveGeneratedOutputForVariant({
             fileName: getResultFileName(variant.taskId, bundle.run.workspace),
             fileType:
               taskState.result.type === 'video' ? 'video/mp4' : 'image/png',
-            label: `Variation ${variant.variantIndex} Output`,
+            label: isCarousel ? variant.profile : `Variation ${variant.variantIndex} Output`,
             runId,
             sourceUrl: taskState.result.url,
             userId: bundle.run.userId,

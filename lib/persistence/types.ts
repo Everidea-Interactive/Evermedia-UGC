@@ -7,6 +7,7 @@ import type {
   CreativeBrief,
   CreativeGoal,
   CreativePlan,
+  CarouselDraft,
   ContentFormat,
   CreativeStyle,
   FigureArtDirection,
@@ -41,6 +42,7 @@ export type GenerationConfigSnapshot = {
   activeTab: WorkspaceTab
   batchSize: 1 | 2 | 3 | 4
   cameraMovement: CameraMovement | null
+  carouselDraft?: CarouselDraft
   characterAgeGroup: CharacterAgeGroup
   characterGender: CharacterGender
   creativeStyle: CreativeStyle

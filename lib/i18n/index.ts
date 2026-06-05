@@ -73,6 +73,7 @@ export const dictionaries = {
       workspaceTabs: {
         image: 'Image',
         video: 'Video',
+        carousel: 'Carousel',
       },
     },
     ideation: {
@@ -163,6 +164,7 @@ export const dictionaries = {
       workspaceTabs: {
         image: 'Gambar',
         video: 'Video',
+        carousel: 'Karusel',
       },
     },
     ideation: {
@@ -576,6 +578,7 @@ export const uiTranslations: Record<string, string> = {
   'Ready to analyze': 'Siap dianalisis',
   'Ready to Analyze': 'Siap Dianalisis',
   'Re-analyze': 'Analisis ulang',
+  'Base panel': 'Panel dasar',
   'Reference board': 'Papan referensi',
   'Reference 1': 'Referensi 1',
   'Reference 2': 'Referensi 2',
@@ -584,6 +587,7 @@ export const uiTranslations: Record<string, string> = {
     'Tinjau kebutuhan yang belum terpenuhi atau error dari provider, lalu jalankan ulang proses ideasi dari panel kontrol ini.',
   'Review the three concepts, then copy a single card or the full ideation brief.':
     'Tinjau tiga konsep, lalu salin satu kartu atau seluruh brief ideasi.',
+  'Setup': 'Pengaturan',
   'References': 'Referensi',
   'Render output': 'Hasil render',
   'Review and run generation': 'Tinjau lalu jalankan generasi',
@@ -612,6 +616,18 @@ export const uiTranslations: Record<string, string> = {
   'Sessions': 'Sesi',
   'Media sets': 'Set media',
   'Setup summary': 'Ringkasan setelan',
+  'Base template source': 'Sumber template dasar',
+  'Override base panel template': 'Timpa template panel dasar',
+  'Content image': 'Gambar konten',
+  'Text content': 'Konten teks',
+  'AI generate': 'Hasilkan AI',
+  'Upload own': 'Unggah sendiri',
+  'Use base template': 'Gunakan template dasar',
+  'Upload a base template reference': 'Unggah referensi template dasar',
+  'Base template:': 'Template dasar:',
+  'No asset': 'Tidak ada aset',
+  'Panel content': 'Konten panel',
+  'Carousel Setup': 'Pengaturan Karusel',
   'Shot Count': 'Jumlah shot',
   'Shot Environment': 'Lingkungan shot',
   'Studio, interior, curated indoor environment.':

@@ -12,7 +12,10 @@ import {
   submitGenerationRequest,
   uploadFileToKie,
 } from '../lib/generation/kie'
-import type { UploadedAssetDescriptor } from '../lib/generation/types'
+import type {
+  CarouselPanelDraft,
+  UploadedAssetDescriptor,
+} from '../lib/generation/types'
 
 function buildBaseFormData(batchSize: string) {
   const formData = new FormData()
@@ -35,6 +38,45 @@ function buildBaseFormData(batchSize: string) {
   formData.append('cameraMovement', '')
 
   return formData
+}
+
+function makeCarouselAiPanel(id: string, order: number): CarouselPanelDraft {
+  return {
+    id,
+    order,
+    templateMode: 'inherit',
+    templatePrompt: '',
+    imageMode: 'ai',
+    imagePrompt: 'A beautiful carousel panel',
+    imageAsset: null,
+    textMode: 'manual',
+    textPrompt: '',
+    textValue: `Panel ${order} content`,
+  }
+}
+
+function makeCarouselManualPanel(id: string, order: number): CarouselPanelDraft {
+  return {
+    id,
+    order,
+    templateMode: 'inherit',
+    templatePrompt: '',
+    imageMode: 'manual',
+    imagePrompt: '',
+    imageAsset: {
+      id: `asset-${id}`,
+      file: new File(['image'], 'image.png', { type: 'image/png' }),
+      error: null,
+      label: 'Panel image',
+      mimeType: 'image/png',
+      previewUrl: null,
+      size: 5,
+      uploadStatus: 'staged',
+    },
+    textMode: 'manual',
+    textPrompt: '',
+    textValue: 'Manual panel content',
+  }
 }
 
 function makeUploadedAsset(
@@ -1451,6 +1493,118 @@ describe('KIE batch submission', () => {
     })
   })
 
+})
+
+describe('carousel generation', () => {
+  beforeEach(() => {
+    process.env.KIE_API_KEY = 'test-key'
+  })
+
+  afterEach(() => {
+    delete process.env.KIE_API_KEY
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('batches up to four carousel panels into one shared provider task', async () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'carousel')
+    formData.set(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [
+          makeCarouselAiPanel('panel-1', 1),
+          makeCarouselAiPanel('panel-2', 2),
+        ],
+      }),
+    )
+    formData.append('assetManifest', '[]')
+
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { taskId: 'task-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    const result = await submitGenerationRequest(parsedRequest)
+
+    expect(result.variants).toHaveLength(2)
+    expect(result.variants.map((v) => v.index)).toEqual([1, 2])
+    expect(result.variants.map((v) => v.taskId)).toEqual(['task-1', 'task-1'])
+    expect(result.variants.every((v) => v.status === 'rendering')).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('submits provider generation for manual-image carousel panels', async () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'carousel')
+    formData.set(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [
+          makeCarouselManualPanel('panel-1', 1),
+        ],
+      }),
+    )
+    formData.append('assetManifest', '[]')
+    formData.append(
+      'carousel_panel_image_panel-1',
+      new File(['image'], 'image.png', { type: 'image/png' }),
+    )
+
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { remoteUrl: 'https://files.example.com/panel-1.png' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { taskId: 'task-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    const result = await submitGenerationRequest(parsedRequest)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const createTaskCall = fetchMock.mock.calls[1]
+    expect(createTaskCall?.[1]?.body).toContain('https://files.example.com/panel-1.png')
+    expect(result.variants).toHaveLength(1)
+    expect(result.variants[0]?.taskId).toBe('task-1')
+  })
+
+  it('parses carousel requests without assetManifest', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'carousel')
+    formData.set(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [makeCarouselAiPanel('panel-1', 1)],
+      }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('carousel')
+    expect(parsed.carouselDraft?.panels).toHaveLength(1)
+  })
 })
 
 describe('KIE status', () => {

@@ -1,27 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/auth/session', () => ({
   getOptionalAuthenticatedUser: vi.fn(),
 }))
 
-vi.mock('@/lib/generation/kie', () => ({
-  buildPromptSnapshot: vi.fn(),
-  createRunId: vi.fn(),
-  GenerationRequestError: class GenerationRequestError extends Error {
-    code: string
-    status: number
+vi.mock('@/lib/generation/kie', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/generation/kie')>(
+      '@/lib/generation/kie',
+    )
 
-    constructor(input: { code: string; message: string; status: number }) {
-      super(input.message)
-      this.name = 'GenerationRequestError'
-      this.code = input.code
-      this.status = input.status
-    }
-  },
-  getKieStatus: vi.fn(),
-  parseGenerationFormData: vi.fn(),
-  submitGenerationRequest: vi.fn(),
-}))
+  return {
+    buildPromptSnapshot: vi.fn(),
+    createRunId: vi.fn(),
+    GenerationRequestError: actual.GenerationRequestError,
+    getKieStatus: vi.fn(),
+    parseGenerationFormData: actual.parseGenerationFormData,
+    parseCarouselDraft: actual.parseCarouselDraft,
+    submitGenerationRequest: vi.fn(),
+    uploadFileToKie: actual.uploadFileToKie,
+  }
+})
 
 vi.mock('@/lib/generation/kie-pricing', () => ({
   getKiePricing: vi.fn(),
@@ -45,13 +46,13 @@ vi.mock('@/lib/persistence/serialization', async () => {
   }
 })
 
+import * as kieModule from '@/lib/generation/kie'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import {
   buildPromptSnapshot,
   createRunId,
   GenerationRequestError,
   getKieStatus,
-  parseGenerationFormData,
   submitGenerationRequest,
 } from '@/lib/generation/kie'
 import { getKiePricing } from '@/lib/generation/kie-pricing'
@@ -80,12 +81,12 @@ function createPricingResponse(): KiePricingResponse {
       video: {
         'veo-3.1': {
           promptOnly: {
-            credits: 60,
-            usd: 0.3,
+            '720p': { credits: 60, usd: 0.3 },
+            '1080p': { credits: 60, usd: 0.3 },
           },
           withReference: {
-            credits: 60,
-            usd: 0.3,
+            '720p': { credits: 60, usd: 0.3 },
+            '1080p': { credits: 60, usd: 0.3 },
           },
         },
       },
@@ -94,6 +95,10 @@ function createPricingResponse(): KiePricingResponse {
 }
 
 describe('POST /api/generation/run', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getKieStatus).mockResolvedValue({
@@ -114,7 +119,7 @@ describe('POST /api/generation/run', () => {
       roles: ['member'],
       status: 'active',
     })
-    vi.mocked(parseGenerationFormData).mockReturnValue({
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockReturnValue({
       activeModel: 'nano-banana',
       assetDescriptors: [],
       batchSize: 2,
@@ -135,6 +140,7 @@ describe('POST /api/generation/run', () => {
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
+      carouselDraft: null,
     })
     vi.mocked(buildPromptSnapshot).mockReturnValue('Prompt snapshot')
     vi.mocked(createRunId).mockReturnValue('run-1')
@@ -303,7 +309,7 @@ describe('POST /api/generation/run', () => {
       fetchedAt: '2026-04-09T00:00:00.000Z',
       source: 'chat-credit',
     })
-    vi.mocked(parseGenerationFormData).mockReturnValue({
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockReturnValue({
       activeModel: 'nano-banana',
       assetDescriptors: [],
       batchSize: 1,
@@ -324,6 +330,7 @@ describe('POST /api/generation/run', () => {
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
+      carouselDraft: null,
     })
 
     const response = await POST(
@@ -348,7 +355,7 @@ describe('POST /api/generation/run', () => {
       roles: ['member'],
       status: 'active',
     })
-    vi.mocked(parseGenerationFormData).mockImplementation(() => {
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockImplementation(() => {
       throw new GenerationRequestError({
         code: 'invalid_input',
         message: 'Invalid value for imageModel.',
@@ -377,7 +384,7 @@ describe('POST /api/generation/run', () => {
       roles: ['member'],
       status: 'active',
     })
-    vi.mocked(parseGenerationFormData).mockReturnValue({
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockReturnValue({
       activeModel: 'nano-banana',
       assetDescriptors: [],
       batchSize: 1,
@@ -398,6 +405,7 @@ describe('POST /api/generation/run', () => {
       videoDuration: 'base',
       videoModel: 'veo-3.1',
       workspace: 'image',
+      carouselDraft: null,
     })
     vi.mocked(submitGenerationRequest).mockRejectedValue(
       new GenerationRequestError({
@@ -428,11 +436,12 @@ describe('POST /api/generation/run', () => {
       roles: ['member'],
       status: 'active',
     })
-    vi.mocked(parseGenerationFormData).mockReturnValue({
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockReturnValue({
       activeModel: 'nano-banana',
       assetDescriptors: [],
       batchSize: 2,
       cameraMovement: null,
+      carouselDraft: null,
       characterAgeGroup: 'any',
       characterGender: 'any',
       creativeStyle: 'tv-commercial',
@@ -678,6 +687,210 @@ describe('POST /api/generation/run', () => {
         }),
       ]),
     )
+  })
+
+  it('accepts manual carousel generation requests', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
+      email: 'user@example.com',
+      id: 'user-1',
+      roles: ['member'],
+      status: 'active',
+    })
+    vi.mocked(buildPromptSnapshot).mockReturnValue('carousel snapshot')
+    vi.mocked(createRunId).mockReturnValue('run-carousel-1')
+    vi.mocked(submitGenerationRequest).mockResolvedValue({
+      completedAt: null,
+      createdAt: '2026-04-09T00:00:00.000Z',
+      model: 'nano-banana-2',
+      provider: 'market',
+      runId: 'run-carousel-1',
+      status: 'rendering',
+      variants: [
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Panel 1',
+          prompt: 'Panel one',
+          result: null,
+          status: 'rendering',
+          taskId: 'task-1',
+          variantId: 'run-carousel-1-variant-1',
+        },
+      ],
+      workspace: 'carousel',
+    })
+    vi.mocked(createGenerationRunForUser).mockResolvedValue({
+      completedAt: null,
+      configSnapshot: {
+        activeTab: 'carousel',
+        batchSize: 1,
+        cameraMovement: null,
+        characterAgeGroup: 'any',
+        characterGender: 'any',
+        creativeStyle: 'ugc-lifestyle',
+        experience: 'manual',
+        figureArtDirection: 'none',
+        guided: null,
+        imageModel: 'nano-banana',
+        outputQuality: '1080p',
+        productCategory: 'cosmetics',
+        shotEnvironment: 'indoor',
+        subjectMode: 'lifestyle',
+        textPrompt: '',
+        videoAudio: 'no-audio',
+        videoDuration: 'base',
+        videoModel: 'veo-3.1',
+        carouselDraft: {
+          baseTemplateMode: 'ai',
+          baseTemplatePrompt: 'white card',
+          baseTemplateAsset: null,
+          panels: [
+            {
+              id: 'panel-1',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              imageMode: 'ai',
+              imagePrompt: 'a portrait on top of a white panel',
+              imageAsset: null,
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: 'Panel one',
+            },
+          ],
+        },
+      },
+      createdAt: '2026-04-09T00:00:00.000Z',
+      id: 'run-carousel-1',
+      model: 'nano-banana-2',
+      promptSnapshot: 'carousel snapshot',
+      provider: 'market',
+      status: 'rendering',
+      userId: 'user-1',
+      variants: [],
+      workspace: 'carousel',
+    })
+    vi.mocked(createGenerationVariantsForRun).mockResolvedValue([])
+    vi.mocked(getGenerationRunBundleForUser).mockResolvedValue({
+      outputs: [],
+      run: {
+        completedAt: null,
+        configSnapshot: {
+          activeTab: 'carousel',
+          batchSize: 1,
+          cameraMovement: null,
+          characterAgeGroup: 'any',
+          characterGender: 'any',
+          creativeStyle: 'ugc-lifestyle',
+          experience: 'manual',
+          figureArtDirection: 'none',
+          guided: null,
+          imageModel: 'nano-banana',
+          outputQuality: '1080p',
+          productCategory: 'cosmetics',
+          shotEnvironment: 'indoor',
+          subjectMode: 'lifestyle',
+          textPrompt: '',
+          videoAudio: 'no-audio',
+          videoDuration: 'base',
+          videoModel: 'veo-3.1',
+          carouselDraft: {
+            baseTemplateMode: 'ai',
+            baseTemplatePrompt: 'white card',
+            baseTemplateAsset: null,
+            panels: [
+              {
+                id: 'panel-1',
+                order: 1,
+                templateMode: 'inherit',
+                templatePrompt: '',
+                imageMode: 'ai',
+                imagePrompt: 'a portrait on top of a white panel',
+                imageAsset: null,
+                textMode: 'manual',
+                textPrompt: '',
+                textValue: 'Panel one',
+              },
+            ],
+          },
+        },
+        createdAt: '2026-04-09T00:00:00.000Z',
+        id: 'run-carousel-1',
+        model: 'nano-banana-2',
+        promptSnapshot: 'carousel snapshot',
+        provider: 'market',
+        status: 'rendering',
+        userId: 'user-1',
+        variants: [],
+        workspace: 'carousel',
+      },
+    })
+    vi.mocked(createGenerationRunState).mockReturnValue({
+      completedAt: null,
+      createdAt: '2026-04-09T00:00:00.000Z',
+      error: null,
+      model: 'nano-banana-2',
+      provider: 'market',
+      experience: 'manual',
+      runId: 'run-carousel-1',
+      selectedVariantId: null,
+      startedAt: 0,
+      status: 'rendering',
+      variants: [],
+      workspace: 'carousel',
+    })
+
+    const formData = new FormData()
+    formData.append('workspace', 'carousel')
+    formData.append('experience', 'manual')
+    formData.append('batchSize', '1')
+    formData.append('imageModel', 'nano-banana')
+    formData.append('videoModel', 'veo-3.1')
+    formData.append('outputQuality', '1080p')
+    formData.append('productCategory', 'cosmetics')
+    formData.append('creativeStyle', 'ugc-lifestyle')
+    formData.append('subjectMode', 'lifestyle')
+    formData.append('shotEnvironment', 'indoor')
+    formData.append('characterGender', 'any')
+    formData.append('characterAgeGroup', 'any')
+    formData.append('figureArtDirection', 'none')
+    formData.append('textPrompt', '')
+    formData.append('videoDuration', 'base')
+    formData.append('videoAudio', 'no-audio')
+    formData.append('cameraMovement', '')
+    formData.append(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'ai',
+            imagePrompt: 'a portrait on top of a white panel',
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Panel one',
+          },
+        ],
+      }),
+    )
+
+    const response = await POST(
+      new Request('http://localhost/api/generation/run', {
+        method: 'POST',
+        body: formData,
+      }),
+    )
+
+    expect(response.status).toBe(200)
   })
 })
 

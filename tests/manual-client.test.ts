@@ -5,7 +5,12 @@ import {
   formatBytes,
   getGenerationValidation,
 } from '@/lib/generation/client'
-import type { AssetSlot, GenerationSnapshot, NamedAssetSlots } from '@/lib/generation/types'
+import type {
+  AssetSlot,
+  CarouselDraft,
+  GenerationSnapshot,
+  NamedAssetSlots,
+} from '@/lib/generation/types'
 
 function createSlot(id: string, label: string, file: File | null): AssetSlot {
   return {
@@ -370,16 +375,7 @@ describe('manual generation client payloads', () => {
   })
 
   it('omits end-frame uploads for models that do not support end-frame guidance', () => {
-    const endFrame = createSlot(
-      'endFrame',
-      'End Frame',
-      new File(['end'], 'end.png', { type: 'image/png' }),
-    )
     const snapshot = createSnapshot({
-      assets: {
-        ...createNamedAssets(),
-        endFrame,
-      },
       videoModel: 'seedance-1.5-pro',
       videoReferences: [
         createSlot(
@@ -398,5 +394,161 @@ describe('manual generation client payloads', () => {
       'video_reference_1',
     ])
     expect(formData.get('asset_endFrame')).toBeNull()
+  })
+
+  it('rejects carousel submission when ai mode lacks base template prompt', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+
+    expect(() =>
+      buildGenerationFormData({
+        ...base,
+        carouselDraft: {
+          baseTemplateMode: 'ai',
+          baseTemplatePrompt: '',
+          baseTemplateAsset: null,
+          panels: [
+            {
+              id: 'panel-1',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              imageMode: 'ai',
+              imagePrompt: 'A carousel panel',
+              imageAsset: null,
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: '',
+            },
+          ],
+        },
+      } as GenerationSnapshot & { carouselDraft: CarouselDraft }),
+    ).toThrow(/base template.*ai|ai.*prompt/i)
+  })
+
+  it('rejects carousel submission when manual mode lacks base template asset', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+
+    expect(() =>
+      buildGenerationFormData({
+        ...base,
+        carouselDraft: {
+          baseTemplateMode: 'manual',
+          baseTemplatePrompt: '',
+          baseTemplateAsset: null,
+          panels: [
+            {
+              id: 'panel-1',
+              order: 1,
+              templateMode: 'inherit',
+              templatePrompt: '',
+              imageMode: 'ai',
+              imagePrompt: 'A carousel panel',
+              imageAsset: null,
+              textMode: 'manual',
+              textPrompt: '',
+              textValue: '',
+            },
+          ],
+        },
+      } as GenerationSnapshot & { carouselDraft: CarouselDraft }),
+    ).toThrow(/base template.*upload|manual.*image/i)
+  })
+
+  it('serializes carousel panels into form data', () => {
+    const base = createSnapshot({ activeTab: 'carousel' })
+    const imageAsset = createSlot(
+      'panel-1-asset',
+      'Panel 1',
+      new File(['img'], 'img.png', { type: 'image/png' }),
+    )
+    const carouselConfig: GenerationSnapshot & { carouselDraft: CarouselDraft } = {
+      ...base,
+      carouselDraft: {
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'A modern clean template',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'manual',
+            imagePrompt: '',
+            imageAsset,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: '',
+          },
+        ],
+      },
+    }
+
+    const { formData } = buildGenerationFormData(carouselConfig)
+
+    expect(formData.get('workspace')).toBe('carousel')
+    expect(formData.get('carouselDraft')).toContain('"panels"')
+  })
+
+  it('accepts carousel generation when draft is valid even without global textPrompt', () => {
+    const base = createSnapshot({ activeTab: 'carousel', textPrompt: '' })
+
+    const validation = getGenerationValidation({
+      ...base,
+      carouselDraft: {
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'Modern clean beauty panel template',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'ai',
+            imagePrompt: 'Premium serum hero image',
+            imageAsset: null,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Bright Skin In 7 Days',
+          },
+        ],
+      },
+    } as GenerationSnapshot & { carouselDraft: CarouselDraft })
+
+    expect(validation).toEqual({
+      canGenerate: true,
+      reason: null,
+    })
+  })
+
+  it('rejects carousel generation when a panel lacks image content', () => {
+    const base = createSnapshot({ activeTab: 'carousel', textPrompt: '' })
+
+    const validation = getGenerationValidation({
+      ...base,
+      carouselDraft: {
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'Modern clean beauty panel template',
+        baseTemplateAsset: null,
+        panels: [
+          {
+            id: 'panel-1',
+            order: 1,
+            templateMode: 'inherit',
+            templatePrompt: '',
+            imageMode: 'ai',
+            imagePrompt: '',
+            imageAsset: null,
+            textMode: 'manual',
+            textPrompt: '',
+            textValue: 'Bright Skin In 7 Days',
+          },
+        ],
+      },
+    } as GenerationSnapshot & { carouselDraft: CarouselDraft })
+
+    expect(validation.canGenerate).toBe(false)
+    expect(validation.reason).toContain('Panel 1')
   })
 })
