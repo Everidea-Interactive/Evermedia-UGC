@@ -4,14 +4,14 @@ import { type ChangeEvent, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { LoaderCircle, Upload, X } from 'lucide-react'
 
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
 import type {
   AssetSlot,
   GenerationCostEstimate,
   MediaKind,
 } from '@/lib/generation/types'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import { cn } from '@/lib/utils'
 
@@ -108,21 +108,23 @@ function formatEstimatedUsdValue(
   }).format(idr)
 }
 
-export function ImagePreviewTrigger({
+export function MediaPreviewTrigger({
   alt,
   children,
   className,
   label,
+  mimeType,
   src,
 }: {
   alt: string
   children: ReactNode
   className?: string
   label: string
+  mimeType?: string | null
   src: string
 }) {
   return (
-    <ImagePreviewDialog alt={alt} label={label} src={src}>
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
       <button
         className={cn(
           'block h-full w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
@@ -132,7 +134,7 @@ export function ImagePreviewTrigger({
       >
         {children}
       </button>
-    </ImagePreviewDialog>
+    </MediaPreviewDialog>
   )
 }
 
@@ -257,13 +259,14 @@ export function ReferenceCard({
       />
 
       {previewSrc ? (
-        slot.mimeType && isImageMimeType(slot.mimeType) ? (
-          <ImagePreviewTrigger
-            alt={`${slot.label} reference preview`}
-            className="absolute inset-0 rounded-[1rem]"
-            label={slot.label}
-            src={previewSrc}
-          >
+        <MediaPreviewTrigger
+          alt={`${slot.label} reference preview`}
+          className="absolute inset-0 rounded-[1rem]"
+          label={slot.label}
+          mimeType={slot.mimeType}
+          src={previewSrc}
+        >
+          {slot.mimeType && isImageMimeType(slot.mimeType) ? (
             <div className={cn('absolute inset-0', previewContainerClassName)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -272,20 +275,22 @@ export function ReferenceCard({
                 src={previewSrc}
               />
             </div>
-          </ImagePreviewTrigger>
-        ) : (
-          <video
-            className={cn(
-              'absolute inset-0 h-full w-full object-cover',
-              previewContainerClassName,
-              previewMediaClassName,
-            )}
-            controls
-            playsInline
-            preload="metadata"
-            src={previewSrc}
-          />
-        )
+          ) : (
+            <video
+              className={cn(
+                'pointer-events-none absolute inset-0 h-full w-full object-cover',
+                previewContainerClassName,
+                previewMediaClassName,
+              )}
+              aria-hidden="true"
+              muted
+              playsInline
+              preload="metadata"
+              src={previewSrc}
+              tabIndex={-1}
+            />
+          )}
+        </MediaPreviewTrigger>
       ) : (
         <Button
           className="absolute inset-0 flex h-auto w-auto flex-col items-center justify-center gap-3 px-4 text-center"

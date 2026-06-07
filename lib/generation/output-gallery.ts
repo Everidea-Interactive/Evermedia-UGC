@@ -23,7 +23,7 @@ export function getOutputGalleryItems(run: GenerationRun): OutputGalleryItem[] {
 
       return [{
         alt: `Generated result for variation ${variant.index}`,
-        inspectable: variant.result.type === 'image',
+        inspectable: true,
         label,
         type: variant.result.type,
         url: variant.result.url,

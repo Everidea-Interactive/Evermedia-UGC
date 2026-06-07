@@ -17,7 +17,7 @@ import {
 
 import { PromptEnhancementControls } from '@/components/dashboard/prompt-enhancement-controls'
 import { useLocale } from '@/components/i18n/locale-provider'
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -71,7 +71,7 @@ import type {
   VideoModelOption,
   WorkspaceTab,
 } from '@/lib/generation/types'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -526,9 +526,10 @@ function GuidedHeroUploadCard({
             )}
           >
             {slot.mimeType && isImageMimeType(slot.mimeType) ? (
-              <ImagePreviewDialog
+              <MediaPreviewDialog
                 alt="Guided hero product preview"
                 label={slot.label}
+                mimeType={slot.mimeType}
                 src={previewUrl}
               >
                 <button
@@ -542,7 +543,7 @@ function GuidedHeroUploadCard({
                     src={previewUrl}
                   />
                 </button>
-              </ImagePreviewDialog>
+              </MediaPreviewDialog>
             ) : null}
           </div>
 
@@ -652,9 +653,10 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
 
       {previewUrl && slot.mimeType && isImageMimeType(slot.mimeType) ? (
         <div className="overflow-hidden rounded-xl border border-border bg-secondary/30">
-          <ImagePreviewDialog
+          <MediaPreviewDialog
             alt="Guided end frame preview"
             label={slot.label}
+            mimeType={slot.mimeType}
             src={previewUrl}
           >
             <button className="block w-full text-left" type="button">
@@ -665,7 +667,7 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
                 src={previewUrl}
               />
             </button>
-          </ImagePreviewDialog>
+          </MediaPreviewDialog>
         </div>
       ) : null}
 
@@ -709,31 +711,39 @@ function GuidedResultTile({
   const canForwardToVideo =
     variant.status === 'success' && variant.result?.type === 'image'
   const content = variant.result?.url ? (
-    variant.result.type === 'image' ? (
-      <ImagePreviewDialog
-        alt={`${variant.profile} result`}
-        label={variant.profile}
-        src={variant.result.url}
+    <MediaPreviewDialog
+      alt={`${variant.profile} result`}
+      label={variant.profile}
+      mimeType={variant.result.type === 'video' ? 'video/mp4' : 'image/png'}
+      src={variant.result.url}
+    >
+      <button
+        aria-label={`Preview ${variant.profile}`}
+        className="block h-full w-full text-left"
+        type="button"
       >
-        <button className="block h-full w-full text-left" type="button">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={`${variant.profile} result`}
-            className="aspect-[3/4] w-full object-cover"
+        {variant.result.type === 'image' ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${variant.profile} result`}
+              className="aspect-[3/4] w-full object-cover"
+              src={variant.result.url}
+            />
+          </>
+        ) : (
+          <video
+            aria-hidden="true"
+            className="pointer-events-none aspect-[3/4] w-full bg-black object-cover"
+            muted
+            playsInline
+            preload="metadata"
             src={variant.result.url}
+            tabIndex={-1}
           />
-        </button>
-      </ImagePreviewDialog>
-    ) : (
-      <video
-        aria-label={`${variant.profile} result`}
-        className="aspect-[3/4] w-full bg-black object-cover"
-        controls
-        playsInline
-        preload="metadata"
-        src={variant.result.url}
-      />
-    )
+        )}
+      </button>
+    </MediaPreviewDialog>
   ) : (
     <div className="flex aspect-[3/4] items-center justify-center bg-secondary/50 text-center text-sm text-muted-foreground">
       <div className="grid gap-2 px-4">

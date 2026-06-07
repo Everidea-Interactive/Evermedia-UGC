@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/generation/client'
 import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
@@ -15,7 +15,7 @@ import {
   formatIdeationConceptCardText,
   formatIdeationResultText,
 } from '@/lib/generation/ideation'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import type {
   ProjectConfigSnapshot,
   SavedIdeationHistoryEntry,
@@ -100,34 +100,34 @@ function AssetCardMedia({
       ? 'aspect-[16/10] w-full object-contain'
       : 'aspect-[4/3] w-full object-contain'
 
-  if (isImageMimeType(mimeType)) {
-    return (
-      <ImagePreviewDialog alt={alt} label={label} src={src}>
-        <button
-          aria-label={`Preview ${label}`}
-          className="block w-full overflow-hidden bg-secondary text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          type="button"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+  return (
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
+      <button
+        aria-label={`Preview ${label}`}
+        className="block w-full overflow-hidden bg-secondary text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        type="button"
+      >
+        {isImageMimeType(mimeType) ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             alt={alt}
             className={mediaClassName}
             loading="lazy"
             src={src}
           />
-        </button>
-      </ImagePreviewDialog>
-    )
-  }
-
-  return (
-    <video
-      className={`${mediaClassName} bg-secondary`}
-      controls
-      playsInline
-      preload="metadata"
-      src={src}
-    />
+        ) : (
+          <video
+            aria-hidden="true"
+            className={`pointer-events-none ${mediaClassName} bg-secondary`}
+            muted
+            playsInline
+            preload="metadata"
+            src={src}
+            tabIndex={-1}
+          />
+        )}
+      </button>
+    </MediaPreviewDialog>
   )
 }
 
@@ -142,22 +142,12 @@ function AssetPreviewButton({
   mimeType: string
   src: string
 }) {
-  if (isImageMimeType(mimeType)) {
-    return (
-      <ImagePreviewDialog alt={alt} label={label} src={src}>
-        <Button size="sm" variant="secondary">
-          Preview
-        </Button>
-      </ImagePreviewDialog>
-    )
-  }
-
   return (
-    <Button asChild size="sm" variant="secondary">
-      <a href={src} rel="noreferrer" target="_blank">
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
+      <Button size="sm" variant="secondary">
         Preview
-      </a>
-    </Button>
+      </Button>
+    </MediaPreviewDialog>
   )
 }
 

@@ -44,6 +44,8 @@ describe('GuidedWorkspace', () => {
     expect(uploadBtn.closest('div')?.className).toContain(
       workspacePreviewMinHeightClassName,
     )
+    expect(screen.getByText('Upload Image')).toBeTruthy()
+    expect(screen.queryByText('Upload Video')).toBeNull()
   })
 
   it('only exposes active guided video generation models', async () => {
@@ -229,5 +231,76 @@ describe('GuidedWorkspace', () => {
     expect(state.guidedInput.heroAsset.file?.name).toBe('guided-forward.png')
     expect(state.guidedPlan).toBeNull()
     expect(state.analysisStatus).toBe('idle')
+  })
+
+  it('opens guided video results in the shared preview shell', async () => {
+    await act(async () => {
+      useGenerationStore.getState().setExperience('guided')
+      useGenerationStore.getState().setActiveTab('video')
+      useGenerationStore.getState().setGuidedPlan({
+        creativeStyle: 'ugc-lifestyle',
+        productCategory: 'cosmetics',
+        shots: [
+          {
+            prompt: 'Prompt 1',
+            shotEnvironment: 'indoor',
+            slug: 'prompt-1',
+            subjectMode: 'product-only',
+            tags: [],
+            title: 'Prompt 1',
+          },
+        ],
+        summary: 'Summary',
+      })
+      useGenerationStore.getState().updateGenerationRun({
+        experience: 'guided',
+        runId: 'guided-video-run',
+        status: 'success',
+        workspace: 'video',
+      })
+      useGenerationStore.getState().setGenerationVariants([
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Shot 1',
+          prompt: 'Prompt 1',
+          result: {
+            model: 'veo-3.1',
+            taskId: 'task-1',
+            type: 'video',
+            url: '/api/media/guided-video-output-1',
+          },
+          status: 'success',
+          taskId: 'task-1',
+          variantId: 'variant-1',
+        },
+      ])
+    })
+
+    render(
+      <GuidedWorkspace
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    const resultsTab = await screen.findByRole('tab', { name: 'Results' })
+    fireEvent.mouseDown(resultsTab)
+    fireEvent.click(resultsTab)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Shot 1' }))
+
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getAllByLabelText('Shot 1 result').length).toBeGreaterThan(0)
   })
 })

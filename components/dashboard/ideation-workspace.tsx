@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 import { useLocale } from '@/components/i18n/locale-provider'
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,7 +42,7 @@ import type {
   KieAnalysisModel,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import { cn } from '@/lib/utils'
 import {
   insetPanelClassName,
@@ -203,7 +203,12 @@ function IdeationHeroUploadCard({
         <>
           <div className={cn(workspacePreviewMinHeightClassName, 'relative flex-1 overflow-hidden rounded-2xl border border-border bg-secondary/30')}>
             {slot.mimeType && isImageMimeType(slot.mimeType) ? (
-              <ImagePreviewDialog alt={slot.label} label={slot.label} src={slot.previewUrl}>
+              <MediaPreviewDialog
+                alt={slot.label}
+                label={slot.label}
+                mimeType={slot.mimeType}
+                src={slot.previewUrl}
+              >
                 <button
                   aria-label={`Preview ${slot.label}`}
                   className="absolute inset-0 block w-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)] text-left"
@@ -216,7 +221,7 @@ function IdeationHeroUploadCard({
                     src={slot.previewUrl}
                   />
                 </button>
-              </ImagePreviewDialog>
+              </MediaPreviewDialog>
             ) : null}
 
             <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10">

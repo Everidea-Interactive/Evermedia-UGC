@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react'
+import { Film } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
 import {
+  ReferenceCard,
   SectionHeader,
   insetPanelClassName,
   panelClassName,
@@ -36,5 +38,34 @@ describe('manual workspace shared ui', () => {
     expect(screen.getByText('Shared Eyebrow').className).toContain('tracking-[0.24em]')
     expect(screen.getByText('Shared Title').className).toContain('font-display')
     expect(screen.getByText('Shared body copy').className).toContain('leading-6')
+  })
+
+  it('renders staged video references through the shared preview trigger', () => {
+    render(
+      <ReferenceCard
+        accept="video/*"
+        emptyStateLabel="Upload video"
+        icon={Film}
+        inputId="motion-video"
+        onClear={() => {}}
+        onSelect={() => {}}
+        slot={{
+          error: null,
+          file: null,
+          id: 'motion-video',
+          label: 'Motion Video',
+          mimeType: 'video/mp4',
+          previewUrl: 'blob:motion-video',
+          size: 1024,
+          uploadStatus: 'idle',
+        }}
+      />,
+    )
+
+    expect(
+      screen.getAllByRole('button').some((button) =>
+        button.className.includes('cursor-zoom-in'),
+      ),
+    ).toBe(true)
   })
 })
