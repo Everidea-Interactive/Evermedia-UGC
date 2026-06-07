@@ -47,6 +47,8 @@ import type {
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
+  MotionControlDraft,
+  MotionControlResolution,
   NamedAssetSlots,
   OutputQuality,
   ProductCategory,
@@ -131,6 +133,10 @@ function RunControlPanel({
   const setVideoModel = useGenerationStore((state) => state.setVideoModel)
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoAudio = useGenerationStore((state) => state.videoAudio)
+  const motionControl = useGenerationStore((state) => state.motionControl)
+  const setMotionControlResolution = useGenerationStore(
+    (state) => state.setMotionControlResolution,
+  )
   const setVideoAudio = useGenerationStore((state) => state.setVideoAudio)
   const setVideoDuration = useGenerationStore((state) => state.setVideoDuration)
   const productCategory = useGenerationStore((state) => state.productCategory)
@@ -164,11 +170,17 @@ function RunControlPanel({
         return visibleVideoAssets.filter((slot) => isSlotLoaded(slot))
       }
 
+      if (activeTab === 'motion-control') {
+        return [motionControl.referenceImage, motionControl.motionVideo].filter((slot) =>
+          isSlotLoaded(slot),
+        )
+      }
+
       return [...Object.values(assets), ...products].filter((slot) =>
         isSlotLoaded(slot),
       )
     },
-    [activeTab, assets, products, videoModel, videoReferences],
+    [activeTab, assets, motionControl, products, videoModel, videoReferences],
   )
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
@@ -177,6 +189,8 @@ function RunControlPanel({
   const activeModelLabel =
     activeTab === 'carousel'
       ? 'Carousel'
+      : activeTab === 'motion-control'
+        ? 'Kling 3.0 Motion Control'
       : activeTab === 'image'
         ? getImageModelLabel(imageModel)
         : getVideoModelLabel(videoModel)
@@ -205,6 +219,7 @@ function RunControlPanel({
       : getPrimaryInputSummary({
           activeTab,
           assets,
+          motionControl,
           products,
           subjectMode,
           textPrompt,
@@ -220,7 +235,7 @@ function RunControlPanel({
   const generationHelperText = getGenerateButtonLabel(generationRun, batchSize)
 
   useEffect(() => {
-    if (activeTab === 'video' && batchSize !== 1) {
+    if ((activeTab === 'video' || activeTab === 'motion-control') && batchSize !== 1) {
       setBatchSize(1)
     }
   }, [activeTab, batchSize, setBatchSize])
@@ -253,7 +268,13 @@ function RunControlPanel({
             </p>
           </div>
           <Badge className="self-start whitespace-nowrap" variant="outline">
-            {activeTab === 'carousel' ? 'Carousel workspace' : activeTab === 'video' ? 'Video workspace' : 'Image workspace'}
+            {activeTab === 'carousel'
+              ? 'Carousel workspace'
+              : activeTab === 'video'
+                ? 'Video workspace'
+                : activeTab === 'motion-control'
+                  ? 'Motion Control workspace'
+                  : 'Image workspace'}
           </Badge>
         </div>
 
@@ -469,6 +490,33 @@ function RunControlPanel({
                         </option>
                       ))}
                     </Select>
+                  ) : activeTab === 'motion-control' ? (
+                    <>
+                      <Select
+                        aria-label="Video Model"
+                        disabled
+                        value="kling-3.0-motion-control"
+                      >
+                        <option value="kling-3.0-motion-control">
+                          Kling 3.0 Motion Control
+                        </option>
+                      </Select>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Video resolution
+                      </p>
+                      <Select
+                        aria-label="Motion Control Resolution"
+                        onChange={(event) =>
+                          setMotionControlResolution(
+                            event.target.value as MotionControlResolution,
+                          )
+                        }
+                        value={motionControl.resolution}
+                      >
+                        <option value="720p">720p</option>
+                        <option value="1080p">1080p</option>
+                      </Select>
+                    </>
                   ) : (
                     <>
                       <Select
@@ -555,7 +603,9 @@ function RunControlPanel({
                   <p className="text-xs text-muted-foreground">
                     {isImageLikeWorkspace
                       ? selectedImageModel?.helper
-                      : selectedVideoModel?.helper}
+                      : activeTab === 'motion-control'
+                        ? 'Motion Control uses fixed Kling 3.0 provider settings.'
+                        : selectedVideoModel?.helper}
                   </p>
 
                   {isImageLikeWorkspace ? (
@@ -619,9 +669,14 @@ function isSlotLoaded(slot: AssetSlot) {
   return Boolean(slot.file || slot.previewUrl)
 }
 
+function isMotionControlReady(input: MotionControlDraft) {
+  return Boolean(input.referenceImage.file && input.motionVideo.file)
+}
+
 function getPrimaryInputSummary({
   activeTab,
   assets,
+  motionControl,
   products,
   subjectMode,
   textPrompt,
@@ -630,12 +685,19 @@ function getPrimaryInputSummary({
 }: {
   activeTab: WorkspaceTab
   assets: NamedAssetSlots
+  motionControl: MotionControlDraft
   products: AssetSlot[]
   subjectMode: SubjectMode
   textPrompt: string
   videoModel: VideoModelOption
   videoReferences: AssetSlot[]
 }) {
+  if (activeTab === 'motion-control') {
+    return isMotionControlReady(motionControl)
+      ? motionControl.referenceImage.label
+      : 'None Selected'
+  }
+
   if (activeTab === 'video') {
     if (assets.firstFrame && isSlotLoaded(assets.firstFrame)) {
       return assets.firstFrame.label

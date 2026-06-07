@@ -27,6 +27,7 @@ import type {
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
+  MotionControlDraft,
   NamedAssetSlots,
   OutputQuality,
   PromptEnhancement,
@@ -54,6 +55,7 @@ function createGenerationSnapshot(input: {
   figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
   locale: GenerationLocale
+  motionControl: MotionControlDraft
   outputQuality: OutputQuality
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
@@ -65,10 +67,14 @@ function createGenerationSnapshot(input: {
   videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
-}): GenerationSnapshot & { carouselDraft: CarouselDraft } {
+}): GenerationSnapshot & {
+  carouselDraft: CarouselDraft
+  motionControl: MotionControlDraft
+} {
   return {
     ...input,
     carouselDraft: input.carouselDraft,
+    motionControl: input.motionControl,
   }
 }
 
@@ -102,6 +108,7 @@ export function useManualGenerationController(input: {
     (state) => state.hydrateGenerationRun,
   )
   const imageModel = useGenerationStore((state) => state.imageModel)
+  const motionControl = useGenerationStore((state) => state.motionControl)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const promptEnhancement = useGenerationStore(
     (state) => state.promptEnhancement,
@@ -135,6 +142,7 @@ export function useManualGenerationController(input: {
         figureArtDirection,
         imageModel,
         locale,
+        motionControl,
         outputQuality,
         promptEnhancement,
         productCategory,
@@ -159,6 +167,7 @@ export function useManualGenerationController(input: {
       figureArtDirection,
       imageModel,
       locale,
+      motionControl,
       outputQuality,
       promptEnhancement,
       productCategory,
@@ -291,6 +300,7 @@ export function useManualGenerationController(input: {
       figureArtDirection: state.figureArtDirection,
       imageModel: state.imageModel,
       locale,
+      motionControl: state.motionControl,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
@@ -372,6 +382,7 @@ export function useManualGenerationController(input: {
       figureArtDirection: state.figureArtDirection,
       imageModel: state.imageModel,
       locale,
+      motionControl: state.motionControl,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
