@@ -296,34 +296,36 @@ function RunControlPanel({
                       value={getLoadedAssetLabel(loadedAssets.length)}
                     />
                   </div>
-                  <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
-                    <StatusPill label="Model" value={activeModelLabel} />
-                    <StatusPill
-                      label="Category"
-                      value={getProductCategoryLabel(productCategory)}
-                    />
-                    <StatusPill
-                      label="Style"
-                      value={getCreativeStyleLabel(creativeStyle)}
-                    />
-                    <StatusPill
-                      label="Subject"
-                      value={getSubjectModeLabel(subjectMode)}
-                    />
-                    <StatusPill
-                      label="Environment"
-                      value={getShotEnvironmentLabel(shotEnvironment)}
-                    />
-                    {characterPresetLabel ? (
-                      <StatusPill label="Casting" value={characterPresetLabel} />
-                    ) : null}
-                    {activeTab === 'video' && cameraMovement ? (
+                  {activeTab === 'motion-control' ? null : (
+                    <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                      <StatusPill label="Model" value={activeModelLabel} />
                       <StatusPill
-                        label="Camera"
-                        value={getCameraMovementLabel(cameraMovement)}
+                        label="Category"
+                        value={getProductCategoryLabel(productCategory)}
                       />
-                    ) : null}
-                  </div>
+                      <StatusPill
+                        label="Style"
+                        value={getCreativeStyleLabel(creativeStyle)}
+                      />
+                      <StatusPill
+                        label="Subject"
+                        value={getSubjectModeLabel(subjectMode)}
+                      />
+                      <StatusPill
+                        label="Environment"
+                        value={getShotEnvironmentLabel(shotEnvironment)}
+                      />
+                      {characterPresetLabel ? (
+                        <StatusPill label="Casting" value={characterPresetLabel} />
+                      ) : null}
+                      {activeTab === 'video' && cameraMovement ? (
+                        <StatusPill
+                          label="Camera"
+                          value={getCameraMovementLabel(cameraMovement)}
+                        />
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               )}
 
