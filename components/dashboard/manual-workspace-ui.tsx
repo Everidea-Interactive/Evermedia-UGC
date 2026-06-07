@@ -6,7 +6,11 @@ import { LoaderCircle, Upload, X } from 'lucide-react'
 
 import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
 import { Button } from '@/components/ui/button'
-import type { AssetSlot, GenerationCostEstimate } from '@/lib/generation/types'
+import type {
+  AssetSlot,
+  GenerationCostEstimate,
+  MediaKind,
+} from '@/lib/generation/types'
 import { isImageMimeType } from '@/lib/media/image-preview'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import { cn } from '@/lib/utils'
@@ -30,6 +34,14 @@ export const presetGroupClassName =
 export const presetSubgroupClassName =
   'rounded-lg border border-border/70 bg-secondary/35 p-3'
 export const assetAccept = 'image/*,video/*'
+
+export function getAcceptForMediaKind(mediaKind: MediaKind) {
+  return `${mediaKind}/*`
+}
+
+export function getEmptyStateCopy(mediaKind: MediaKind) {
+  return mediaKind === 'image' ? 'Upload image' : 'Upload video'
+}
 
 function handleFileInput(
   event: ChangeEvent<HTMLInputElement>,
@@ -200,7 +212,9 @@ export function ReferenceCardGroup({
 }
 
 export function ReferenceCard({
+  accept,
   className,
+  emptyStateLabel,
   icon: Icon,
   inputId,
   onClear,
@@ -209,7 +223,9 @@ export function ReferenceCard({
   previewMediaClassName,
   slot,
 }: {
+  accept: string
   className?: string
+  emptyStateLabel: string
   icon: LucideIcon
   inputId: string
   onClear: () => void
@@ -233,7 +249,7 @@ export function ReferenceCard({
       )}
     >
       <input
-        accept={assetAccept}
+        accept={accept}
         className="sr-only"
         id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}
@@ -284,7 +300,7 @@ export function ReferenceCard({
             <p className="text-sm font-semibold tracking-tight text-foreground">
               {slot.label}
             </p>
-            <p className="text-xs text-muted-foreground">Upload image or video</p>
+            <p className="text-xs text-muted-foreground">{emptyStateLabel}</p>
           </div>
           <div className="reference-upload-chip inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Upload className="size-3.5" suppressHydrationWarning />

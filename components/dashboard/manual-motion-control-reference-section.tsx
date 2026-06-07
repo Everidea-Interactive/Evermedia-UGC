@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { Film, ImageIcon } from 'lucide-react'
 
 import {
+  getAcceptForMediaKind,
+  getEmptyStateCopy,
   panelClassName,
   ReferenceCard,
   ReferenceCardGroup,
@@ -83,6 +85,8 @@ export function ManualMotionControlReferenceSection({
         />
         <ReferenceCardGroup title="Motion Control Inputs">
           <ReferenceCard
+            accept={getAcceptForMediaKind('image')}
+            emptyStateLabel={getEmptyStateCopy('image')}
             icon={ImageIcon}
             inputId="motion-control-reference-image"
             onClear={clearMotionControlReferenceImage}
@@ -90,6 +94,8 @@ export function ManualMotionControlReferenceSection({
             slot={motionControl.referenceImage}
           />
           <ReferenceCard
+            accept={getAcceptForMediaKind('video')}
+            emptyStateLabel={getEmptyStateCopy('video')}
             icon={Film}
             inputId="motion-control-motion-video"
             onClear={clearMotionControlMotionVideo}

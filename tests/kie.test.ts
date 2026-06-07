@@ -134,6 +134,29 @@ describe('KIE batch submission', () => {
     expect(parsed.experience).toBe('manual')
   })
 
+  it('rejects non-image uploads for image asset fields', () => {
+    const formData = buildBaseFormData('1')
+    const videoFile = new File(['video'], 'clip.mp4', { type: 'video/mp4' })
+
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_face1',
+          kind: 'named',
+          key: 'face1',
+          label: 'Face 1',
+          order: 0,
+        },
+      ]),
+    )
+    formData.append('asset_face1', videoFile)
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Face 1 must be an image file.',
+    )
+  })
+
   it('rejects invalid environment values during form parsing', () => {
     const formData = buildBaseFormData('1')
     formData.set('shotEnvironment', 'space')

@@ -79,6 +79,49 @@ describe('useGenerationStore', () => {
     expect(state.assets.face1.uploadStatus).toBe('idle')
   })
 
+  it('rejects video files in image-only slots', () => {
+    const videoFile = new File(['video'], 'clip.mp4', { type: 'video/mp4' })
+
+    useGenerationStore.getState().setNamedAssetFile('face1', videoFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.assets.face1.file).toBeNull()
+    expect(state.assets.face1.previewUrl).toBeNull()
+    expect(state.assets.face1.uploadStatus).toBe('idle')
+    expect(state.assets.face1.error).toBe('Please upload an image file.')
+  })
+
+  it('keeps existing valid image when invalid replacement is selected', () => {
+    const imageFile = new File(['image'], 'face.png', { type: 'image/png' })
+    const videoFile = new File(['video'], 'clip.mp4', { type: 'video/mp4' })
+
+    useGenerationStore.getState().setNamedAssetFile('face1', imageFile)
+    const originalPreviewUrl = useGenerationStore.getState().assets.face1.previewUrl
+
+    useGenerationStore.getState().setNamedAssetFile('face1', videoFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.assets.face1.file?.name).toBe('face.png')
+    expect(state.assets.face1.mimeType).toBe('image/png')
+    expect(state.assets.face1.previewUrl).toBe(originalPreviewUrl)
+    expect(state.assets.face1.error).toBe('Please upload an image file.')
+  })
+
+  it('rejects image files in video-only slots', () => {
+    const imageFile = new File(['image'], 'frame.png', { type: 'image/png' })
+
+    useGenerationStore.getState().setMotionControlMotionVideoFile(imageFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.motionControl.motionVideo.file).toBeNull()
+    expect(state.motionControl.motionVideo.previewUrl).toBeNull()
+    expect(state.motionControl.motionVideo.uploadStatus).toBe('idle')
+    expect(state.motionControl.motionVideo.error).toBe('Please upload a video file.')
+  })
+
   it('starts with the preset defaults and resets lifestyle-only fields', () => {
     const store = useGenerationStore.getState()
 

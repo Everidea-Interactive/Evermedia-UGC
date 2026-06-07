@@ -1,5 +1,7 @@
 export type WorkspaceTab = 'image' | 'video' | 'carousel' | 'motion-control'
 
+export type MediaKind = 'image' | 'video'
+
 export type MotionControlPreset =
   | 'character'
   | 'product'

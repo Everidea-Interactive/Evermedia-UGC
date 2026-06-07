@@ -29,6 +29,7 @@ import type {
   IdeationResult,
   KieAnalysisModel,
   MotionControlDraft,
+  MediaKind,
   MotionControlPreset,
   MotionControlResolution,
   NamedAssetKey,
@@ -491,6 +492,35 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
     previewUrl,
     size: file?.size ?? null,
     uploadStatus: file ? 'staged' : 'idle',
+  }
+}
+
+function fileMatchesMediaKind(file: File, kind: MediaKind) {
+  return file.type.startsWith(`${kind}/`)
+}
+
+function getMediaKindError(kind: MediaKind) {
+  return kind === 'image'
+    ? 'Please upload an image file.'
+    : 'Please upload a video file.'
+}
+
+function setValidatedSlotFile(
+  slot: AssetSlot,
+  file: File | null,
+  kind: MediaKind,
+): AssetSlot {
+  if (!file) {
+    return setSlotFile(slot, file)
+  }
+
+  if (fileMatchesMediaKind(file, kind)) {
+    return setSlotFile(slot, file)
+  }
+
+  return {
+    ...slot,
+    error: getMediaKindError(kind),
   }
 }
 
@@ -1078,14 +1108,18 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       guidedInput: {
         ...state.guidedInput,
-        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, file),
+        endFrameAsset: setValidatedSlotFile(
+          state.guidedInput.endFrameAsset,
+          file,
+          'image',
+        ),
       },
     })),
   setGuidedHeroFile: (file) =>
     set((state) => ({
       guidedInput: {
         ...state.guidedInput,
-        heroAsset: setSlotFile(state.guidedInput.heroAsset, file),
+        heroAsset: setValidatedSlotFile(state.guidedInput.heroAsset, file, 'image'),
       },
     })),
   setGuidedPlan: (guidedPlan) =>
@@ -1157,7 +1191,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       ideationInput: {
         ...state.ideationInput,
-        heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+        heroAsset: setValidatedSlotFile(state.ideationInput.heroAsset, file, 'image'),
       },
     })),
   setIdeationOutputLanguage: (outputLanguage) =>
@@ -1193,7 +1227,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       motionControl: {
         ...state.motionControl,
-        motionVideo: setSlotFile(state.motionControl.motionVideo, file),
+        motionVideo: setValidatedSlotFile(
+          state.motionControl.motionVideo,
+          file,
+          'video',
+        ),
       },
     })),
   setMotionControlMotionVideoDuration: (value) =>
@@ -1220,7 +1258,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       motionControl: {
         ...state.motionControl,
-        referenceImage: setSlotFile(state.motionControl.referenceImage, file),
+        referenceImage: setValidatedSlotFile(
+          state.motionControl.referenceImage,
+          file,
+          'image',
+        ),
       },
     })),
   setMotionControlResolution: (value) =>
@@ -1237,7 +1279,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ...(slot === 'firstFrame' && !file
           ? { endFrame: setSlotFile(state.assets.endFrame, null) }
           : null),
-        [slot]: setSlotFile(state.assets[slot], file),
+        [slot]: setValidatedSlotFile(state.assets[slot], file, 'image'),
       },
     })),
   setOutputQuality: (outputQuality) => set({ outputQuality }),
@@ -1252,7 +1294,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setProductSlotFile: (id, file) =>
     set((state) => ({
       products: state.products.map((slot) =>
-        slot.id === id ? setSlotFile(slot, file) : slot,
+        slot.id === id ? setValidatedSlotFile(slot, file, 'image') : slot,
       ),
     })),
   setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
@@ -1261,7 +1303,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setVideoReferenceFile: (id, file) =>
     set((state) => ({
       videoReferences: state.videoReferences.map((slot) =>
-        slot.id === id ? setSlotFile(slot, file) : slot,
+        slot.id === id ? setValidatedSlotFile(slot, file, 'image') : slot,
       ),
     })),
   setVideoAudio: (videoAudio) => set({ videoAudio }),

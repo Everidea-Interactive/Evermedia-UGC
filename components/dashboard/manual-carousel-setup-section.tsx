@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Image as ImageIcon, Trash2 } from 'lucide-react'
 
 import {
+  getAcceptForMediaKind,
+  getEmptyStateCopy,
   panelClassName,
   presetCompactTileClassName,
   presetGroupClassName,
@@ -48,6 +50,8 @@ function createEmptyReferenceSlot(id: string, label: string): AssetSlot {
 const carouselReferenceCardClassName = 'min-h-[13rem] sm:min-h-[13rem] sm:aspect-[16/10]'
 const carouselReferencePreviewContainerClassName = 'bg-secondary/30 p-3'
 const carouselReferencePreviewMediaClassName = 'object-contain'
+const imageAccept = getAcceptForMediaKind('image')
+const imageEmptyState = getEmptyStateCopy('image')
 
 export function ManualCarouselSetupSection({ className }: { className?: string }) {
   const baseTemplateMode = useGenerationStore((state) => state.carouselDraft.baseTemplateMode)
@@ -177,7 +181,9 @@ function BaseTemplateUploadZone({
 
   return (
     <ReferenceCard
+      accept={imageAccept}
       className={carouselReferenceCardClassName}
+      emptyStateLabel={imageEmptyState}
       icon={ImageIcon}
       inputId={inputId}
       onClear={onClear}
@@ -415,7 +421,9 @@ function PanelImageSection({
       ) : (
         <div className="flex flex-col gap-2">
           <ReferenceCard
+            accept={imageAccept}
             className={carouselReferenceCardClassName}
+            emptyStateLabel={imageEmptyState}
             icon={ImageIcon}
             inputId={inputId}
             onClear={handleClearImage}

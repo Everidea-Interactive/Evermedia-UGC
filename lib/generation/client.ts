@@ -155,6 +155,26 @@ function isMotionControlReady(input: MotionControlDraft | undefined) {
   return Boolean(input?.referenceImage.file && input.motionVideo.file)
 }
 
+function isMimeTypeOfKind(mimeType: string, kind: 'image' | 'video') {
+  return mimeType.startsWith(`${kind}/`)
+}
+
+function assertSlotMediaKind(
+  slot: AssetSlot,
+  kind: 'image' | 'video',
+  message: string,
+) {
+  if (!slot.file) {
+    return
+  }
+
+  const mimeType = slot.mimeType ?? slot.file.type
+
+  if (!isMimeTypeOfKind(mimeType, kind)) {
+    throw new Error(message)
+  }
+}
+
 export function getGenerationValidation(snapshot: ManualGenerationSnapshot) {
   if (snapshot.activeTab === 'motion-control') {
     return isMotionControlReady(snapshot.motionControl)
@@ -360,6 +380,17 @@ export function buildGenerationFormData(
       throw new Error('Motion Control workspace state is missing.')
     }
 
+    assertSlotMediaKind(
+      motionControl.referenceImage,
+      'image',
+      'Motion Control reference image must be an image file.',
+    )
+    assertSlotMediaKind(
+      motionControl.motionVideo,
+      'video',
+      'Motion Control motion video must be a video file.',
+    )
+
     formData.append('motionControlPreset', motionControl.preset)
     formData.append(
       'motionControlAdditionalInstructions',
@@ -402,6 +433,12 @@ export function buildGenerationFormData(
         return
       }
 
+      assertSlotMediaKind(
+        reference,
+        'image',
+        `${reference.label} must be an image file.`,
+      )
+
       const fieldName = `video_reference_${index + 1}`
       assetManifest.push({
         fieldName,
@@ -438,6 +475,8 @@ export function buildGenerationFormData(
         continue
       }
 
+      assertSlotMediaKind(slot, 'image', `${slot.label} must be an image file.`)
+
       const fieldName = `asset_${key}`
       assetManifest.push({
         fieldName,
@@ -453,6 +492,8 @@ export function buildGenerationFormData(
       if (!product.file) {
         return
       }
+
+      assertSlotMediaKind(product, 'image', `${product.label} must be an image file.`)
 
       const fieldName = `product_${product.id}`
       assetManifest.push({

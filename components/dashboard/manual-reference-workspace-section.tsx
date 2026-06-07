@@ -13,6 +13,8 @@ import {
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import {
+  getAcceptForMediaKind,
+  getEmptyStateCopy,
   panelClassName,
   ReferenceCard,
   ReferenceCardGroup,
@@ -56,6 +58,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
     ),
   )
   const visibleVideoReferences = videoReferences.slice(0, visibleVideoReferenceCount)
+  const imageAccept = getAcceptForMediaKind('image')
+  const imageEmptyState = getEmptyStateCopy('image')
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
@@ -87,6 +91,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               ? null
               : visibleVideoReferences.map((referenceSlot) => (
                   <ReferenceCard
+                    accept={imageAccept}
+                    emptyStateLabel={imageEmptyState}
                     icon={Image}
                     inputId={referenceSlot.id}
                     key={referenceSlot.id}
@@ -97,6 +103,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
                 ))}
             {showDedicatedFramePair ? (
               <ReferenceCard
+                accept={imageAccept}
+                emptyStateLabel={imageEmptyState}
                 icon={Image}
                 inputId="asset-first-frame"
                 onClear={() => clearNamedAsset('firstFrame')}
@@ -106,6 +114,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
             ) : null}
             {showEndFrameReference ? (
               <ReferenceCard
+                accept={imageAccept}
+                emptyStateLabel={imageEmptyState}
                 icon={ScanLine}
                 inputId="asset-end-frame"
                 onClear={() => clearNamedAsset('endFrame')}
@@ -120,6 +130,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               <ReferenceCardGroup title="People">
                 {peopleReferenceCards.map((asset) => (
                   <ReferenceCard
+                    accept={imageAccept}
+                    emptyStateLabel={imageEmptyState}
                     icon={asset.icon}
                     inputId={`asset-${asset.key}`}
                     key={asset.key}
@@ -133,6 +145,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               <ReferenceCardGroup title="Style & Environment">
                 {styleReferenceCards.map((asset) => (
                   <ReferenceCard
+                    accept={imageAccept}
+                    emptyStateLabel={imageEmptyState}
                     icon={asset.icon}
                     inputId={`asset-${asset.key}`}
                     key={asset.key}
@@ -148,6 +162,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               <ReferenceCardGroup className="xl:self-start" title="Products">
                 {productSlots.map((product) => (
                   <ReferenceCard
+                    accept={imageAccept}
+                    emptyStateLabel={imageEmptyState}
                     icon={Package2}
                     inputId={`product-${product.id}`}
                     key={product.id}
@@ -161,6 +177,8 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
               <ReferenceCardGroup className="xl:self-start" title="Brand Assets">
                 {miscReferenceCards.map((asset) => (
                   <ReferenceCard
+                    accept={imageAccept}
+                    emptyStateLabel={imageEmptyState}
                     icon={asset.icon}
                     inputId={`asset-${asset.key}`}
                     key={asset.key}

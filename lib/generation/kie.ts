@@ -239,6 +239,29 @@ function readEnum<T extends string>(
   return value as T
 }
 
+function isMimeTypeOfKind(mimeType: string, kind: 'image' | 'video') {
+  return mimeType.startsWith(`${kind}/`)
+}
+
+function assertUploadedFileKind(
+  file: File,
+  kind: 'image' | 'video',
+  label: string,
+) {
+  if (isMimeTypeOfKind(file.type, kind)) {
+    return
+  }
+
+  throw new GenerationRequestError({
+    code: 'invalid_input',
+    message:
+      kind === 'image'
+        ? `${label} must be an image file.`
+        : `${label} must be a video file.`,
+    status: 400,
+  })
+}
+
 function safeJsonParse(value: string) {
   try {
     return JSON.parse(value) as unknown
@@ -1518,6 +1541,15 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       })
     }
 
+    if (
+      fieldName.startsWith('asset_') ||
+      fieldName.startsWith('product_') ||
+      fieldName.startsWith('video_reference_') ||
+      fieldName.startsWith('carousel_')
+    ) {
+      assertUploadedFileKind(file, 'image', label)
+    }
+
     const parsedKey =
       typeof record.key === 'string' && namedAssetKeys.includes(record.key as NamedAssetKey)
         ? (record.key as NamedAssetKey)
@@ -1542,6 +1574,22 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     videoModel,
     requestedVideoAudio,
   )
+  const motionControlReferenceImage = formData.get('asset_motionControlReferenceImage')
+  if (motionControlReferenceImage instanceof File) {
+    assertUploadedFileKind(
+      motionControlReferenceImage,
+      'image',
+      'Motion Control reference image',
+    )
+  }
+  const motionControlMotionVideo = formData.get('asset_motionControlMotionVideo')
+  if (motionControlMotionVideo instanceof File) {
+    assertUploadedFileKind(
+      motionControlMotionVideo,
+      'video',
+      'Motion Control motion video',
+    )
+  }
   const carouselDraft = workspace === 'carousel' ? parseCarouselDraft(formData) : null
 
   return {
@@ -2003,7 +2051,7 @@ function normalizeResult(
   }
 
   return {
-    type: workspace === 'video' ? 'video' : 'image',
+    type: workspace === 'video' || workspace === 'motion-control' ? 'video' : 'image',
     url: primaryUrl,
     taskId,
     model,
