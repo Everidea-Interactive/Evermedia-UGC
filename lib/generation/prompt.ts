@@ -14,6 +14,9 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import {
+  buildCurrentDateContextLine,
+} from '@/lib/generation/date-context'
+import {
   getMaxVideoReferenceCount,
   getVideoDurationSeconds,
   supportsVideoEndFrameGuidance,
@@ -169,7 +172,9 @@ export function compileGenerationPrompt(input: {
   videoDuration: VideoDuration
   videoModel?: VideoModelOption
   workspace: WorkspaceTab
+  currentDate?: Date
 }) {
+  const currentDate = input.currentDate ?? new Date()
   const firstFrame = chooseFirstFrameReference(input.assets)
   const endFrame = chooseEndFrameReference(input.assets)
   const named = getNamedReferenceMap(input.assets)
@@ -215,6 +220,7 @@ export function compileGenerationPrompt(input: {
     `Art direction: ${stylePhrases[input.creativeStyle]}.`,
     subjectPhrases[input.subjectMode],
     environmentPhrases[input.shotEnvironment],
+    buildCurrentDateContextLine(currentDate),
   ]
 
   if (input.subjectMode === 'lifestyle') {

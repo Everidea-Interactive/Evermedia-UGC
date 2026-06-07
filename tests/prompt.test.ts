@@ -76,6 +76,7 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Shot environment: curated indoor setting with studio-grade control.',
     )
+    expect(prompt).toContain('Current date context:')
     expect(prompt).not.toContain('Character demographics:')
     expect(prompt).toContain('Use End Frame as the end-frame guidance when supported.')
     expect(prompt).not.toContain('Identity reference:')
@@ -260,6 +261,29 @@ describe('compileGenerationPrompt', () => {
 
     expect(prompt).not.toContain('Character demographics:')
     expect(prompt).toContain('Identity reference:')
+  })
+
+  it('adds current date context when text prompt contains date-sensitive language', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: 'Launch this promo today and keep June 20, 2026 pricing visible.',
+      videoDuration: 'base',
+      currentDate: new Date('2026-06-05T00:00:00.000Z'),
+      workspace: 'image',
+    })
+
+    expect(prompt).toContain(
+      'Current date context: 2026-06-05. Use this only when prompt, template, base panel, or requested copy strongly indicates date-sensitive content. Resolve relative date words against this date and preserve any explicit dates exactly as written. Do not add or emphasize dates when source instructions are not date-driven.',
+    )
   })
 })
 
