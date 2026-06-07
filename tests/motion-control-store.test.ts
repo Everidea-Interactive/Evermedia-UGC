@@ -16,4 +16,14 @@ describe('motion control store', () => {
     expect(state.motionControl.motionVideo.file).toBeNull()
     expect(state.videoReferences.every((slot) => slot.file === null)).toBe(true)
   })
+
+  it('allows manual mode to switch into motion control workspace tab', () => {
+    const store = useGenerationStore.getState()
+
+    store.setExperience('manual')
+    store.setActiveTab('motion-control')
+
+    expect(useGenerationStore.getState().experience).toBe('manual')
+    expect(useGenerationStore.getState().activeTab).toBe('motion-control')
+  })
 })

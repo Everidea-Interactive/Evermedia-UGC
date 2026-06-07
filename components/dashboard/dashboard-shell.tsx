@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
   KiePricingResponse,
   KieStatusResponse,
+  WorkspaceTab,
 } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -34,8 +35,25 @@ const ManualCarouselSetupSection = dynamic(() =>
 type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
-  manualSection: ManualSection,
+  activeTabOrManualSection: WorkspaceTab | ManualSection,
+  manualSection?: ManualSection,
 ): ManualSection {
+  if (manualSection === undefined) {
+    return activeTabOrManualSection as ManualSection
+  }
+
+  const activeTab = activeTabOrManualSection as WorkspaceTab
+
+  if (activeTab === 'carousel') {
+    return manualSection === 'setup' || manualSection === 'outputs'
+      ? manualSection
+      : 'setup'
+  }
+
+  if (manualSection === 'setup') {
+    return 'references'
+  }
+
   return manualSection
 }
 
@@ -59,7 +77,7 @@ export function DashboardShell({
   const [manualSection, setManualSection] = useState<ManualSection>('references')
   const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
-  const visibleManualSection = normalizeManualSection(manualSection)
+  const visibleManualSection = normalizeManualSection(activeTab, manualSection)
 
   const renderManualSection = () => {
     if (activeTab === 'carousel') {
@@ -67,6 +85,12 @@ export function DashboardShell({
       if (visibleManualSection === 'outputs') return <OutputPanel />
       // Carousel ignores references/preset — redirect to setup
       return null
+    }
+
+    if (activeTab === 'motion-control') {
+      if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
+      if (visibleManualSection === 'preset') return <RefineRenderSection />
+      return <OutputPanel />
     }
 
     if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
