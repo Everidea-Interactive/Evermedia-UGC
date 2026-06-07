@@ -150,6 +150,7 @@ export type NamedAssetKey =
   | 'endFrame'
 
 export type AssetSlot = {
+  durationSeconds?: number | null
   error: string | null
   file: File | null
   id: string
@@ -391,6 +392,7 @@ export type KiePricingMatrix = {
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }
+    'kling-3.0-motion-control': Record<VideoResolution, GenerationCostRate>
     'veo-3.1': {
       promptOnly: Record<VideoResolution, GenerationCostRate>
       withReference: Record<VideoResolution, GenerationCostRate>

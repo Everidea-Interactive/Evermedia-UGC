@@ -33,6 +33,8 @@ type SeedanceDurationPricing = {
   withReference: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
 }
 
+type MotionControlPricing = Record<VideoResolution, GenerationCostRate>
+
 const SEEDANCE_15_HARDCODED_PRICING: SeedanceDurationPricing = {
   // Seedance 1.5 Pro has no dedicated row in KIE model-pricing API.
   // Keep this aligned with https://kie.ai/seedance-1-5-pro.
@@ -131,6 +133,12 @@ const KLING_30_HARDCODED_PRICING: SeedanceDurationPricing = {
       },
     },
   },
+}
+
+const KLING_30_MOTION_CONTROL_HARDCODED_PRICING: MotionControlPricing = {
+  // Fallback only if KIE pricing API stops returning motion-control rows.
+  '720p': { credits: 20, usd: 0.1 },
+  '1080p': { credits: 27, usd: 0.135 },
 }
 
 let cachedPricingEntry: CachedPricingEntry | null = null
@@ -243,6 +251,7 @@ export async function getKiePricing() {
 
     const seedance15Override = SEEDANCE_15_HARDCODED_PRICING
     const kling30Override = KLING_30_HARDCODED_PRICING
+    const kling30MotionControlOverride = KLING_30_MOTION_CONTROL_HARDCODED_PRICING
 
     const expiresAtMs = now + KIE_PRICING_TTL_MS
     const data: KiePricingResponse = {
@@ -254,6 +263,7 @@ export async function getKiePricing() {
         grokRecords,
         klingRecords,
         kling30Override,
+        kling30MotionControlOverride,
         nanoRecords,
         seedance15Override,
         seedanceRecords,

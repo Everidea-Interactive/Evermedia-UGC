@@ -32,11 +32,13 @@ describe('motion control store', () => {
 
     store.setMotionControlPreset('product')
     store.setMotionControlAdditionalInstructions('Keep the new bottle centered.')
+    store.setMotionControlMotionVideoDuration(5.257)
 
     const nextState = useGenerationStore.getState()
 
     expect(nextState.motionControl.preset).toBe('product')
     expect(nextState.motionControl.additionalInstructions).toBe('Keep the new bottle centered.')
+    expect(nextState.motionControl.motionVideo.durationSeconds).toBe(5.257)
   })
 
   it('restores the motion control workspace from a saved config snapshot', () => {

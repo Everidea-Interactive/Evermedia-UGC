@@ -186,6 +186,7 @@ type GenerationStore = GenerationStateShape & {
   setImageModel: (imageModel: ImageModelOption) => void
   setMotionControlAdditionalInstructions: (value: string) => void
   setMotionControlMotionVideoFile: (file: File | null) => void
+  setMotionControlMotionVideoDuration: (value: number | null) => void
   setMotionControlPreset: (preset: MotionControlPreset) => void
   setMotionControlReferenceImageFile: (file: File | null) => void
   setMotionControlResolution: (value: MotionControlResolution) => void
@@ -240,6 +241,7 @@ function createPreviewUrl(file: File | null) {
 
 function createSlot(id: string, label: string): AssetSlot {
   return {
+    durationSeconds: null,
     error: null,
     file: null,
     id,
@@ -482,6 +484,7 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
 
   return {
     ...slot,
+    durationSeconds: null,
     error: null,
     file,
     mimeType: file?.type ?? null,
@@ -574,6 +577,7 @@ function syncGenerationRun(run: GenerationRun, variants: GenerationVariant[]): G
 
 function createAssetSlotFromFile(file: File): AssetSlot {
   return {
+    durationSeconds: null,
     error: null,
     file,
     id: crypto.randomUUID(),
@@ -1190,6 +1194,19 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       motionControl: {
         ...state.motionControl,
         motionVideo: setSlotFile(state.motionControl.motionVideo, file),
+      },
+    })),
+  setMotionControlMotionVideoDuration: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: {
+          ...state.motionControl.motionVideo,
+          durationSeconds:
+            typeof value === 'number' && Number.isFinite(value) && value > 0
+              ? Number(value.toFixed(3))
+              : null,
+        },
       },
     })),
   setMotionControlPreset: (preset) =>

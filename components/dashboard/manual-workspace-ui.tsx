@@ -49,6 +49,25 @@ function getReferenceCardErrorLabel(slot: AssetSlot) {
   return 'Error'
 }
 
+function getReferenceCardStatusLabel(slot: AssetSlot) {
+  const errorLabel = getReferenceCardErrorLabel(slot)
+
+  if (errorLabel) {
+    return errorLabel
+  }
+
+  if (
+    slot.mimeType?.startsWith('video/') &&
+    typeof slot.durationSeconds === 'number' &&
+    Number.isFinite(slot.durationSeconds) &&
+    slot.durationSeconds > 0
+  ) {
+    return `${slot.durationSeconds.toFixed(1)}s motion video`
+  }
+
+  return slot.previewUrl ? 'Ready' : 'Not loaded'
+}
+
 function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
   if (estimate.credits === null) {
     return '0'
@@ -201,7 +220,6 @@ export function ReferenceCard({
 }) {
   const previewSrc = slot.previewUrl
   const hasMedia = Boolean(previewSrc)
-  const errorLabel = getReferenceCardErrorLabel(slot)
   const showFooterMeta = hasMedia || Boolean(slot.error) || slot.uploadStatus === 'staged'
 
   return (
@@ -283,7 +301,7 @@ export function ReferenceCard({
                 {slot.label}
               </p>
               <p className="mt-1 truncate text-xs text-muted-foreground">
-                {errorLabel ?? (hasMedia ? 'Ready' : 'Not loaded')}
+                {getReferenceCardStatusLabel(slot)}
               </p>
             </div>
             <div className="flex items-center gap-1">

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Film, ImageIcon } from 'lucide-react'
 
 import {
@@ -8,6 +9,7 @@ import {
   ReferenceCardGroup,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
+import { readVideoDurationSeconds } from '@/lib/generation/video-metadata'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -34,9 +36,42 @@ export function ManualMotionControlReferenceSection({
   const setMotionControlMotionVideoFile = useGenerationStore(
     (state) => state.setMotionControlMotionVideoFile,
   )
+  const setMotionControlMotionVideoDuration = useGenerationStore(
+    (state) => state.setMotionControlMotionVideoDuration,
+  )
   const setMotionControlReferenceImageFile = useGenerationStore(
     (state) => state.setMotionControlReferenceImageFile,
   )
+
+  useEffect(() => {
+    const file = motionControl.motionVideo.file
+
+    if (!file) {
+      setMotionControlMotionVideoDuration(null)
+      return
+    }
+
+    let isActive = true
+
+    void readVideoDurationSeconds(file)
+      .then((durationSeconds) => {
+        if (isActive) {
+          setMotionControlMotionVideoDuration(durationSeconds)
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setMotionControlMotionVideoDuration(null)
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [
+    motionControl.motionVideo.file,
+    setMotionControlMotionVideoDuration,
+  ])
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
