@@ -26,4 +26,16 @@ describe('motion control store', () => {
     expect(useGenerationStore.getState().experience).toBe('manual')
     expect(useGenerationStore.getState().activeTab).toBe('motion-control')
   })
+
+  it('updates motion control preset and additional instructions independently', () => {
+    const store = useGenerationStore.getState()
+
+    store.setMotionControlPreset('product')
+    store.setMotionControlAdditionalInstructions('Keep the new bottle centered.')
+
+    const nextState = useGenerationStore.getState()
+
+    expect(nextState.motionControl.preset).toBe('product')
+    expect(nextState.motionControl.additionalInstructions).toBe('Keep the new bottle centered.')
+  })
 })

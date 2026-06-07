@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 
 import { ManualRunControlPanelShell } from '@/components/dashboard/manual-run-control-panel-shell'
+import { ManualMotionControlReferenceSection } from '@/components/dashboard/manual-motion-control-reference-section'
 import { ReferenceWorkspaceSection } from '@/components/dashboard/manual-reference-workspace-section'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
@@ -29,6 +30,12 @@ const OutputPanel = dynamic(() =>
 const ManualCarouselSetupSection = dynamic(() =>
   import('@/components/dashboard/manual-carousel-setup-section').then(
     (module) => module.ManualCarouselSetupSection,
+  ),
+)
+
+const ManualMotionControlPresetSection = dynamic(() =>
+  import('@/components/dashboard/manual-motion-control-preset-section').then(
+    (module) => module.ManualMotionControlPresetSection,
   ),
 )
 
@@ -88,8 +95,12 @@ export function DashboardShell({
     }
 
     if (activeTab === 'motion-control') {
-      if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />
-      if (visibleManualSection === 'preset') return <RefineRenderSection />
+      if (visibleManualSection === 'references') {
+        return <ManualMotionControlReferenceSection />
+      }
+      if (visibleManualSection === 'preset') {
+        return <ManualMotionControlPresetSection />
+      }
       return <OutputPanel />
     }
 
