@@ -28,6 +28,9 @@ import type {
   ImageModelOption,
   IdeationResult,
   KieAnalysisModel,
+  MotionControlDraft,
+  MotionControlPreset,
+  MotionControlResolution,
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
@@ -99,6 +102,7 @@ type GenerationStateShape = {
   ideationResult: IdeationResult | null
   ideationStatus: GuidedAnalysisStatus
   imageModel: ImageModelOption
+  motionControl: MotionControlDraft
   outputQuality: OutputQuality
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
@@ -123,6 +127,8 @@ type GenerationStore = GenerationStateShape & {
   clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
+  clearMotionControlMotionVideo: () => void
+  clearMotionControlReferenceImage: () => void
   clearProductSlot: (id: string) => void
   clearVideoReference: (id: string) => void
   deleteCarouselPanel: (panelId: string) => void
@@ -178,6 +184,11 @@ type GenerationStore = GenerationStateShape & {
   setIdeationResult: (result: IdeationResult | null) => void
   setIdeationStatus: (status: GuidedAnalysisStatus) => void
   setImageModel: (imageModel: ImageModelOption) => void
+  setMotionControlAdditionalInstructions: (value: string) => void
+  setMotionControlMotionVideoFile: (file: File | null) => void
+  setMotionControlPreset: (preset: MotionControlPreset) => void
+  setMotionControlReferenceImageFile: (file: File | null) => void
+  setMotionControlResolution: (value: MotionControlResolution) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
   setPromptEnhancement: (patch: Partial<PromptEnhancement>) => void
@@ -309,6 +320,16 @@ function createIdeationInputState(): IdeationInputState {
   }
 }
 
+function createMotionControlDraft(): MotionControlDraft {
+  return {
+    additionalInstructions: '',
+    motionVideo: createSlot('motion-control-video', 'Motion Reference Video'),
+    preset: 'character-product',
+    referenceImage: createSlot('motion-control-image', 'Reference Image'),
+    resolution: '1080p',
+  }
+}
+
 function createEmptyRunState(): GenerationRun {
   return {
     completedAt: null,
@@ -415,6 +436,7 @@ function createInitialState(): GenerationStateShape {
     ideationResult: null,
     ideationStatus: 'idle',
     imageModel: 'nano-banana',
+    motionControl: createMotionControlDraft(),
     outputQuality: '1080p',
     promptEnhancement: createInitialPromptEnhancement(),
     productCategory: 'cosmetics',
@@ -444,6 +466,11 @@ function releaseGuidedInput(input: GuidedInputState) {
 
 function releaseIdeationInput(input: IdeationInputState) {
   revokePreviewUrl(input.heroAsset.previewUrl)
+}
+
+function releaseMotionControlDraft(input: MotionControlDraft) {
+  revokePreviewUrl(input.referenceImage.previewUrl)
+  revokePreviewUrl(input.motionVideo.previewUrl)
 }
 
 function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
@@ -649,6 +676,20 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         heroAsset: setSlotFile(state.ideationInput.heroAsset, null),
       },
     })),
+  clearMotionControlMotionVideo: () =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: setSlotFile(state.motionControl.motionVideo, null),
+      },
+    })),
+  clearMotionControlReferenceImage: () =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        referenceImage: setSlotFile(state.motionControl.referenceImage, null),
+      },
+    })),
   clearProductSlot: (id) =>
     set((state) => ({
       products: state.products.map((slot) =>
@@ -669,6 +710,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(state.videoReferences)
     releaseGuidedInput(state.guidedInput)
     releaseIdeationInput(state.ideationInput)
+    releaseMotionControlDraft(state.motionControl)
 
     set(createInitialState())
   },
@@ -771,6 +813,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       releaseSlots(state.videoReferences)
       releaseGuidedInput(state.guidedInput)
       releaseIdeationInput(state.ideationInput)
+      releaseMotionControlDraft(state.motionControl)
 
       return {
         ...createInitialState(),
@@ -831,6 +874,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(state.products)
     releaseSlots(state.videoReferences)
     releaseIdeationInput(state.ideationInput)
+    releaseMotionControlDraft(state.motionControl)
 
     set({
       activeTab: nextState.activeTab,
@@ -849,6 +893,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ideationResult: nextState.ideationResult,
         ideationStatus: nextState.ideationStatus,
         imageModel: nextState.imageModel,
+      motionControl: nextState.motionControl,
       outputQuality: nextState.outputQuality,
       promptEnhancement: nextState.promptEnhancement,
       productCategory: nextState.productCategory,
@@ -1126,6 +1171,41 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   setIdeationStatus: (ideationStatus) => set({ ideationStatus }),
   setImageModel: (imageModel) => set({ imageModel }),
+  setMotionControlAdditionalInstructions: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        additionalInstructions: value,
+      },
+    })),
+  setMotionControlMotionVideoFile: (file) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: setSlotFile(state.motionControl.motionVideo, file),
+      },
+    })),
+  setMotionControlPreset: (preset) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        preset,
+      },
+    })),
+  setMotionControlReferenceImageFile: (file) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        referenceImage: setSlotFile(state.motionControl.referenceImage, file),
+      },
+    })),
+  setMotionControlResolution: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        resolution: value,
+      },
+    })),
   setNamedAssetFile: (slot, file) =>
     set((state) => ({
       assets: {
