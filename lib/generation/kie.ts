@@ -51,6 +51,7 @@ import type {
   ImageModelOption,
   KieAnalysisModel,
   NamedAssetKey,
+  MotionControlResolution,
   OutputQuality,
   ProductCategory,
   RunSubmissionResponse,
@@ -108,6 +109,7 @@ export type ParsedGenerationRequest = {
     summary: string
   } | null
   imageModel: ImageModelOption
+  motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
@@ -1141,6 +1143,24 @@ function buildVideoPayload(input: {
   })
 }
 
+export function buildMotionControlPayload(input: {
+  motionVideoUrl: string
+  prompt: string
+  referenceImageUrl: string
+  resolution: MotionControlResolution
+}) {
+  return {
+    model: 'kling-3.0/motion-control',
+    input: {
+      character_orientation: 'video',
+      input_urls: [input.referenceImageUrl],
+      mode: input.resolution === '1080p' ? 'pro' : 'std',
+      prompt: input.prompt,
+      video_urls: [input.motionVideoUrl],
+    },
+  }
+}
+
 export async function uploadFileToKie(
   apiKey: string,
   file: File,
@@ -1308,7 +1328,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const experience =
     readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
     'manual'
-  const workspace = readEnum(formData, 'workspace', ['image', 'video', 'carousel'] as const)
+  const workspace = readEnum(formData, 'workspace', ['image', 'video', 'carousel', 'motion-control'] as const)
   const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
   if (![1, 2, 3, 4].includes(requestedBatchSize)) {
@@ -1319,7 +1339,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     })
   }
 
-  const batchSize = workspace === 'video' ? 1 : requestedBatchSize
+  const batchSize = workspace === 'video' || workspace === 'motion-control' ? 1 : requestedBatchSize
 
   const imageModel =
     workspace === 'image'
@@ -1333,6 +1353,8 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
           'seedance-2',
           'kling-3.0',
         ] as const)
+      : workspace === 'motion-control'
+        ? 'kling-3.0'
       : 'veo-3.1'
   const outputQuality = readEnum(
     formData,
@@ -1340,13 +1362,17 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ['720p', '1080p', '4k'] as const,
   )
 
-  if (workspace === 'video' && outputQuality === '4k') {
+  if ((workspace === 'video' || workspace === 'motion-control') && outputQuality === '4k') {
     throw new GenerationRequestError({
       code: 'invalid_input',
       message: 'Video output quality supports only 720p or 1080p.',
       status: 400,
     })
   }
+  const motionControlResolution =
+    workspace === 'motion-control'
+      ? readEnum(formData, 'motionControlResolution', ['720p', '1080p'] as const)
+      : null
   const manifestValue =
     workspace === 'carousel'
       ? (readOptionalString(formData, 'assetManifest') ?? '[]')
@@ -1537,6 +1563,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ),
     guided,
     imageModel,
+    motionControlResolution,
     outputQuality,
     productCategory: readEnum(
       formData,
@@ -1642,6 +1669,7 @@ export function resolveSubmission(input: {
   creativeStyle: CreativeStyle
   imageGrid?: boolean
   imageModel: ImageModelOption
+  motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
   prompt: string
@@ -1651,6 +1679,35 @@ export function resolveSubmission(input: {
   videoModel: VideoModelOption
   workspace: WorkspaceTab
 }) {
+  if (input.workspace === 'motion-control') {
+    const uploadedReferenceImage = input.assets.find(
+      (asset) => asset.fieldName === 'asset_motionControlReferenceImage',
+    )
+    const uploadedMotionVideo = input.assets.find(
+      (asset) => asset.fieldName === 'asset_motionControlMotionVideo',
+    )
+
+    if (!uploadedReferenceImage || !uploadedMotionVideo || !input.motionControlResolution) {
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Motion Control submission is missing required inputs.',
+        status: 400,
+      })
+    }
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'kling-3.0/motion-control',
+      provider: 'market' as const,
+      requestBody: buildMotionControlPayload({
+        motionVideoUrl: uploadedMotionVideo.remoteUrl,
+        prompt: input.prompt,
+        referenceImageUrl: uploadedReferenceImage.remoteUrl,
+        resolution: input.motionControlResolution,
+      }),
+    }
+  }
+
   return input.workspace === 'image'
     ? buildMarketImagePayload({
         assets: input.assets,
@@ -1808,6 +1865,7 @@ export async function submitGenerationRequest(
     productCategory: input.productCategory,
     prompt: resolvedPromptSet[0]?.prompt ?? basePrompt,
     subjectMode: resolvedPromptSet[0]?.subjectMode ?? input.subjectMode,
+    motionControlResolution: input.motionControlResolution,
     videoDuration: input.videoDuration,
     videoAudio: input.videoAudio,
     videoModel: input.videoModel,
@@ -1826,8 +1884,9 @@ export async function submitGenerationRequest(
         productCategory: input.productCategory,
         prompt,
         subjectMode,
-        videoAudio: input.videoAudio,
+        motionControlResolution: input.motionControlResolution,
         videoDuration: input.videoDuration,
+        videoAudio: input.videoAudio,
         videoModel: input.videoModel,
         workspace: input.workspace,
       })
