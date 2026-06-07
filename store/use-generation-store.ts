@@ -851,6 +851,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         outputQuality: normalizedConfig.outputQuality,
         promptEnhancement: createInitialPromptEnhancement(),
         productCategory: normalizedConfig.productCategory,
+        motionControl: {
+          ...createMotionControlDraft(),
+          additionalInstructions:
+            normalizedConfig.motionControl?.additionalInstructions ?? '',
+          preset: normalizedConfig.motionControl?.preset ?? 'character-product',
+          resolution: normalizedConfig.motionControl?.resolution ?? '1080p',
+        },
         sessionStats: state.sessionStats,
         shotEnvironment: normalizedConfig.shotEnvironment,
         subjectMode: normalizedConfig.subjectMode,

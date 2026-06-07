@@ -74,6 +74,14 @@ function formatLibraryTimestamp(value: string) {
   })
 }
 
+function getWorkspaceLabel(workspace: ProjectConfigSnapshot['activeTab']) {
+  return workspace === 'motion-control'
+    ? 'Motion Control media set'
+    : workspace === 'video'
+      ? 'Video media set'
+      : 'Image media set'
+}
+
 function AssetCardMedia({
   alt,
   label,
@@ -614,7 +622,7 @@ export function LibraryPage({
                           type="button"
                         >
                           <p className="font-medium text-foreground">
-                            {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
+                            {getWorkspaceLabel(run.run.workspace)}
                           </p>
                           {run.outputs[0]?.output.ownerEmail ?? run.outputs[0]?.output.userId ? (
                             <p className="mt-1">
@@ -640,9 +648,7 @@ export function LibraryPage({
                               id: run.id,
                               kind: 'session',
                               label:
-                                run.run.workspace === 'video'
-                                  ? 'Video media set'
-                                  : 'Image media set',
+                                getWorkspaceLabel(run.run.workspace),
                               outputCount: run.outputs.length,
                             })
                           }}
@@ -673,9 +679,7 @@ export function LibraryPage({
                 </p>
                 <h2 className="mt-2 text-lg font-semibold">
                   {activeRun
-                    ? activeRun.run.workspace === 'video'
-                      ? 'Video media set'
-                      : 'Image media set'
+                    ? getWorkspaceLabel(activeRun.run.workspace)
                     : 'No media set selected'}
                 </h2>
                 {activeRunOwnerTag ? (

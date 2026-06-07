@@ -174,6 +174,13 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
         }
       : null,
     imageModel: input.imageModel,
+    motionControl: input.motionControl
+      ? {
+          additionalInstructions: input.motionControl.additionalInstructions,
+          preset: input.motionControl.preset,
+          resolution: input.motionControl.resolution,
+        }
+      : undefined,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
     shotEnvironment: input.shotEnvironment,

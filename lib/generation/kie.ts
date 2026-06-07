@@ -50,6 +50,7 @@ import type {
   GenerationVariantIndex,
   ImageModelOption,
   KieAnalysisModel,
+  MotionControlPreset,
   NamedAssetKey,
   MotionControlResolution,
   OutputQuality,
@@ -109,6 +110,11 @@ export type ParsedGenerationRequest = {
     summary: string
   } | null
   imageModel: ImageModelOption
+  motionControl?: {
+    additionalInstructions: string
+    preset: MotionControlPreset
+    resolution: MotionControlResolution
+  } | null
   motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -1373,6 +1379,19 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     workspace === 'motion-control'
       ? readEnum(formData, 'motionControlResolution', ['720p', '1080p'] as const)
       : null
+  const motionControl =
+    workspace === 'motion-control'
+      ? {
+          additionalInstructions:
+            readOptionalString(formData, 'motionControlAdditionalInstructions') ?? '',
+          preset: readEnum(
+            formData,
+            'motionControlPreset',
+            ['character', 'product', 'character-product'] as const,
+          ),
+          resolution: motionControlResolution ?? '1080p',
+        }
+      : null
   const manifestValue =
     workspace === 'carousel'
       ? (readOptionalString(formData, 'assetManifest') ?? '[]')
@@ -1563,6 +1582,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ),
     guided,
     imageModel,
+    motionControl,
     motionControlResolution,
     outputQuality,
     productCategory: readEnum(

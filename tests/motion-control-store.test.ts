@@ -38,4 +38,22 @@ describe('motion control store', () => {
     expect(nextState.motionControl.preset).toBe('product')
     expect(nextState.motionControl.additionalInstructions).toBe('Keep the new bottle centered.')
   })
+
+  it('restores the motion control workspace from a saved config snapshot', () => {
+    useGenerationStore.getState().hydrateProjectConfig({
+      activeTab: 'motion-control',
+      experience: 'manual',
+      motionControl: {
+        additionalInstructions: 'Keep it premium.',
+        preset: 'character',
+        resolution: '720p',
+      },
+    } as never)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.activeTab).toBe('motion-control')
+    expect(state.motionControl.preset).toBe('character')
+    expect(state.motionControl.resolution).toBe('720p')
+  })
 })
