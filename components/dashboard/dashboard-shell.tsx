@@ -4,11 +4,13 @@ import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 
 import { ManualRunControlPanelShell } from '@/components/dashboard/manual-run-control-panel-shell'
+import { ManualMotionControlReferenceSection } from '@/components/dashboard/manual-motion-control-reference-section'
 import { ReferenceWorkspaceSection } from '@/components/dashboard/manual-reference-workspace-section'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
   KiePricingResponse,
   KieStatusResponse,
+  WorkspaceTab,
 } from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -31,11 +33,34 @@ const ManualCarouselSetupSection = dynamic(() =>
   ),
 )
 
+const ManualMotionControlPresetSection = dynamic(() =>
+  import('@/components/dashboard/manual-motion-control-preset-section').then(
+    (module) => module.ManualMotionControlPresetSection,
+  ),
+)
+
 type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
-  manualSection: ManualSection,
+  activeTabOrManualSection: WorkspaceTab | ManualSection,
+  manualSection?: ManualSection,
 ): ManualSection {
+  if (manualSection === undefined) {
+    return activeTabOrManualSection as ManualSection
+  }
+
+  const activeTab = activeTabOrManualSection as WorkspaceTab
+
+  if (activeTab === 'carousel') {
+    return manualSection === 'setup' || manualSection === 'outputs'
+      ? manualSection
+      : 'setup'
+  }
+
+  if (manualSection === 'setup') {
+    return 'references'
+  }
+
   return manualSection
 }
 
@@ -59,7 +84,7 @@ export function DashboardShell({
   const [manualSection, setManualSection] = useState<ManualSection>('references')
   const lastManualRenderingRunIdRef = useRef<string | null>(null)
   const lastManualTerminalRunKeyRef = useRef<string | null>(null)
-  const visibleManualSection = normalizeManualSection(manualSection)
+  const visibleManualSection = normalizeManualSection(activeTab, manualSection)
 
   const renderManualSection = () => {
     if (activeTab === 'carousel') {
@@ -67,6 +92,16 @@ export function DashboardShell({
       if (visibleManualSection === 'outputs') return <OutputPanel />
       // Carousel ignores references/preset — redirect to setup
       return null
+    }
+
+    if (activeTab === 'motion-control') {
+      if (visibleManualSection === 'references') {
+        return <ManualMotionControlReferenceSection />
+      }
+      if (visibleManualSection === 'preset') {
+        return <ManualMotionControlPresetSection />
+      }
+      return <OutputPanel />
     }
 
     if (visibleManualSection === 'references') return <ReferenceWorkspaceSection />

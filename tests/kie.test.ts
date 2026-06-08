@@ -134,6 +134,29 @@ describe('KIE batch submission', () => {
     expect(parsed.experience).toBe('manual')
   })
 
+  it('rejects non-image uploads for image asset fields', () => {
+    const formData = buildBaseFormData('1')
+    const videoFile = new File(['video'], 'clip.mp4', { type: 'video/mp4' })
+
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_face1',
+          kind: 'named',
+          key: 'face1',
+          label: 'Face 1',
+          order: 0,
+        },
+      ]),
+    )
+    formData.append('asset_face1', videoFile)
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Face 1 must be an image file.',
+    )
+  })
+
   it('rejects invalid environment values during form parsing', () => {
     const formData = buildBaseFormData('1')
     formData.set('shotEnvironment', 'space')
@@ -202,6 +225,55 @@ describe('KIE batch submission', () => {
     const parsed = parseGenerationFormData(formData)
 
     expect(parsed.videoModel).toBe('seedance-2')
+  })
+
+  it('parses motion-control submissions with manifest-backed reference inputs', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'motion-control')
+    formData.set('outputQuality', '1080p')
+    formData.set('motionControlPreset', 'product')
+    formData.set('motionControlAdditionalInstructions', 'Keep bottle label readable.')
+    formData.set('motionControlResolution', '1080p')
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_motionControlReferenceImage',
+          kind: 'named',
+          label: 'Reference Image',
+          order: 0,
+        },
+        {
+          fieldName: 'asset_motionControlMotionVideo',
+          kind: 'product',
+          label: 'Motion Video',
+          order: 1,
+          productId: 'motion-video',
+        },
+      ]),
+    )
+    formData.append(
+      'asset_motionControlReferenceImage',
+      new File(['image'], 'reference.png', { type: 'image/png' }),
+    )
+    formData.append(
+      'asset_motionControlMotionVideo',
+      new File(['video'], 'motion.mp4', { type: 'video/mp4' }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('motion-control')
+    expect(parsed.videoModel).toBe('kling-3.0')
+    expect(parsed.motionControl).toEqual({
+      additionalInstructions: 'Keep bottle label readable.',
+      preset: 'product',
+      resolution: '1080p',
+    })
+    expect(parsed.assetDescriptors.map((asset) => asset.fieldName)).toEqual([
+      'asset_motionControlReferenceImage',
+      'asset_motionControlMotionVideo',
+    ])
   })
 
   it('uploads assets once and expands each manual image grid task into four variants', async () => {

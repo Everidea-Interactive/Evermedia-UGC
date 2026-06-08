@@ -79,6 +79,10 @@ function createPricingResponse(): KiePricingResponse {
         },
       },
       video: {
+        'kling-3.0-motion-control': {
+          '720p': { credits: 20, usd: 0.1 },
+          '1080p': { credits: 27, usd: 0.135 },
+        },
         'veo-3.1': {
           promptOnly: {
             '720p': { credits: 60, usd: 0.3 },
@@ -425,6 +429,193 @@ describe('POST /api/generation/run', () => {
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toMatchObject({
       error: '503 Service Unavailable: upstream failed',
+    })
+  })
+
+  it('accepts motion-control requests when duration metadata is provided', async () => {
+    vi.mocked(getOptionalAuthenticatedUser).mockResolvedValue({
+      canManageAccounts: false,
+      email: 'user@example.com',
+      id: 'user-1',
+      roles: ['member'],
+      status: 'active',
+    })
+    vi.spyOn(kieModule, 'parseGenerationFormData').mockReturnValue({
+      activeModel: 'kling-3.0',
+      assetDescriptors: [
+        {
+          fieldName: 'asset_motionControlReferenceImage',
+          file: new File(['image'], 'reference.png', { type: 'image/png' }),
+          kind: 'named',
+          label: 'Reference Image',
+          order: 0,
+        },
+        {
+          fieldName: 'asset_motionControlMotionVideo',
+          file: new File(['video'], 'motion.mp4', { type: 'video/mp4' }),
+          kind: 'product',
+          label: 'Motion Video',
+          order: 1,
+          productId: 'motion-video',
+        },
+      ],
+      batchSize: 1,
+      cameraMovement: 'orbit',
+      carouselDraft: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      experience: 'manual',
+      figureArtDirection: 'none',
+      guided: null,
+      imageModel: 'nano-banana',
+      motionControl: {
+        additionalInstructions: 'Keep bottle readable.',
+        preset: 'product',
+        resolution: '1080p',
+      },
+      motionControlDurationSeconds: 5.25,
+      motionControlResolution: '1080p',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Prompt',
+      videoAudio: 'no-audio',
+      videoDuration: 'base',
+      videoModel: 'kling-3.0',
+      workspace: 'motion-control',
+    })
+    vi.mocked(buildPromptSnapshot).mockReturnValue('Motion prompt snapshot')
+    vi.mocked(createRunId).mockReturnValue('run-motion-1')
+    vi.mocked(submitGenerationRequest).mockResolvedValue({
+      completedAt: null,
+      createdAt: '2026-04-09T00:00:00.000Z',
+      model: 'kling-3.0/motion-control',
+      provider: 'market',
+      runId: 'run-motion-1',
+      status: 'rendering',
+      variants: [
+        {
+          completedAt: null,
+          createdAt: null,
+          error: null,
+          index: 1,
+          profile: 'Variant 1',
+          prompt: 'Prompt 1',
+          result: null,
+          status: 'rendering',
+          taskId: 'task-motion-1',
+          variantId: 'run-motion-1-variant-1',
+        },
+      ],
+      workspace: 'motion-control',
+    })
+    vi.mocked(createGenerationRunForUser).mockResolvedValue({
+      completedAt: null,
+      configSnapshot: {
+        activeTab: 'motion-control',
+        batchSize: 1,
+        cameraMovement: 'orbit',
+        characterAgeGroup: 'any',
+        characterGender: 'any',
+        creativeStyle: 'ugc-lifestyle',
+        experience: 'manual',
+        figureArtDirection: 'none',
+        guided: null,
+        imageModel: 'nano-banana',
+        motionControl: {
+          additionalInstructions: 'Keep bottle readable.',
+          preset: 'product',
+          resolution: '1080p',
+        },
+        outputQuality: '1080p',
+        productCategory: 'cosmetics',
+        shotEnvironment: 'indoor',
+        subjectMode: 'lifestyle',
+        textPrompt: 'Prompt',
+        videoAudio: 'no-audio',
+        videoDuration: 'base',
+        videoModel: 'kling-3.0',
+      },
+      createdAt: '2026-04-09T00:00:00.000Z',
+      id: 'run-motion-1',
+      model: 'kling-3.0/motion-control',
+      promptSnapshot: 'Motion prompt snapshot',
+      provider: 'market',
+      status: 'rendering',
+      userId: 'user-1',
+      variants: [],
+      workspace: 'motion-control',
+    })
+    vi.mocked(createGenerationVariantsForRun).mockResolvedValue([])
+    vi.mocked(getGenerationRunBundleForUser).mockResolvedValue({
+      outputs: [],
+      run: {
+        completedAt: null,
+        configSnapshot: {
+          activeTab: 'motion-control',
+          batchSize: 1,
+          cameraMovement: 'orbit',
+          characterAgeGroup: 'any',
+          characterGender: 'any',
+          creativeStyle: 'ugc-lifestyle',
+          experience: 'manual',
+          figureArtDirection: 'none',
+          guided: null,
+          imageModel: 'nano-banana',
+          motionControl: {
+            additionalInstructions: 'Keep bottle readable.',
+            preset: 'product',
+            resolution: '1080p',
+          },
+          outputQuality: '1080p',
+          productCategory: 'cosmetics',
+          shotEnvironment: 'indoor',
+          subjectMode: 'lifestyle',
+          textPrompt: 'Prompt',
+          videoAudio: 'no-audio',
+          videoDuration: 'base',
+          videoModel: 'kling-3.0',
+        },
+        createdAt: '2026-04-09T00:00:00.000Z',
+        id: 'run-motion-1',
+        model: 'kling-3.0/motion-control',
+        promptSnapshot: 'Motion prompt snapshot',
+        provider: 'market',
+        status: 'rendering',
+        userId: 'user-1',
+        variants: [],
+        workspace: 'motion-control',
+      },
+    })
+    vi.mocked(createGenerationRunState).mockReturnValue({
+      completedAt: null,
+      createdAt: '2026-04-09T00:00:00.000Z',
+      error: null,
+      experience: 'manual',
+      model: 'kling-3.0/motion-control',
+      provider: 'market',
+      runId: 'run-motion-1',
+      selectedVariantId: null,
+      startedAt: 0,
+      status: 'rendering',
+      variants: [],
+      workspace: 'motion-control',
+    })
+
+    const response = await POST(
+      new Request('http://localhost/api/generation/run', {
+        body: new FormData(),
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(submitGenerationRequest).toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({
+      runId: 'run-motion-1',
+      workspace: 'motion-control',
     })
   })
 

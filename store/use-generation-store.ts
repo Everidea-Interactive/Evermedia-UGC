@@ -28,6 +28,10 @@ import type {
   ImageModelOption,
   IdeationResult,
   KieAnalysisModel,
+  MotionControlDraft,
+  MediaKind,
+  MotionControlPreset,
+  MotionControlResolution,
   NamedAssetKey,
   NamedAssetSlots,
   OutputQuality,
@@ -99,6 +103,7 @@ type GenerationStateShape = {
   ideationResult: IdeationResult | null
   ideationStatus: GuidedAnalysisStatus
   imageModel: ImageModelOption
+  motionControl: MotionControlDraft
   outputQuality: OutputQuality
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
@@ -123,6 +128,8 @@ type GenerationStore = GenerationStateShape & {
   clearGuidedEndFrameAsset: () => void
   clearGuidedHeroAsset: () => void
   clearIdeationHeroAsset: () => void
+  clearMotionControlMotionVideo: () => void
+  clearMotionControlReferenceImage: () => void
   clearProductSlot: (id: string) => void
   clearVideoReference: (id: string) => void
   deleteCarouselPanel: (panelId: string) => void
@@ -178,6 +185,12 @@ type GenerationStore = GenerationStateShape & {
   setIdeationResult: (result: IdeationResult | null) => void
   setIdeationStatus: (status: GuidedAnalysisStatus) => void
   setImageModel: (imageModel: ImageModelOption) => void
+  setMotionControlAdditionalInstructions: (value: string) => void
+  setMotionControlMotionVideoFile: (file: File | null) => void
+  setMotionControlMotionVideoDuration: (value: number | null) => void
+  setMotionControlPreset: (preset: MotionControlPreset) => void
+  setMotionControlReferenceImageFile: (file: File | null) => void
+  setMotionControlResolution: (value: MotionControlResolution) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
   setPromptEnhancement: (patch: Partial<PromptEnhancement>) => void
@@ -229,6 +242,7 @@ function createPreviewUrl(file: File | null) {
 
 function createSlot(id: string, label: string): AssetSlot {
   return {
+    durationSeconds: null,
     error: null,
     file: null,
     id,
@@ -306,6 +320,16 @@ function createIdeationInputState(): IdeationInputState {
     heroAsset: createSlot('ideation-hero', 'Hero Product'),
     outputLanguage: 'en',
     productUrl: '',
+  }
+}
+
+function createMotionControlDraft(): MotionControlDraft {
+  return {
+    additionalInstructions: '',
+    motionVideo: createSlot('motion-control-video', 'Motion Reference Video'),
+    preset: 'character-product',
+    referenceImage: createSlot('motion-control-image', 'Reference Image'),
+    resolution: '1080p',
   }
 }
 
@@ -415,6 +439,7 @@ function createInitialState(): GenerationStateShape {
     ideationResult: null,
     ideationStatus: 'idle',
     imageModel: 'nano-banana',
+    motionControl: createMotionControlDraft(),
     outputQuality: '1080p',
     promptEnhancement: createInitialPromptEnhancement(),
     productCategory: 'cosmetics',
@@ -446,6 +471,11 @@ function releaseIdeationInput(input: IdeationInputState) {
   revokePreviewUrl(input.heroAsset.previewUrl)
 }
 
+function releaseMotionControlDraft(input: MotionControlDraft) {
+  revokePreviewUrl(input.referenceImage.previewUrl)
+  revokePreviewUrl(input.motionVideo.previewUrl)
+}
+
 function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
   const previewUrl = createPreviewUrl(file)
 
@@ -455,12 +485,53 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
 
   return {
     ...slot,
+    durationSeconds: null,
     error: null,
     file,
     mimeType: file?.type ?? null,
     previewUrl,
     size: file?.size ?? null,
     uploadStatus: file ? 'staged' : 'idle',
+  }
+}
+
+function normalizeActiveTabForExperience(
+  activeTab: WorkspaceTab,
+  experience: GenerationExperience,
+): WorkspaceTab {
+  if (experience === 'guided' && activeTab === 'motion-control') {
+    return 'image'
+  }
+
+  return activeTab
+}
+
+function fileMatchesMediaKind(file: File, kind: MediaKind) {
+  return file.type.startsWith(`${kind}/`)
+}
+
+function getMediaKindError(kind: MediaKind) {
+  return kind === 'image'
+    ? 'Please upload an image file.'
+    : 'Please upload a video file.'
+}
+
+function setValidatedSlotFile(
+  slot: AssetSlot,
+  file: File | null,
+  kind: MediaKind,
+): AssetSlot {
+  if (!file) {
+    return setSlotFile(slot, file)
+  }
+
+  if (fileMatchesMediaKind(file, kind)) {
+    return setSlotFile(slot, file)
+  }
+
+  return {
+    ...slot,
+    error: getMediaKindError(kind),
   }
 }
 
@@ -547,6 +618,7 @@ function syncGenerationRun(run: GenerationRun, variants: GenerationVariant[]): G
 
 function createAssetSlotFromFile(file: File): AssetSlot {
   return {
+    durationSeconds: null,
     error: null,
     file,
     id: crypto.randomUUID(),
@@ -649,6 +721,20 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         heroAsset: setSlotFile(state.ideationInput.heroAsset, null),
       },
     })),
+  clearMotionControlMotionVideo: () =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: setSlotFile(state.motionControl.motionVideo, null),
+      },
+    })),
+  clearMotionControlReferenceImage: () =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        referenceImage: setSlotFile(state.motionControl.referenceImage, null),
+      },
+    })),
   clearProductSlot: (id) =>
     set((state) => ({
       products: state.products.map((slot) =>
@@ -669,6 +755,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(state.videoReferences)
     releaseGuidedInput(state.guidedInput)
     releaseIdeationInput(state.ideationInput)
+    releaseMotionControlDraft(state.motionControl)
 
     set(createInitialState())
   },
@@ -771,10 +858,14 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       releaseSlots(state.videoReferences)
       releaseGuidedInput(state.guidedInput)
       releaseIdeationInput(state.ideationInput)
+      releaseMotionControlDraft(state.motionControl)
 
       return {
         ...createInitialState(),
-        activeTab: normalizedConfig.activeTab,
+        activeTab: normalizeActiveTabForExperience(
+          normalizedConfig.activeTab,
+          normalizedConfig.experience,
+        ),
         analysisError: null,
         analysisStatus: hydratedGuidedPlan ? 'ready' : 'idle',
         batchSize: normalizedConfig.batchSize,
@@ -808,6 +899,13 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         outputQuality: normalizedConfig.outputQuality,
         promptEnhancement: createInitialPromptEnhancement(),
         productCategory: normalizedConfig.productCategory,
+        motionControl: {
+          ...createMotionControlDraft(),
+          additionalInstructions:
+            normalizedConfig.motionControl?.additionalInstructions ?? '',
+          preset: normalizedConfig.motionControl?.preset ?? 'character-product',
+          resolution: normalizedConfig.motionControl?.resolution ?? '1080p',
+        },
         sessionStats: state.sessionStats,
         shotEnvironment: normalizedConfig.shotEnvironment,
         subjectMode: normalizedConfig.subjectMode,
@@ -831,6 +929,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     releaseSlots(state.products)
     releaseSlots(state.videoReferences)
     releaseIdeationInput(state.ideationInput)
+    releaseMotionControlDraft(state.motionControl)
 
     set({
       activeTab: nextState.activeTab,
@@ -849,6 +948,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ideationResult: nextState.ideationResult,
         ideationStatus: nextState.ideationStatus,
         imageModel: nextState.imageModel,
+      motionControl: nextState.motionControl,
       outputQuality: nextState.outputQuality,
       promptEnhancement: nextState.promptEnhancement,
       productCategory: nextState.productCategory,
@@ -907,7 +1007,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ),
       },
     })),
-  setActiveTab: (activeTab) => set({ activeTab }),
+  setActiveTab: (activeTab) =>
+    set((state) => ({
+      activeTab: normalizeActiveTabForExperience(activeTab, state.experience),
+    })),
   setAnalysisError: (analysisError) => set({ analysisError }),
   setAnalysisStatus: (analysisStatus) => set({ analysisStatus }),
   setBatchSize: (batchSize) => set({ batchSize }),
@@ -958,7 +1061,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setCreativeStyle: (creativeStyle) => set({ creativeStyle }),
-  setExperience: (experience) => set({ experience }),
+  setExperience: (experience) =>
+    set((state) => ({
+      activeTab: normalizeActiveTabForExperience(state.activeTab, experience),
+      experience,
+    })),
   setFigureArtDirection: (figureArtDirection) =>
     set((state) =>
       state.subjectMode === 'lifestyle' ? { figureArtDirection } : {},
@@ -1022,14 +1129,18 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       guidedInput: {
         ...state.guidedInput,
-        endFrameAsset: setSlotFile(state.guidedInput.endFrameAsset, file),
+        endFrameAsset: setValidatedSlotFile(
+          state.guidedInput.endFrameAsset,
+          file,
+          'image',
+        ),
       },
     })),
   setGuidedHeroFile: (file) =>
     set((state) => ({
       guidedInput: {
         ...state.guidedInput,
-        heroAsset: setSlotFile(state.guidedInput.heroAsset, file),
+        heroAsset: setValidatedSlotFile(state.guidedInput.heroAsset, file, 'image'),
       },
     })),
   setGuidedPlan: (guidedPlan) =>
@@ -1101,7 +1212,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     set((state) => ({
       ideationInput: {
         ...state.ideationInput,
-        heroAsset: setSlotFile(state.ideationInput.heroAsset, file),
+        heroAsset: setValidatedSlotFile(state.ideationInput.heroAsset, file, 'image'),
       },
     })),
   setIdeationOutputLanguage: (outputLanguage) =>
@@ -1126,6 +1237,62 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
     })),
   setIdeationStatus: (ideationStatus) => set({ ideationStatus }),
   setImageModel: (imageModel) => set({ imageModel }),
+  setMotionControlAdditionalInstructions: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        additionalInstructions: value,
+      },
+    })),
+  setMotionControlMotionVideoFile: (file) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: setValidatedSlotFile(
+          state.motionControl.motionVideo,
+          file,
+          'video',
+        ),
+      },
+    })),
+  setMotionControlMotionVideoDuration: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        motionVideo: {
+          ...state.motionControl.motionVideo,
+          durationSeconds:
+            typeof value === 'number' && Number.isFinite(value) && value > 0
+              ? Number(value.toFixed(3))
+              : null,
+        },
+      },
+    })),
+  setMotionControlPreset: (preset) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        preset,
+      },
+    })),
+  setMotionControlReferenceImageFile: (file) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        referenceImage: setValidatedSlotFile(
+          state.motionControl.referenceImage,
+          file,
+          'image',
+        ),
+      },
+    })),
+  setMotionControlResolution: (value) =>
+    set((state) => ({
+      motionControl: {
+        ...state.motionControl,
+        resolution: value,
+      },
+    })),
   setNamedAssetFile: (slot, file) =>
     set((state) => ({
       assets: {
@@ -1133,7 +1300,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ...(slot === 'firstFrame' && !file
           ? { endFrame: setSlotFile(state.assets.endFrame, null) }
           : null),
-        [slot]: setSlotFile(state.assets[slot], file),
+        [slot]: setValidatedSlotFile(state.assets[slot], file, 'image'),
       },
     })),
   setOutputQuality: (outputQuality) => set({ outputQuality }),
@@ -1148,7 +1315,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setProductSlotFile: (id, file) =>
     set((state) => ({
       products: state.products.map((slot) =>
-        slot.id === id ? setSlotFile(slot, file) : slot,
+        slot.id === id ? setValidatedSlotFile(slot, file, 'image') : slot,
       ),
     })),
   setShotEnvironment: (shotEnvironment) => set({ shotEnvironment }),
@@ -1157,7 +1324,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setVideoReferenceFile: (id, file) =>
     set((state) => ({
       videoReferences: state.videoReferences.map((slot) =>
-        slot.id === id ? setSlotFile(slot, file) : slot,
+        slot.id === id ? setValidatedSlotFile(slot, file, 'image') : slot,
       ),
     })),
   setVideoAudio: (videoAudio) => set({ videoAudio }),

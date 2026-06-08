@@ -142,6 +142,8 @@ describe('IdeationWorkspace', () => {
     expect(screen.getByText('Upload Image').closest('div')?.className).toContain(
       workspacePreviewMinHeightClassName,
     )
+    expect(screen.getByText('Upload Image')).toBeTruthy()
+    expect(screen.queryByText('Upload Video')).toBeNull()
   })
 
   it('submits the selected ideation content format to the analyze endpoint', async () => {

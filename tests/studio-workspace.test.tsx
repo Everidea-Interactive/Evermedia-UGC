@@ -196,6 +196,28 @@ describe('StudioWorkspace', () => {
     expect(workspaceMountCounts.ideation).toBe(0)
   })
 
+  it('hides motion control from guided workspace tabs', async () => {
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    globalThis.cancelAnimationFrame = (handle: number) => {
+      window.clearTimeout(handle)
+    }
+
+    const { StudioWorkspace } = await import('@/components/dashboard/studio-workspace')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    render(<StudioWorkspace />)
+
+    await screen.findByText('References')
+
+    await act(async () => {
+      useGenerationStore.getState().setExperience('guided')
+    })
+
+    await screen.findByText('guided-workspace')
+    expect(screen.queryByRole('tab', { name: 'Motion Control' })).toBeNull()
+  })
+
   it('hides the reference board when another manual section is selected', async () => {
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)
@@ -514,6 +536,50 @@ describe('StudioWorkspace', () => {
     )
 
     expect(options).toEqual(['8s'])
+  })
+
+  it('keeps motion-control setup summary to asset-only fields', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    const referenceImage = new File(['image'], 'reference.png', { type: 'image/png' })
+    const motionVideo = new File(['video'], 'motion.mp4', { type: 'video/mp4' })
+
+    await act(async () => {
+      const store = useGenerationStore.getState()
+      store.setActiveTab('motion-control')
+      store.setMotionControlReferenceImageFile(referenceImage)
+      store.setMotionControlMotionVideoFile(motionVideo)
+      store.setMotionControlResolution('1080p')
+    })
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    await screen.findByText('Review and run generation')
+
+    expect(screen.getByText('Primary input')).toBeTruthy()
+    expect(screen.getByText('Staged assets')).toBeTruthy()
+    expect(screen.queryByText('Model')).toBeNull()
+    expect(screen.queryByText('Resolution')).toBeNull()
+    expect(screen.queryByText('Category')).toBeNull()
+    expect(screen.queryByText('Style')).toBeNull()
+    expect(screen.queryByText('Subject')).toBeNull()
+    expect(screen.queryByText('Environment')).toBeNull()
+    expect(screen.queryByText('Casting')).toBeNull()
+    expect(screen.queryByText('Camera')).toBeNull()
   })
 
   it('only exposes active manual video generation models', async () => {

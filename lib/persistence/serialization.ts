@@ -27,6 +27,11 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   figureArtDirection: 'none',
   guided: null,
   imageModel: 'nano-banana',
+  motionControl: {
+    additionalInstructions: '',
+    preset: 'character-product',
+    resolution: '1080p',
+  },
   outputQuality: '1080p',
   productCategory: 'cosmetics',
   shotEnvironment: 'indoor',
@@ -36,6 +41,12 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   videoDuration: 'base',
   videoModel: 'veo-3.1',
 }
+
+const defaultMotionControlSnapshot = {
+  additionalInstructions: '',
+  preset: 'character-product',
+  resolution: '1080p',
+} satisfies NonNullable<GenerationConfigSnapshot['motionControl']>
 
 const defaultCarouselDraft: CarouselDraft = {
   baseTemplateMode: 'manual',
@@ -377,7 +388,9 @@ export function normalizeProjectConfigSnapshot(
     ...defaultProjectConfigSnapshot,
     ...snapshot,
     activeTab:
-      snapshot.activeTab === 'video' || snapshot.activeTab === 'carousel'
+      snapshot.activeTab === 'video' ||
+      snapshot.activeTab === 'carousel' ||
+      snapshot.activeTab === 'motion-control'
         ? snapshot.activeTab
         : 'image',
     experience:
@@ -395,6 +408,23 @@ export function normalizeProjectConfigSnapshot(
       ['veo-3.1', 'seedance-1.5-pro', 'seedance-2'] as const,
       defaultProjectConfigSnapshot.videoModel,
     ),
+    motionControl: {
+      ...defaultMotionControlSnapshot,
+      additionalInstructions:
+        typeof snapshot.motionControl?.additionalInstructions === 'string'
+          ? snapshot.motionControl.additionalInstructions
+          : defaultMotionControlSnapshot.additionalInstructions,
+      preset: readSnapshotEnum(
+        snapshot.motionControl?.preset,
+        ['character', 'product', 'character-product'] as const,
+        defaultMotionControlSnapshot.preset,
+      ),
+      resolution: readSnapshotEnum(
+        snapshot.motionControl?.resolution,
+        ['720p', '1080p'] as const,
+        defaultMotionControlSnapshot.resolution,
+      ),
+    },
     guided: normalizeGuidedSnapshot(snapshot.guided),
     carouselDraft: normalizeCarouselDraft(snapshot.carouselDraft),
   }
@@ -427,13 +457,15 @@ function createResultForVariant(
     return null
   }
 
+  const isVideoWorkspace =
+    workspace === 'video' || workspace === 'motion-control'
+
   return {
     label: output.label,
     model,
     taskId: variant.taskId ?? output.id,
-    thumbnailUrl:
-      workspace === 'video' ? `/api/media/${output.id}` : undefined,
-    type: workspace === 'video' ? ('video' as const) : ('image' as const),
+    thumbnailUrl: isVideoWorkspace ? `/api/media/${output.id}` : undefined,
+    type: isVideoWorkspace ? ('video' as const) : ('image' as const),
     url: `/api/media/${output.id}`,
   }
 }

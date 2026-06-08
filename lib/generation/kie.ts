@@ -50,7 +50,9 @@ import type {
   GenerationVariantIndex,
   ImageModelOption,
   KieAnalysisModel,
+  MotionControlPreset,
   NamedAssetKey,
+  MotionControlResolution,
   OutputQuality,
   ProductCategory,
   RunSubmissionResponse,
@@ -108,6 +110,13 @@ export type ParsedGenerationRequest = {
     summary: string
   } | null
   imageModel: ImageModelOption
+  motionControl?: {
+    additionalInstructions: string
+    preset: MotionControlPreset
+    resolution: MotionControlResolution
+  } | null
+  motionControlDurationSeconds?: number | null
+  motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
@@ -229,6 +238,70 @@ function readEnum<T extends string>(
   }
 
   return value as T
+}
+
+function readOptionalPositiveNumber(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key)
+
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Invalid value for ${key}.`,
+      status: 400,
+    })
+  }
+
+  return parsed
+}
+
+function isMimeTypeOfKind(mimeType: string, kind: 'image' | 'video') {
+  return mimeType.startsWith(`${kind}/`)
+}
+
+function assertUploadedFileKind(
+  file: File,
+  kind: 'image' | 'video',
+  label: string,
+) {
+  if (isMimeTypeOfKind(file.type, kind)) {
+    return
+  }
+
+  throw new GenerationRequestError({
+    code: 'invalid_input',
+    message:
+      kind === 'image'
+        ? `${label} must be an image file.`
+        : `${label} must be a video file.`,
+    status: 400,
+  })
+}
+
+function getExpectedUploadKind(fieldName: string): 'image' | 'video' | null {
+  if (fieldName === 'asset_motionControlReferenceImage') {
+    return 'image'
+  }
+
+  if (fieldName === 'asset_motionControlMotionVideo') {
+    return 'video'
+  }
+
+  if (
+    fieldName.startsWith('asset_') ||
+    fieldName.startsWith('product_') ||
+    fieldName.startsWith('video_reference_') ||
+    fieldName.startsWith('carousel_')
+  ) {
+    return 'image'
+  }
+
+  return null
 }
 
 function safeJsonParse(value: string) {
@@ -1141,6 +1214,24 @@ function buildVideoPayload(input: {
   })
 }
 
+export function buildMotionControlPayload(input: {
+  motionVideoUrl: string
+  prompt: string
+  referenceImageUrl: string
+  resolution: MotionControlResolution
+}) {
+  return {
+    model: 'kling-3.0/motion-control',
+    input: {
+      character_orientation: 'video',
+      input_urls: [input.referenceImageUrl],
+      mode: input.resolution,
+      prompt: input.prompt,
+      video_urls: [input.motionVideoUrl],
+    },
+  }
+}
+
 export async function uploadFileToKie(
   apiKey: string,
   file: File,
@@ -1308,7 +1399,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const experience =
     readOptionalEnum(formData, 'experience', ['manual', 'guided'] as const) ??
     'manual'
-  const workspace = readEnum(formData, 'workspace', ['image', 'video', 'carousel'] as const)
+  const workspace = readEnum(formData, 'workspace', ['image', 'video', 'carousel', 'motion-control'] as const)
   const requestedBatchSize = Number.parseInt(readString(formData, 'batchSize'), 10)
 
   if (![1, 2, 3, 4].includes(requestedBatchSize)) {
@@ -1319,7 +1410,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     })
   }
 
-  const batchSize = workspace === 'video' ? 1 : requestedBatchSize
+  const batchSize = workspace === 'video' || workspace === 'motion-control' ? 1 : requestedBatchSize
 
   const imageModel =
     workspace === 'image'
@@ -1333,6 +1424,8 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
           'seedance-2',
           'kling-3.0',
         ] as const)
+      : workspace === 'motion-control'
+        ? 'kling-3.0'
       : 'veo-3.1'
   const outputQuality = readEnum(
     formData,
@@ -1340,13 +1433,34 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ['720p', '1080p', '4k'] as const,
   )
 
-  if (workspace === 'video' && outputQuality === '4k') {
+  if ((workspace === 'video' || workspace === 'motion-control') && outputQuality === '4k') {
     throw new GenerationRequestError({
       code: 'invalid_input',
       message: 'Video output quality supports only 720p or 1080p.',
       status: 400,
     })
   }
+  const motionControlResolution =
+    workspace === 'motion-control'
+      ? readEnum(formData, 'motionControlResolution', ['720p', '1080p'] as const)
+      : null
+  const motionControlDurationSeconds =
+    workspace === 'motion-control'
+      ? readOptionalPositiveNumber(formData, 'motionControlDurationSeconds')
+      : null
+  const motionControl =
+    workspace === 'motion-control'
+      ? {
+          additionalInstructions:
+            readOptionalString(formData, 'motionControlAdditionalInstructions') ?? '',
+          preset: readEnum(
+            formData,
+            'motionControlPreset',
+            ['character', 'product', 'character-product'] as const,
+          ),
+          resolution: motionControlResolution ?? '1080p',
+        }
+      : null
   const manifestValue =
     workspace === 'carousel'
       ? (readOptionalString(formData, 'assetManifest') ?? '[]')
@@ -1473,6 +1587,12 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       })
     }
 
+    const expectedUploadKind = getExpectedUploadKind(fieldName)
+
+    if (expectedUploadKind) {
+      assertUploadedFileKind(file, expectedUploadKind, label)
+    }
+
     const parsedKey =
       typeof record.key === 'string' && namedAssetKeys.includes(record.key as NamedAssetKey)
         ? (record.key as NamedAssetKey)
@@ -1497,6 +1617,22 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     videoModel,
     requestedVideoAudio,
   )
+  const motionControlReferenceImage = formData.get('asset_motionControlReferenceImage')
+  if (motionControlReferenceImage instanceof File) {
+    assertUploadedFileKind(
+      motionControlReferenceImage,
+      'image',
+      'Motion Control reference image',
+    )
+  }
+  const motionControlMotionVideo = formData.get('asset_motionControlMotionVideo')
+  if (motionControlMotionVideo instanceof File) {
+    assertUploadedFileKind(
+      motionControlMotionVideo,
+      'video',
+      'Motion Control motion video',
+    )
+  }
   const carouselDraft = workspace === 'carousel' ? parseCarouselDraft(formData) : null
 
   return {
@@ -1537,6 +1673,9 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     ),
     guided,
     imageModel,
+    motionControl,
+    motionControlDurationSeconds,
+    motionControlResolution,
     outputQuality,
     productCategory: readEnum(
       formData,
@@ -1642,6 +1781,7 @@ export function resolveSubmission(input: {
   creativeStyle: CreativeStyle
   imageGrid?: boolean
   imageModel: ImageModelOption
+  motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
   prompt: string
@@ -1651,6 +1791,35 @@ export function resolveSubmission(input: {
   videoModel: VideoModelOption
   workspace: WorkspaceTab
 }) {
+  if (input.workspace === 'motion-control') {
+    const uploadedReferenceImage = input.assets.find(
+      (asset) => asset.fieldName === 'asset_motionControlReferenceImage',
+    )
+    const uploadedMotionVideo = input.assets.find(
+      (asset) => asset.fieldName === 'asset_motionControlMotionVideo',
+    )
+
+    if (!uploadedReferenceImage || !uploadedMotionVideo || !input.motionControlResolution) {
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Motion Control submission is missing required inputs.',
+        status: 400,
+      })
+    }
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'kling-3.0/motion-control',
+      provider: 'market' as const,
+      requestBody: buildMotionControlPayload({
+        motionVideoUrl: uploadedMotionVideo.remoteUrl,
+        prompt: input.prompt,
+        referenceImageUrl: uploadedReferenceImage.remoteUrl,
+        resolution: input.motionControlResolution,
+      }),
+    }
+  }
+
   return input.workspace === 'image'
     ? buildMarketImagePayload({
         assets: input.assets,
@@ -1808,6 +1977,7 @@ export async function submitGenerationRequest(
     productCategory: input.productCategory,
     prompt: resolvedPromptSet[0]?.prompt ?? basePrompt,
     subjectMode: resolvedPromptSet[0]?.subjectMode ?? input.subjectMode,
+    motionControlResolution: input.motionControlResolution,
     videoDuration: input.videoDuration,
     videoAudio: input.videoAudio,
     videoModel: input.videoModel,
@@ -1826,8 +1996,9 @@ export async function submitGenerationRequest(
         productCategory: input.productCategory,
         prompt,
         subjectMode,
-        videoAudio: input.videoAudio,
+        motionControlResolution: input.motionControlResolution,
         videoDuration: input.videoDuration,
+        videoAudio: input.videoAudio,
         videoModel: input.videoModel,
         workspace: input.workspace,
       })
@@ -1924,7 +2095,7 @@ function normalizeResult(
   }
 
   return {
-    type: workspace === 'video' ? 'video' : 'image',
+    type: workspace === 'video' || workspace === 'motion-control' ? 'video' : 'image',
     url: primaryUrl,
     taskId,
     model,

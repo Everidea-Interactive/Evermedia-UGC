@@ -19,6 +19,8 @@ import type {
   GenerationVariantStatus,
   ImageModelOption,
   KieAnalysisModel,
+  MotionControlPreset,
+  MotionControlResolution,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -50,6 +52,11 @@ export type GenerationConfigSnapshot = {
   figureArtDirection: FigureArtDirection
   guided: GuidedGenerationConfig | null
   imageModel: ImageModelOption
+  motionControl?: {
+    additionalInstructions: string
+    preset: MotionControlPreset
+    resolution: MotionControlResolution
+  }
   outputQuality: OutputQuality
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment

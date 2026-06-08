@@ -10,6 +10,7 @@ import type {
   GenerationSnapshot,
   GuidedAnalysisPlan,
   KieAnalysisModel,
+  MotionControlDraft,
   NamedAssetKey,
   SubmittedAssetDescriptor,
   VideoDuration,
@@ -103,11 +104,24 @@ const imageWorkspaceNamedAssets: NamedAssetKey[] = [
   'brandLogo',
 ]
 
-function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
-  return workspace === 'video' ? [] : imageWorkspaceNamedAssets
+type ManualGenerationSnapshot = GenerationSnapshot & {
+  carouselDraft?: CarouselDraft
+  motionControl?: MotionControlDraft
 }
 
-function getPrimaryReference(snapshot: GenerationSnapshot) {
+function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
+  return workspace === 'video' || workspace === 'motion-control'
+    ? []
+    : imageWorkspaceNamedAssets
+}
+
+function getPrimaryReference(snapshot: ManualGenerationSnapshot) {
+  if (snapshot.activeTab === 'motion-control') {
+    return snapshot.motionControl?.referenceImage.file
+      ? snapshot.motionControl.referenceImage
+      : null
+  }
+
   if (snapshot.activeTab === 'video') {
     if (
       supportsVideoFirstLastFramePair(snapshot.videoModel) &&
@@ -137,7 +151,43 @@ export function getAssetPreviewUrl(slot: AssetSlot) {
   return slot.previewUrl
 }
 
-export function getGenerationValidation(snapshot: GenerationSnapshot) {
+function isMotionControlReady(input: MotionControlDraft | undefined) {
+  return Boolean(input?.referenceImage.file && input.motionVideo.file)
+}
+
+function isMimeTypeOfKind(mimeType: string, kind: 'image' | 'video') {
+  return mimeType.startsWith(`${kind}/`)
+}
+
+function assertSlotMediaKind(
+  slot: AssetSlot,
+  kind: 'image' | 'video',
+  message: string,
+) {
+  if (!slot.file) {
+    return
+  }
+
+  const mimeType = slot.mimeType ?? slot.file.type
+
+  if (!isMimeTypeOfKind(mimeType, kind)) {
+    throw new Error(message)
+  }
+}
+
+export function getGenerationValidation(snapshot: ManualGenerationSnapshot) {
+  if (snapshot.activeTab === 'motion-control') {
+    return isMotionControlReady(snapshot.motionControl)
+      ? {
+          canGenerate: true,
+          reason: null,
+        }
+      : {
+          canGenerate: false,
+          reason: 'Add reference image and motion video first.',
+        }
+  }
+
   if (snapshot.activeTab === 'carousel') {
     const carouselDraft = (snapshot as GenerationSnapshot & {
       carouselDraft?: CarouselDraft
@@ -247,7 +297,7 @@ function serializeCarouselDraft(draft: CarouselDraft) {
 }
 
 export function buildGenerationFormData(
-  snapshot: GenerationSnapshot & { carouselDraft?: CarouselDraft },
+  snapshot: ManualGenerationSnapshot,
 ) {
   const formData = new FormData()
   const assetManifest: SubmittedAssetDescriptor[] = []
@@ -319,6 +369,70 @@ export function buildGenerationFormData(
     return { assetManifest: [], formData }
   }
 
+  if (snapshot.activeTab === 'motion-control') {
+    const motionControl = snapshot.motionControl
+
+    if (!isMotionControlReady(motionControl)) {
+      throw new Error('Motion Control workspace requires a reference image and motion video.')
+    }
+
+    if (!motionControl) {
+      throw new Error('Motion Control workspace state is missing.')
+    }
+
+    assertSlotMediaKind(
+      motionControl.referenceImage,
+      'image',
+      'Motion Control reference image must be an image file.',
+    )
+    assertSlotMediaKind(
+      motionControl.motionVideo,
+      'video',
+      'Motion Control motion video must be a video file.',
+    )
+
+    formData.append('motionControlPreset', motionControl.preset)
+    formData.append(
+      'motionControlAdditionalInstructions',
+      motionControl.additionalInstructions,
+    )
+    formData.append('motionControlResolution', motionControl.resolution)
+    if (
+      typeof motionControl.motionVideo.durationSeconds === 'number' &&
+      Number.isFinite(motionControl.motionVideo.durationSeconds) &&
+      motionControl.motionVideo.durationSeconds > 0
+    ) {
+      formData.append(
+        'motionControlDurationSeconds',
+        String(motionControl.motionVideo.durationSeconds),
+      )
+    }
+    formData.append(
+      'asset_motionControlReferenceImage',
+      motionControl.referenceImage.file!,
+    )
+    assetManifest.push({
+      fieldName: 'asset_motionControlReferenceImage',
+      kind: 'named',
+      label: motionControl.referenceImage.label,
+      order: 0,
+    })
+    formData.append(
+      'asset_motionControlMotionVideo',
+      motionControl.motionVideo.file!,
+    )
+    assetManifest.push({
+      fieldName: 'asset_motionControlMotionVideo',
+      kind: 'product',
+      label: motionControl.motionVideo.label,
+      order: 1,
+      productId: motionControl.motionVideo.id,
+    })
+    formData.append('assetManifest', JSON.stringify(assetManifest))
+
+    return { assetManifest, formData }
+  }
+
   if (snapshot.activeTab === 'video') {
     const firstFrame = snapshot.assets.firstFrame
     if (
@@ -342,6 +456,12 @@ export function buildGenerationFormData(
       if (!reference.file) {
         return
       }
+
+      assertSlotMediaKind(
+        reference,
+        'image',
+        `${reference.label} must be an image file.`,
+      )
 
       const fieldName = `video_reference_${index + 1}`
       assetManifest.push({
@@ -379,6 +499,8 @@ export function buildGenerationFormData(
         continue
       }
 
+      assertSlotMediaKind(slot, 'image', `${slot.label} must be an image file.`)
+
       const fieldName = `asset_${key}`
       assetManifest.push({
         fieldName,
@@ -395,6 +517,8 @@ export function buildGenerationFormData(
         return
       }
 
+      assertSlotMediaKind(product, 'image', `${product.label} must be an image file.`)
+
       const fieldName = `product_${product.id}`
       assetManifest.push({
         fieldName,
@@ -410,6 +534,16 @@ export function buildGenerationFormData(
   formData.append('assetManifest', JSON.stringify(assetManifest))
 
   return { assetManifest, formData }
+}
+
+export function buildManualGenerationFormData(snapshot: ManualGenerationSnapshot) {
+  const { formData } = buildGenerationFormData(snapshot)
+  const primaryInputLabel =
+    snapshot.activeTab === 'motion-control'
+      ? snapshot.motionControl?.referenceImage.label ?? null
+      : getPrimaryReference(snapshot)?.label ?? null
+
+  return { formData, primaryInputLabel }
 }
 
 export function buildGuidedAnalysisFormData(input: {

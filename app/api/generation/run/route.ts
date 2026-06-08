@@ -18,6 +18,7 @@ import {
 import type {
   AssetSlot,
   GenerationSnapshot,
+  MotionControlDraft,
   NamedAssetSlots,
 } from '@/lib/generation/types'
 import {
@@ -106,6 +107,7 @@ function createEstimateSnapshot(
   | 'videoModel'
 > & {
   carouselDraft?: ParsedGenerationRequest['carouselDraft']
+  motionControl?: MotionControlDraft
 } {
   const assets = createEmptyNamedAssetSlots()
   const products: AssetSlot[] = []
@@ -127,6 +129,14 @@ function createEstimateSnapshot(
     }
   }
 
+  const motionControlMotionVideo =
+    input.workspace === 'motion-control'
+      ? input.assetDescriptors.find(
+          (assetDescriptor) =>
+            assetDescriptor.fieldName === 'asset_motionControlMotionVideo',
+        ) ?? null
+      : null
+
   return {
     activeTab: input.workspace,
     assets,
@@ -140,6 +150,30 @@ function createEstimateSnapshot(
     videoDuration: input.videoDuration,
     videoModel: input.videoModel,
     carouselDraft: input.carouselDraft,
+    motionControl:
+      input.workspace === 'motion-control' && input.motionControl
+        ? {
+            additionalInstructions: input.motionControl.additionalInstructions,
+            motionVideo: {
+              ...createEstimateSlot({
+                file: motionControlMotionVideo?.file ?? null,
+                id: 'motion-control-motion-video',
+                label: 'Motion Video',
+              }),
+              durationSeconds: input.motionControlDurationSeconds ?? null,
+            },
+            preset: input.motionControl.preset,
+            referenceImage: createEstimateSlot({
+              file: input.assetDescriptors.find(
+                (assetDescriptor) =>
+                  assetDescriptor.fieldName === 'asset_motionControlReferenceImage',
+              )?.file ?? null,
+              id: 'motion-control-reference-image',
+              label: 'Reference Image',
+            }),
+            resolution: input.motionControl.resolution,
+          }
+        : undefined,
   }
 }
 
@@ -174,6 +208,13 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
         }
       : null,
     imageModel: input.imageModel,
+    motionControl: input.motionControl
+      ? {
+          additionalInstructions: input.motionControl.additionalInstructions,
+          preset: input.motionControl.preset,
+          resolution: input.motionControl.resolution,
+        }
+      : undefined,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
     shotEnvironment: input.shotEnvironment,

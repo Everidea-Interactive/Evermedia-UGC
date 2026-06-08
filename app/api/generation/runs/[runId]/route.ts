@@ -17,7 +17,7 @@ import type { WorkspaceTab } from '@/lib/generation/types'
 export const runtime = 'nodejs'
 
 function getResultFileName(taskId: string, workspace: WorkspaceTab) {
-  return `${taskId}.${workspace === 'video' ? 'mp4' : 'png'}`
+  return `${taskId}.${workspace === 'video' || workspace === 'motion-control' ? 'mp4' : 'png'}`
 }
 
 function shouldSplitIntoGridVariants(

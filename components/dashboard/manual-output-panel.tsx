@@ -7,7 +7,8 @@ import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 
 import {
-  ImagePreviewTrigger,
+  MediaPreviewTrigger,
+  VideoThumbnailOverlay,
   insetPanelClassName,
   panelClassName,
   rowClassName,
@@ -283,13 +284,18 @@ function OutputGalleryCard({
       src={item.url}
     />
   ) : (
-    <video
-      className="h-full w-full rounded-md bg-black object-contain"
-      controls
-      playsInline
-      preload="metadata"
-      src={item.url}
-    />
+    <div className="relative h-full w-full">
+      <video
+        aria-hidden="true"
+        className="pointer-events-none h-full w-full rounded-md bg-black object-contain"
+        muted
+        playsInline
+        preload="metadata"
+        src={item.url}
+        tabIndex={-1}
+      />
+      <VideoThumbnailOverlay />
+    </div>
   )
 
   return (
@@ -300,18 +306,15 @@ function OutputGalleryCard({
         </p>
       </div>
       <div className="aspect-square overflow-hidden rounded-md bg-secondary/20">
-        {item.inspectable ? (
-          <ImagePreviewTrigger
-            alt={item.alt}
-            className="h-full"
-            label={item.label}
-            src={item.url}
-          >
-            {media}
-          </ImagePreviewTrigger>
-        ) : (
-          media
-        )}
+        <MediaPreviewTrigger
+          alt={item.alt}
+          className="h-full"
+          label={item.label}
+          mimeType={item.type === 'video' ? 'video/mp4' : 'image/png'}
+          src={item.url}
+        >
+          {media}
+        </MediaPreviewTrigger>
       </div>
       {canForwardToVideo ? (
         <div className="mt-2 flex flex-col gap-2 px-1">

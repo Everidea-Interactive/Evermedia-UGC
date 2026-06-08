@@ -14,6 +14,8 @@ export type PreviewTransform = {
   scale: number
 }
 
+export type PreviewMediaKind = 'image' | 'video'
+
 export const MIN_PREVIEW_SCALE = 1
 export const MAX_PREVIEW_SCALE = 4
 export const DOUBLE_TAP_PREVIEW_SCALE = 2
@@ -48,6 +50,24 @@ export function createInitialPreviewTransform(): PreviewTransform {
 
 export function isImageMimeType(mimeType: string | null | undefined) {
   return Boolean(mimeType?.startsWith('image/'))
+}
+
+export function isVideoMimeType(mimeType: string | null | undefined) {
+  return Boolean(mimeType?.startsWith('video/'))
+}
+
+export function getMediaKindFromMimeType(
+  mimeType: string | null | undefined,
+): PreviewMediaKind | null {
+  if (isImageMimeType(mimeType)) {
+    return 'image'
+  }
+
+  if (isVideoMimeType(mimeType)) {
+    return 'video'
+  }
+
+  return null
 }
 
 export function clampPreviewScale(scale: number) {

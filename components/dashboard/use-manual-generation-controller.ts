@@ -12,6 +12,7 @@ import {
   getGenerationCostEstimate,
   getGenerationCreditValidation,
 } from '@/lib/generation/pricing'
+import { readVideoDurationSeconds } from '@/lib/generation/video-metadata'
 import type {
   AssetSlot,
   BatchSize,
@@ -27,6 +28,7 @@ import type {
   ImageModelOption,
   KiePricingResponse,
   KieStatusResponse,
+  MotionControlDraft,
   NamedAssetSlots,
   OutputQuality,
   PromptEnhancement,
@@ -54,6 +56,7 @@ function createGenerationSnapshot(input: {
   figureArtDirection: FigureArtDirection
   imageModel: ImageModelOption
   locale: GenerationLocale
+  motionControl: MotionControlDraft
   outputQuality: OutputQuality
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
@@ -65,15 +68,78 @@ function createGenerationSnapshot(input: {
   videoAudio: VideoAudio
   videoDuration: VideoDuration
   videoModel: VideoModelOption
-}): GenerationSnapshot & { carouselDraft: CarouselDraft } {
+}): GenerationSnapshot & {
+  carouselDraft: CarouselDraft
+  motionControl: MotionControlDraft
+} {
   return {
     ...input,
     carouselDraft: input.carouselDraft,
+    motionControl: input.motionControl,
   }
 }
 
 function hasActiveGeneration(run: GenerationRun) {
   return run.status === 'rendering'
+}
+
+function canResolveMotionControlDurationOnSubmit(
+  snapshot: ReturnType<typeof createGenerationSnapshot>,
+  creditValidation: ReturnType<typeof getGenerationCreditValidation>,
+) {
+  return (
+    snapshot.activeTab === 'motion-control' &&
+    creditValidation.reason === 'Checking motion video duration.' &&
+    Boolean(
+      snapshot.motionControl.referenceImage.file &&
+        snapshot.motionControl.motionVideo.file,
+    )
+  )
+}
+
+async function hydrateMotionControlDurationIfMissing(
+  snapshot: ReturnType<typeof createGenerationSnapshot>,
+  setMotionControlMotionVideoDuration: (value: number | null) => void,
+) {
+  if (snapshot.activeTab !== 'motion-control') {
+    return snapshot
+  }
+
+  const motionVideoFile = snapshot.motionControl.motionVideo.file
+  const durationSeconds = snapshot.motionControl.motionVideo.durationSeconds
+
+  if (!motionVideoFile) {
+    return snapshot
+  }
+
+  let nextDurationSeconds: number | null = null
+
+  try {
+    nextDurationSeconds = await readVideoDurationSeconds(motionVideoFile)
+  } catch {
+    if (
+      typeof durationSeconds === 'number' &&
+      Number.isFinite(durationSeconds) &&
+      durationSeconds > 0
+    ) {
+      nextDurationSeconds = durationSeconds
+    } else {
+      throw new Error('Unable to read motion video duration metadata.')
+    }
+  }
+
+  setMotionControlMotionVideoDuration(nextDurationSeconds)
+
+  return {
+    ...snapshot,
+    motionControl: {
+      ...snapshot.motionControl,
+      motionVideo: {
+        ...snapshot.motionControl.motionVideo,
+        durationSeconds: nextDurationSeconds,
+      },
+    },
+  }
 }
 
 export function useManualGenerationController(input: {
@@ -102,6 +168,7 @@ export function useManualGenerationController(input: {
     (state) => state.hydrateGenerationRun,
   )
   const imageModel = useGenerationStore((state) => state.imageModel)
+  const motionControl = useGenerationStore((state) => state.motionControl)
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const promptEnhancement = useGenerationStore(
     (state) => state.promptEnhancement,
@@ -135,6 +202,7 @@ export function useManualGenerationController(input: {
         figureArtDirection,
         imageModel,
         locale,
+        motionControl,
         outputQuality,
         promptEnhancement,
         productCategory,
@@ -159,6 +227,7 @@ export function useManualGenerationController(input: {
       figureArtDirection,
       imageModel,
       locale,
+      motionControl,
       outputQuality,
       promptEnhancement,
       productCategory,
@@ -199,12 +268,23 @@ export function useManualGenerationController(input: {
       pricingError,
     ],
   )
+  const motionControlCanResolveDurationOnSubmit = useMemo(
+    () =>
+      canResolveMotionControlDurationOnSubmit(
+        generationSnapshot,
+        creditValidation,
+      ),
+    [creditValidation, generationSnapshot],
+  )
 
   const isBusy = isSubmittingGeneration || hasActiveGeneration(generationRun)
   const disabledReason = isBusy
     ? 'A batched render is already in progress. Wait for the current run to finish before starting another batch.'
     : enabled
-      ? validation.reason ?? creditValidation.reason
+      ? validation.reason ??
+        (motionControlCanResolveDurationOnSubmit
+          ? null
+          : creditValidation.reason)
       : 'Manual generation is disabled while guided mode is active.'
 
   useEffect(() => {
@@ -291,6 +371,7 @@ export function useManualGenerationController(input: {
       figureArtDirection: state.figureArtDirection,
       imageModel: state.imageModel,
       locale,
+      motionControl: state.motionControl,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
@@ -310,8 +391,13 @@ export function useManualGenerationController(input: {
       return
     }
 
-    const currentEstimate = getGenerationCostEstimate(
+    const hydratedSnapshot = await hydrateMotionControlDurationIfMissing(
       currentSnapshot,
+      state.setMotionControlMotionVideoDuration,
+    )
+
+    const currentEstimate = getGenerationCostEstimate(
+      hydratedSnapshot,
       kiePricing?.matrix ?? null,
     )
     const currentCreditValidation = getGenerationCreditValidation({
@@ -329,7 +415,7 @@ export function useManualGenerationController(input: {
     }
 
     try {
-      const { formData } = buildGenerationFormData(currentSnapshot)
+      const { formData } = buildGenerationFormData(hydratedSnapshot)
 
       resetGenerationRun()
       setIsSubmittingGeneration(true)
@@ -372,6 +458,7 @@ export function useManualGenerationController(input: {
       figureArtDirection: state.figureArtDirection,
       imageModel: state.imageModel,
       locale,
+      motionControl: state.motionControl,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
@@ -389,7 +476,8 @@ export function useManualGenerationController(input: {
   return {
     canGenerate:
       enabled && !isSubmittingGeneration
-        ? validation.canGenerate && creditValidation.canGenerate
+        ? validation.canGenerate &&
+          (creditValidation.canGenerate || motionControlCanResolveDurationOnSubmit)
         : false,
     createSnapshot,
     disabledReason,

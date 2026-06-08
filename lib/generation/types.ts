@@ -1,4 +1,21 @@
-export type WorkspaceTab = 'image' | 'video' | 'carousel'
+export type WorkspaceTab = 'image' | 'video' | 'carousel' | 'motion-control'
+
+export type MediaKind = 'image' | 'video'
+
+export type MotionControlPreset =
+  | 'character'
+  | 'product'
+  | 'character-product'
+
+export type MotionControlResolution = '720p' | '1080p'
+
+export type MotionControlDraft = {
+  additionalInstructions: string
+  motionVideo: AssetSlot
+  preset: MotionControlPreset
+  referenceImage: AssetSlot
+  resolution: MotionControlResolution
+}
 
 export type CarouselBaseTemplateMode = 'ai' | 'manual'
 
@@ -135,6 +152,7 @@ export type NamedAssetKey =
   | 'endFrame'
 
 export type AssetSlot = {
+  durationSeconds?: number | null
   error: string | null
   file: File | null
   id: string
@@ -376,6 +394,7 @@ export type KiePricingMatrix = {
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }
+    'kling-3.0-motion-control': Record<VideoResolution, GenerationCostRate>
     'veo-3.1': {
       promptOnly: Record<VideoResolution, GenerationCostRate>
       withReference: Record<VideoResolution, GenerationCostRate>

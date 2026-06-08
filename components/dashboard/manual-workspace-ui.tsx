@@ -2,12 +2,16 @@
 
 import { type ChangeEvent, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { LoaderCircle, Upload, X } from 'lucide-react'
+import { LoaderCircle, Play, Upload, X } from 'lucide-react'
 
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
-import type { AssetSlot, GenerationCostEstimate } from '@/lib/generation/types'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import type {
+  AssetSlot,
+  GenerationCostEstimate,
+  MediaKind,
+} from '@/lib/generation/types'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import { useUsdToIdrRate } from '@/lib/generation/use-usd-idr-rate'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +35,14 @@ export const presetSubgroupClassName =
   'rounded-lg border border-border/70 bg-secondary/35 p-3'
 export const assetAccept = 'image/*,video/*'
 
+export function getAcceptForMediaKind(mediaKind: MediaKind) {
+  return `${mediaKind}/*`
+}
+
+export function getEmptyStateCopy(mediaKind: MediaKind) {
+  return mediaKind === 'image' ? 'Upload image' : 'Upload video'
+}
+
 function handleFileInput(
   event: ChangeEvent<HTMLInputElement>,
   onSelect: (file: File | null) => void,
@@ -47,6 +59,25 @@ function getReferenceCardErrorLabel(slot: AssetSlot) {
   }
 
   return 'Error'
+}
+
+function getReferenceCardStatusLabel(slot: AssetSlot) {
+  const errorLabel = getReferenceCardErrorLabel(slot)
+
+  if (errorLabel) {
+    return errorLabel
+  }
+
+  if (
+    slot.mimeType?.startsWith('video/') &&
+    typeof slot.durationSeconds === 'number' &&
+    Number.isFinite(slot.durationSeconds) &&
+    slot.durationSeconds > 0
+  ) {
+    return `${slot.durationSeconds.toFixed(1)}s motion video`
+  }
+
+  return slot.previewUrl ? 'Ready' : 'Not loaded'
 }
 
 function formatEstimatedCreditsValue(estimate: GenerationCostEstimate) {
@@ -77,21 +108,23 @@ function formatEstimatedUsdValue(
   }).format(idr)
 }
 
-export function ImagePreviewTrigger({
+export function MediaPreviewTrigger({
   alt,
   children,
   className,
   label,
+  mimeType,
   src,
 }: {
   alt: string
   children: ReactNode
   className?: string
   label: string
+  mimeType?: string | null
   src: string
 }) {
   return (
-    <ImagePreviewDialog alt={alt} label={label} src={src}>
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
       <button
         className={cn(
           'block h-full w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
@@ -101,7 +134,28 @@ export function ImagePreviewTrigger({
       >
         {children}
       </button>
-    </ImagePreviewDialog>
+    </MediaPreviewDialog>
+  )
+}
+
+export function VideoThumbnailOverlay({
+  className,
+}: {
+  className?: string
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        'pointer-events-none absolute inset-0 flex items-center justify-center',
+        className,
+      )}
+      data-testid="video-thumbnail-overlay"
+    >
+      <div className="flex size-14 items-center justify-center rounded-full border border-white/15 bg-black/58 text-white shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-sm">
+        <Play className="ml-0.5 size-6 fill-current" suppressHydrationWarning />
+      </div>
+    </div>
   )
 }
 
@@ -181,7 +235,9 @@ export function ReferenceCardGroup({
 }
 
 export function ReferenceCard({
+  accept,
   className,
+  emptyStateLabel,
   icon: Icon,
   inputId,
   onClear,
@@ -190,7 +246,9 @@ export function ReferenceCard({
   previewMediaClassName,
   slot,
 }: {
+  accept: string
   className?: string
+  emptyStateLabel: string
   icon: LucideIcon
   inputId: string
   onClear: () => void
@@ -201,7 +259,6 @@ export function ReferenceCard({
 }) {
   const previewSrc = slot.previewUrl
   const hasMedia = Boolean(previewSrc)
-  const errorLabel = getReferenceCardErrorLabel(slot)
   const showFooterMeta = hasMedia || Boolean(slot.error) || slot.uploadStatus === 'staged'
 
   return (
@@ -215,7 +272,7 @@ export function ReferenceCard({
       )}
     >
       <input
-        accept={assetAccept}
+        accept={accept}
         className="sr-only"
         id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}
@@ -223,13 +280,14 @@ export function ReferenceCard({
       />
 
       {previewSrc ? (
-        slot.mimeType && isImageMimeType(slot.mimeType) ? (
-          <ImagePreviewTrigger
-            alt={`${slot.label} reference preview`}
-            className="absolute inset-0 rounded-[1rem]"
-            label={slot.label}
-            src={previewSrc}
-          >
+        <MediaPreviewTrigger
+          alt={`${slot.label} reference preview`}
+          className="absolute inset-0 rounded-[1rem]"
+          label={slot.label}
+          mimeType={slot.mimeType}
+          src={previewSrc}
+        >
+          {slot.mimeType && isImageMimeType(slot.mimeType) ? (
             <div className={cn('absolute inset-0', previewContainerClassName)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -238,20 +296,25 @@ export function ReferenceCard({
                 src={previewSrc}
               />
             </div>
-          </ImagePreviewTrigger>
-        ) : (
-          <video
-            className={cn(
-              'absolute inset-0 h-full w-full object-cover',
-              previewContainerClassName,
-              previewMediaClassName,
-            )}
-            controls
-            playsInline
-            preload="metadata"
-            src={previewSrc}
-          />
-        )
+          ) : (
+            <>
+              <video
+                aria-hidden="true"
+                className={cn(
+                  'pointer-events-none absolute inset-0 h-full w-full object-cover',
+                  previewContainerClassName,
+                  previewMediaClassName,
+                )}
+                muted
+                playsInline
+                preload="metadata"
+                src={previewSrc}
+                tabIndex={-1}
+              />
+              <VideoThumbnailOverlay />
+            </>
+          )}
+        </MediaPreviewTrigger>
       ) : (
         <Button
           className="absolute inset-0 flex h-auto w-auto flex-col items-center justify-center gap-3 px-4 text-center"
@@ -266,7 +329,7 @@ export function ReferenceCard({
             <p className="text-sm font-semibold tracking-tight text-foreground">
               {slot.label}
             </p>
-            <p className="text-xs text-muted-foreground">Upload image or video</p>
+            <p className="text-xs text-muted-foreground">{emptyStateLabel}</p>
           </div>
           <div className="reference-upload-chip inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Upload className="size-3.5" suppressHydrationWarning />
@@ -283,7 +346,7 @@ export function ReferenceCard({
                 {slot.label}
               </p>
               <p className="mt-1 truncate text-xs text-muted-foreground">
-                {errorLabel ?? (hasMedia ? 'Ready' : 'Not loaded')}
+                {getReferenceCardStatusLabel(slot)}
               </p>
             </div>
             <div className="flex items-center gap-1">

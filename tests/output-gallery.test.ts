@@ -64,7 +64,7 @@ describe('output gallery items', () => {
     ])
   })
 
-  it('marks only image outputs as inspectable', () => {
+  it('marks image and video outputs as inspectable media', () => {
     const items = getOutputGalleryItems(
       createRun([
         createVariant({ index: 1, variantId: 'variant-1' }),
@@ -88,7 +88,7 @@ describe('output gallery items', () => {
         type: 'image',
       }),
       expect.objectContaining({
-        inspectable: false,
+        inspectable: true,
         label: 'Variation 2',
         type: 'video',
       }),

@@ -4,13 +4,15 @@ import {
   clampPreviewScale,
   clampPreviewTransform,
   createInitialPreviewTransform,
+  getMediaKindFromMimeType,
   getContentPointAtViewportPoint,
   getPreviewPanBounds,
   isImageMimeType,
+  isVideoMimeType,
   zoomPreviewAtPoint,
-} from '../lib/media/image-preview'
+} from '../lib/media/media-preview'
 
-describe('image preview helpers', () => {
+describe('media preview helpers', () => {
   const container = {
     height: 800,
     width: 1000,
@@ -104,9 +106,13 @@ describe('image preview helpers', () => {
     expect(afterZoom.y).toBeCloseTo(beforeZoom.y, 6)
   })
 
-  it('detects image mime types for preview routing', () => {
+  it('detects image and video mime types for preview routing', () => {
     expect(isImageMimeType('image/png')).toBe(true)
     expect(isImageMimeType('video/mp4')).toBe(false)
-    expect(isImageMimeType(null)).toBe(false)
+    expect(isVideoMimeType('video/mp4')).toBe(true)
+    expect(isVideoMimeType('image/png')).toBe(false)
+    expect(getMediaKindFromMimeType('image/webp')).toBe('image')
+    expect(getMediaKindFromMimeType('video/quicktime')).toBe('video')
+    expect(getMediaKindFromMimeType(null)).toBeNull()
   })
 })

@@ -299,5 +299,58 @@ describe('createGenerationRunState', () => {
 
     expect(createGenerationRunState(run, []).experience).toBe('guided')
   })
+
+  it('treats motion-control outputs as video results', () => {
+    const run: GenerationRunRecord = {
+      completedAt: '2026-06-08T00:00:05.000Z',
+      configSnapshot: normalizeProjectConfigSnapshot({
+        activeTab: 'motion-control',
+        experience: 'manual',
+      }),
+      createdAt: '2026-06-08T00:00:00.000Z',
+      id: 'run-motion-control',
+      model: 'kling-3.0/motion-control',
+      promptSnapshot: 'Prompt',
+      provider: 'market',
+      status: 'success',
+      userId: 'user-1',
+      variants: [
+        {
+          completedAt: '2026-06-08T00:00:05.000Z',
+          createdAt: '2026-06-08T00:00:00.000Z',
+          error: null,
+          id: 'variant-1',
+          profile: 'Variation 1',
+          prompt: 'Prompt',
+          resultAssetId: 'output-1',
+          runId: 'run-motion-control',
+          status: 'success',
+          taskId: 'task-1',
+          variantIndex: 1,
+        },
+      ],
+      workspace: 'motion-control',
+    }
+
+    const state = createGenerationRunState(run, [
+      {
+        createdAt: '2026-06-08T00:00:05.000Z',
+        fileSize: 123,
+        id: 'output-1',
+        label: 'Variation 1 Output',
+        mimeType: 'video/mp4',
+        originalName: 'task-1.mp4',
+        runId: 'run-motion-control',
+        storagePath: 'user-1/runs/run-motion-control/outputs/task-1.mp4',
+        userId: 'user-1',
+      },
+    ])
+
+    expect(state.variants[0]?.result).toMatchObject({
+      thumbnailUrl: '/api/media/output-1',
+      type: 'video',
+      url: '/api/media/output-1',
+    })
+  })
 })
 

@@ -19,17 +19,19 @@ import {
   clampPreviewTransform,
   createInitialPreviewTransform,
   getContentPointAtViewportPoint,
+  getMediaKindFromMimeType,
   getOffsetForContentPoint,
   type PreviewPoint,
   type PreviewSize,
   type PreviewTransform,
   zoomPreviewAtPoint,
-} from '@/lib/media/image-preview'
+} from '@/lib/media/media-preview'
 
-type ImagePreviewDialogProps = {
+type MediaPreviewDialogProps = {
   alt: string
   children: ReactElement
   label?: string
+  mimeType?: string | null
   src: string
 }
 
@@ -76,16 +78,21 @@ function isTap(start: PointerStart, endPoint: PreviewPoint) {
   return getDistance(start.point, endPoint) <= tapMovementThreshold
 }
 
-export function ImagePreviewDialog({
+export function MediaPreviewDialog({
   alt,
   children,
   label,
+  mimeType,
   src,
-}: ImagePreviewDialogProps) {
+}: MediaPreviewDialogProps) {
+  const mediaKind = getMediaKindFromMimeType(mimeType ?? 'image/*') ?? 'image'
   const [open, setOpen] = useState(false)
+  const [isVideoPaused, setIsVideoPaused] = useState(true)
+  const [isZoomed, setIsZoomed] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const transformLayerRef = useRef<HTMLDivElement | null>(null)
   const scaleLabelRef = useRef<HTMLSpanElement | null>(null)
   const metricsRef = useRef<ViewerMetrics | null>(null)
@@ -99,19 +106,26 @@ export function ImagePreviewDialog({
   const transformFrameRef = useRef<number | null>(null)
   const draggingRef = useRef(false)
   const gestureMovedRef = useRef(false)
+  const isTransformEnabled =
+    mediaKind === 'image' || (mediaKind === 'video' && isVideoPaused)
+  const isVideoGestureMode =
+    mediaKind === 'video' &&
+    isVideoPaused &&
+    isZoomed
 
   const measureViewer = (): ViewerMetrics | null => {
     const container = containerRef.current
-    const image = imageRef.current
+    const contentElement =
+      mediaKind === 'image' ? imageRef.current : videoRef.current
 
-    if (!container || !image) {
+    if (!container || !contentElement) {
       return null
     }
 
     const rect = container.getBoundingClientRect()
     const content = {
-      height: image.offsetHeight,
-      width: image.offsetWidth,
+      height: contentElement.offsetHeight,
+      width: contentElement.offsetWidth,
     }
 
     if (
@@ -167,6 +181,8 @@ export function ImagePreviewDialog({
       container.dataset.scale =
         nextTransform.scale > MIN_PREVIEW_SCALE + 0.001 ? 'zoomed' : 'fit'
     }
+
+    setIsZoomed(nextTransform.scale > MIN_PREVIEW_SCALE + 0.001)
 
     if (scaleLabel) {
       scaleLabel.textContent = `${Math.round(nextTransform.scale * 100)}%`
@@ -311,9 +327,19 @@ export function ImagePreviewDialog({
       cancelScheduledTransform()
       clearGestures()
       lastTapRef.current = null
+      setIsVideoPaused(true)
+      setIsZoomed(false)
     }
 
     setOpen(nextOpen)
+  }
+
+  const handleVideoPlay = () => {
+    setIsVideoPaused(false)
+  }
+
+  const handleVideoPause = () => {
+    setIsVideoPaused(true)
   }
 
   const zoomFromWheelEvent = (event: {
@@ -355,6 +381,10 @@ export function ImagePreviewDialog({
     }
 
     const handleBrowserZoomWheel = (event: WheelEvent) => {
+      if (!isTransformEnabled) {
+        return
+      }
+
       if (!event.ctrlKey) {
         return
       }
@@ -406,9 +436,13 @@ export function ImagePreviewDialog({
   // Ref-backed gesture helpers are intentionally excluded here.
   // The viewer should only resync when the dialog opens or the image source changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, src])
+  }, [isTransformEnabled, open, src])
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (!isTransformEnabled) {
+      return
+    }
+
     if (event.ctrlKey) {
       return
     }
@@ -418,6 +452,10 @@ export function ImagePreviewDialog({
   }
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTransformEnabled) {
+      return
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return
     }
@@ -468,6 +506,10 @@ export function ImagePreviewDialog({
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTransformEnabled) {
+      return
+    }
+
     if (!activePointersRef.current.has(event.pointerId)) {
       return
     }
@@ -542,6 +584,10 @@ export function ImagePreviewDialog({
   }
 
   const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTransformEnabled) {
+      return
+    }
+
     const pointerStart = pointerStartsRef.current.get(event.pointerId)
     const nextPointer = getPointFromEvent(event)
     const point = nextPointer?.point ?? pointerStart?.point
@@ -615,6 +661,10 @@ export function ImagePreviewDialog({
   }
 
   const handleDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isTransformEnabled) {
+      return
+    }
+
     const nextPointer = getPointFromEvent(event)
 
     if (!nextPointer) {
@@ -648,8 +698,9 @@ export function ImagePreviewDialog({
         >
           <Dialog.Title className="sr-only">{label ?? alt}</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Fullscreen image preview. Scroll or pinch to zoom, drag to pan, use
-            reset to return to fit view, or press Escape to close.
+            Fullscreen {mediaKind === 'image' ? 'image' : 'media'} preview.
+            Scroll or pinch to zoom, drag to pan, use reset to return to fit
+            view, or press Escape to close.
           </Dialog.Description>
 
           {label ? (
@@ -685,7 +736,15 @@ export function ImagePreviewDialog({
             onPointerUp={handlePointerEnd}
             onWheel={handleWheel}
           >
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div
+              className={
+                mediaKind === 'image'
+                  ? 'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                  : isVideoGestureMode
+                    ? 'pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                    : 'pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+              }
+            >
               <div
                 ref={transformLayerRef}
                 style={{
@@ -694,18 +753,39 @@ export function ImagePreviewDialog({
                   willChange: 'transform',
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  ref={imageRef}
-                  alt={alt}
-                  className="max-h-[calc(100vh-8.5rem)] max-w-[min(92vw,1200px)] select-none object-contain shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100vh-7rem)]"
-                  draggable={false}
-                  onLoad={() => {
-                    refreshMetrics()
-                    clampCurrentTransform()
-                  }}
-                  src={src}
-                />
+                {mediaKind === 'image' ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    ref={imageRef}
+                    alt={alt}
+                    className="max-h-[calc(100vh-8.5rem)] max-w-[min(92vw,1200px)] select-none object-contain shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100vh-7rem)]"
+                    draggable={false}
+                    onLoad={() => {
+                      refreshMetrics()
+                      clampCurrentTransform()
+                    }}
+                    src={src}
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    aria-label={alt}
+                    className={`max-h-[calc(100vh-8.5rem)] max-w-[min(92vw,1200px)] object-contain shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100vh-7rem)] ${
+                      isVideoGestureMode ? 'pointer-events-none select-none' : ''
+                    }`}
+                    controls
+                    onLoadedMetadata={() => {
+                      refreshMetrics()
+                      clampCurrentTransform()
+                    }}
+                    onPause={handleVideoPause}
+                    onPlay={handleVideoPlay}
+                    playsInline
+                    preload="metadata"
+                    role="video"
+                    src={src}
+                  />
+                )}
               </div>
             </div>
           </div>

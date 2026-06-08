@@ -16,6 +16,7 @@ import type {
   GenerationCostRate,
   GenerationSnapshot,
   KiePricingMatrix,
+  MotionControlDraft,
   VideoAudio,
   VideoResolution,
   VideoDuration,
@@ -121,6 +122,7 @@ export function buildKiePricingMatrix(input: {
     promptOnly: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
     withReference: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
   } | null
+  kling30MotionControlOverride?: Record<VideoResolution, GenerationCostRate> | null
   nanoRecords: KiePricingApiRecord[]
   seedance15Override?: {
     promptOnly: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
@@ -478,10 +480,26 @@ export function buildKiePricingMatrix(input: {
     promptOnly: {} as KiePricingMatrix['video']['seedance-2']['promptOnly'],
     withReference: {} as KiePricingMatrix['video']['seedance-2']['withReference'],
   }
+  const kling30MotionControlMatrix =
+    {} as KiePricingMatrix['video']['kling-3.0-motion-control']
   const kling30Matrix = {
     promptOnly: {} as KiePricingMatrix['video']['kling-3.0']['promptOnly'],
     withReference: {} as KiePricingMatrix['video']['kling-3.0']['withReference'],
   }
+  const kling30MotionControlLiveRates = {
+    '720p':
+      findRecordByPatterns(input.klingRecords, [
+        /\bkling 3\.0 motion control\b/,
+        /\bvideo(?:\s|-)?to(?:\s|-)?video\b/,
+        /\b720p\b/,
+      ]) ?? null,
+    '1080p':
+      findRecordByPatterns(input.klingRecords, [
+        /\bkling 3\.0 motion control\b/,
+        /\bvideo(?:\s|-)?to(?:\s|-)?video\b/,
+        /\b1080p\b/,
+      ]) ?? null,
+  } as const
 
   if (!input.seedance15Override && seedanceRatesByInput) {
     for (const duration of videoDurations) {
@@ -681,6 +699,14 @@ export function buildKiePricingMatrix(input: {
     }
   }
 
+  for (const quality of ['720p', '1080p'] as const) {
+    const liveRate = kling30MotionControlLiveRates[quality]
+
+    kling30MotionControlMatrix[quality] = liveRate
+      ? parseRate(liveRate)
+      : input.kling30MotionControlOverride?.[quality] ?? unavailableRate()
+  }
+
   return {
     image: {
       'grok-imagine': {
@@ -701,6 +727,7 @@ export function buildKiePricingMatrix(input: {
       'grok-imagine': grokVideoMatrix,
       kling: klingMatrix,
       'kling-3.0': kling30Matrix,
+      'kling-3.0-motion-control': kling30MotionControlMatrix,
       'veo-3.1': {
         promptOnly: veoRates['text-to-video'],
         withReference: veoRates['image-to-video'],
@@ -791,11 +818,43 @@ export function getGenerationCostEstimate(
     | 'videoModel'
   > & {
     carouselDraft?: CarouselDraft | null
+    motionControl?: MotionControlDraft
   },
   pricingMatrix: KiePricingMatrix | null,
 ): GenerationCostEstimate {
   if (!pricingMatrix) {
     return unavailableEstimate('Live pricing unavailable.')
+  }
+
+  if (snapshot.activeTab === 'motion-control') {
+    const motionVideoDurationSeconds = snapshot.motionControl?.motionVideo.durationSeconds
+    const motionControlResolution = snapshot.motionControl?.resolution
+
+    if (
+      !motionControlResolution ||
+      typeof motionVideoDurationSeconds !== 'number' ||
+      !Number.isFinite(motionVideoDurationSeconds) ||
+      motionVideoDurationSeconds <= 0
+    ) {
+      return unavailableEstimate('Checking motion video duration.')
+    }
+
+    const perSecondRate =
+      pricingMatrix.video['kling-3.0-motion-control'][motionControlResolution]
+
+    if (
+      !Number.isFinite(perSecondRate.credits) ||
+      !Number.isFinite(perSecondRate.usd)
+    ) {
+      return unavailableEstimate('Live pricing unavailable for Motion Control.')
+    }
+
+    return {
+      available: true,
+      credits: Number((perSecondRate.credits * motionVideoDurationSeconds).toFixed(3)),
+      reason: null,
+      usd: Number((perSecondRate.usd * motionVideoDurationSeconds).toFixed(3)),
+    }
   }
 
   const hasManualVideoStartReference = snapshot.videoReferences.some((slot) =>

@@ -49,6 +49,12 @@ const workspaceTabs: Array<{
     label: 'Carousel',
     value: 'carousel',
   },
+  {
+    helper: 'Reference image plus motion-video replacement',
+    icon: Film,
+    label: 'Motion Control',
+    value: 'motion-control',
+  },
 ]
 
 const experienceTabs: Array<{
@@ -123,10 +129,14 @@ export function StudioShell() {
               >
                 <TabsList
                   aria-label="Workspace Tabs"
-                  className={cn("w-full p-1.5", experience === 'manual' ? "grid-cols-3" : "grid-cols-2")}
+                  className={cn("w-full p-1.5", experience === 'manual' ? "grid-cols-4" : "grid-cols-2")}
                 >
                   {workspaceTabs
-                    .filter((tab) => experience !== 'guided' || tab.value !== 'carousel')
+                    .filter(
+                      (tab) =>
+                        experience !== 'guided' ||
+                        (tab.value !== 'carousel' && tab.value !== 'motion-control'),
+                    )
                     .map((tab) => {
                     const Icon = tab.icon
 

@@ -5,8 +5,9 @@ import { startTransition, useEffect, useMemo, useState, useTransition } from 're
 import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
+import { VideoThumbnailOverlay } from '@/components/dashboard/manual-workspace-ui'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { ImagePreviewDialog } from '@/components/media/image-preview-dialog'
+import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/generation/client'
 import { fetchForwardedResultFile } from '@/lib/generation/forward-to-video'
@@ -15,7 +16,7 @@ import {
   formatIdeationConceptCardText,
   formatIdeationResultText,
 } from '@/lib/generation/ideation'
-import { isImageMimeType } from '@/lib/media/image-preview'
+import { isImageMimeType } from '@/lib/media/media-preview'
 import type {
   ProjectConfigSnapshot,
   SavedIdeationHistoryEntry,
@@ -74,6 +75,14 @@ function formatLibraryTimestamp(value: string) {
   })
 }
 
+function getWorkspaceLabel(workspace: ProjectConfigSnapshot['activeTab']) {
+  return workspace === 'motion-control'
+    ? 'Motion Control media set'
+    : workspace === 'video'
+      ? 'Video media set'
+      : 'Image media set'
+}
+
 function AssetCardMedia({
   alt,
   label,
@@ -92,34 +101,37 @@ function AssetCardMedia({
       ? 'aspect-[16/10] w-full object-contain'
       : 'aspect-[4/3] w-full object-contain'
 
-  if (isImageMimeType(mimeType)) {
-    return (
-      <ImagePreviewDialog alt={alt} label={label} src={src}>
-        <button
-          aria-label={`Preview ${label}`}
-          className="block w-full overflow-hidden bg-secondary text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          type="button"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+  return (
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
+      <button
+        aria-label={`Preview ${label}`}
+        className="block w-full overflow-hidden bg-secondary text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        type="button"
+      >
+        {isImageMimeType(mimeType) ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             alt={alt}
             className={mediaClassName}
             loading="lazy"
             src={src}
           />
-        </button>
-      </ImagePreviewDialog>
-    )
-  }
-
-  return (
-    <video
-      className={`${mediaClassName} bg-secondary`}
-      controls
-      playsInline
-      preload="metadata"
-      src={src}
-    />
+        ) : (
+          <div className="relative">
+            <video
+              aria-hidden="true"
+              className={`pointer-events-none ${mediaClassName} bg-secondary`}
+              muted
+              playsInline
+              preload="metadata"
+              src={src}
+              tabIndex={-1}
+            />
+            <VideoThumbnailOverlay />
+          </div>
+        )}
+      </button>
+    </MediaPreviewDialog>
   )
 }
 
@@ -134,22 +146,12 @@ function AssetPreviewButton({
   mimeType: string
   src: string
 }) {
-  if (isImageMimeType(mimeType)) {
-    return (
-      <ImagePreviewDialog alt={alt} label={label} src={src}>
-        <Button size="sm" variant="secondary">
-          Preview
-        </Button>
-      </ImagePreviewDialog>
-    )
-  }
-
   return (
-    <Button asChild size="sm" variant="secondary">
-      <a href={src} rel="noreferrer" target="_blank">
+    <MediaPreviewDialog alt={alt} label={label} mimeType={mimeType} src={src}>
+      <Button size="sm" variant="secondary">
         Preview
-      </a>
-    </Button>
+      </Button>
+    </MediaPreviewDialog>
   )
 }
 
@@ -614,7 +616,7 @@ export function LibraryPage({
                           type="button"
                         >
                           <p className="font-medium text-foreground">
-                            {run.run.workspace === 'video' ? 'Video media set' : 'Image media set'}
+                            {getWorkspaceLabel(run.run.workspace)}
                           </p>
                           {run.outputs[0]?.output.ownerEmail ?? run.outputs[0]?.output.userId ? (
                             <p className="mt-1">
@@ -640,9 +642,7 @@ export function LibraryPage({
                               id: run.id,
                               kind: 'session',
                               label:
-                                run.run.workspace === 'video'
-                                  ? 'Video media set'
-                                  : 'Image media set',
+                                getWorkspaceLabel(run.run.workspace),
                               outputCount: run.outputs.length,
                             })
                           }}
@@ -673,9 +673,7 @@ export function LibraryPage({
                 </p>
                 <h2 className="mt-2 text-lg font-semibold">
                   {activeRun
-                    ? activeRun.run.workspace === 'video'
-                      ? 'Video media set'
-                      : 'Image media set'
+                    ? getWorkspaceLabel(activeRun.run.workspace)
                     : 'No media set selected'}
                 </h2>
                 {activeRunOwnerTag ? (

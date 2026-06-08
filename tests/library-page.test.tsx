@@ -608,4 +608,59 @@ describe('LibraryPage', () => {
     expect(replaceMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
   })
+
+  it('opens saved video outputs in the shared preview shell', async () => {
+    render(
+      <LibraryPage
+        initialOutputs={[
+          {
+            output: {
+              createdAt: '2026-05-12T00:00:00.000Z',
+              fileSize: 1024,
+              id: 'output-2',
+              label: 'Output 2',
+              mimeType: 'video/mp4',
+              ownerEmail: 'owner-1@example.com',
+              originalName: 'output-2.mp4',
+              runId: 'run-2',
+              storagePath: '/tmp/output-2.mp4',
+              userId: 'user-1',
+            },
+            run: {
+              completedAt: null,
+              createdAt: '2026-05-12T00:00:00.000Z',
+              id: 'run-2',
+              model: 'model-b',
+              promptSnapshot: 'sample prompt',
+              provider: 'market',
+              status: 'success',
+              workspace: 'video',
+            },
+            variant: {
+              completedAt: '2026-05-12T00:00:05.000Z',
+              createdAt: '2026-05-12T00:00:00.000Z',
+              error: null,
+              id: 'variant-2',
+              profile: 'profile',
+              prompt: 'prompt',
+              status: 'success',
+              taskId: 'task-2',
+              variantIndex: 1,
+            },
+          },
+        ]}
+        initialIdeations={[]}
+        currentPage={1}
+        currentPageSize={12}
+        stats={{ totalRuns: 1, totalOutputs: 1, totalSizeBytes: 1024, totalIdeations: 0 }}
+        initialView="outputs"
+      />,
+    )
+
+    expect(screen.getByTestId('video-thumbnail-overlay')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /preview output 2/i }))
+
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getAllByLabelText('Output 2').length).toBeGreaterThan(0)
+  })
 })

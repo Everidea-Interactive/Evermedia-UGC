@@ -228,7 +228,7 @@ describe('useManualGenerationController', () => {
     })
 
     expect(useGenerationStore.getState().generationRun.error).toBe(
-      'Unable to start generation. Uploaded generation assets exceeded the server upload limit. Reduce the image size or raise the reverse-proxy body limit.',
+      'Unable to start generation. Uploaded generation assets exceeded the server upload limit.',
     )
     expect(useGenerationStore.getState().generationRun.status).toBe('error')
   })

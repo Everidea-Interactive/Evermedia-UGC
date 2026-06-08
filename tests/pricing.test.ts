@@ -75,6 +75,16 @@ const gptImageRecords: KiePricingApiRecord[] = [
 
 const klingRecords: KiePricingApiRecord[] = [
   {
+    creditPrice: '27',
+    modelDescription: 'kling 3.0 motion control, video-to-video, 1080P',
+    usdPrice: '0.135',
+  },
+  {
+    creditPrice: '20',
+    modelDescription: 'kling 3.0 motion control, video-to-video, 720P',
+    usdPrice: '0.1',
+  },
+  {
     creditPrice: '55.0',
     modelDescription: 'kling 2.6, image-to-video, without audio-5.0s',
     usdPrice: '0.275',
@@ -276,6 +286,10 @@ describe('generation pricing', () => {
     expect(pricingMatrix.video.kling.promptOnly['no-audio'].base).toEqual({
       credits: 55,
       usd: 0.275,
+    })
+    expect(pricingMatrix.video['kling-3.0-motion-control']['1080p']).toEqual({
+      credits: 27,
+      usd: 0.135,
     })
     expect(pricingMatrix.video['veo-3.1'].withReference['1080p']).toEqual({
       credits: 60,
@@ -490,6 +504,38 @@ describe('generation pricing', () => {
       credits: 744,
       reason: null,
       usd: 3.72,
+    })
+  })
+
+  it('estimates Motion Control cost from live per-second pricing and staged video duration', () => {
+    const estimate = getGenerationCostEstimate(
+      {
+        ...createSnapshot({
+          activeTab: 'motion-control',
+        }),
+        motionControl: {
+          additionalInstructions: '',
+          motionVideo: {
+            ...createSlot('motion-video', 'Motion Video', true),
+            durationSeconds: 5.25,
+            mimeType: 'video/mp4',
+          },
+          preset: 'product',
+          referenceImage: {
+            ...createSlot('reference-image', 'Reference Image', true),
+            mimeType: 'image/png',
+          },
+          resolution: '1080p',
+        },
+      },
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 141.75,
+      reason: null,
+      usd: 0.709,
     })
   })
 
