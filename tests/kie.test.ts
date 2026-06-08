@@ -227,6 +227,55 @@ describe('KIE batch submission', () => {
     expect(parsed.videoModel).toBe('seedance-2')
   })
 
+  it('parses motion-control submissions with manifest-backed reference inputs', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'motion-control')
+    formData.set('outputQuality', '1080p')
+    formData.set('motionControlPreset', 'product')
+    formData.set('motionControlAdditionalInstructions', 'Keep bottle label readable.')
+    formData.set('motionControlResolution', '1080p')
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_motionControlReferenceImage',
+          kind: 'named',
+          label: 'Reference Image',
+          order: 0,
+        },
+        {
+          fieldName: 'asset_motionControlMotionVideo',
+          kind: 'product',
+          label: 'Motion Video',
+          order: 1,
+          productId: 'motion-video',
+        },
+      ]),
+    )
+    formData.append(
+      'asset_motionControlReferenceImage',
+      new File(['image'], 'reference.png', { type: 'image/png' }),
+    )
+    formData.append(
+      'asset_motionControlMotionVideo',
+      new File(['video'], 'motion.mp4', { type: 'video/mp4' }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('motion-control')
+    expect(parsed.videoModel).toBe('kling-3.0')
+    expect(parsed.motionControl).toEqual({
+      additionalInstructions: 'Keep bottle label readable.',
+      preset: 'product',
+      resolution: '1080p',
+    })
+    expect(parsed.assetDescriptors.map((asset) => asset.fieldName)).toEqual([
+      'asset_motionControlReferenceImage',
+      'asset_motionControlMotionVideo',
+    ])
+  })
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })

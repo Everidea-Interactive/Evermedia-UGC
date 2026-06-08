@@ -397,16 +397,40 @@ export function buildGenerationFormData(
       motionControl.additionalInstructions,
     )
     formData.append('motionControlResolution', motionControl.resolution)
+    if (
+      typeof motionControl.motionVideo.durationSeconds === 'number' &&
+      Number.isFinite(motionControl.motionVideo.durationSeconds) &&
+      motionControl.motionVideo.durationSeconds > 0
+    ) {
+      formData.append(
+        'motionControlDurationSeconds',
+        String(motionControl.motionVideo.durationSeconds),
+      )
+    }
     formData.append(
       'asset_motionControlReferenceImage',
       motionControl.referenceImage.file!,
     )
+    assetManifest.push({
+      fieldName: 'asset_motionControlReferenceImage',
+      kind: 'named',
+      label: motionControl.referenceImage.label,
+      order: 0,
+    })
     formData.append(
       'asset_motionControlMotionVideo',
       motionControl.motionVideo.file!,
     )
+    assetManifest.push({
+      fieldName: 'asset_motionControlMotionVideo',
+      kind: 'product',
+      label: motionControl.motionVideo.label,
+      order: 1,
+      productId: motionControl.motionVideo.id,
+    })
+    formData.append('assetManifest', JSON.stringify(assetManifest))
 
-    return { assetManifest: [], formData }
+    return { assetManifest, formData }
   }
 
   if (snapshot.activeTab === 'video') {

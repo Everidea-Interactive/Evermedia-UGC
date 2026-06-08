@@ -115,6 +115,7 @@ export type ParsedGenerationRequest = {
     preset: MotionControlPreset
     resolution: MotionControlResolution
   } | null
+  motionControlDurationSeconds?: number | null
   motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
   productCategory: ProductCategory
@@ -239,6 +240,26 @@ function readEnum<T extends string>(
   return value as T
 }
 
+function readOptionalPositiveNumber(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key)
+
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Invalid value for ${key}.`,
+      status: 400,
+    })
+  }
+
+  return parsed
+}
+
 function isMimeTypeOfKind(mimeType: string, kind: 'image' | 'video') {
   return mimeType.startsWith(`${kind}/`)
 }
@@ -260,6 +281,27 @@ function assertUploadedFileKind(
         : `${label} must be a video file.`,
     status: 400,
   })
+}
+
+function getExpectedUploadKind(fieldName: string): 'image' | 'video' | null {
+  if (fieldName === 'asset_motionControlReferenceImage') {
+    return 'image'
+  }
+
+  if (fieldName === 'asset_motionControlMotionVideo') {
+    return 'video'
+  }
+
+  if (
+    fieldName.startsWith('asset_') ||
+    fieldName.startsWith('product_') ||
+    fieldName.startsWith('video_reference_') ||
+    fieldName.startsWith('carousel_')
+  ) {
+    return 'image'
+  }
+
+  return null
 }
 
 function safeJsonParse(value: string) {
@@ -1183,7 +1225,7 @@ export function buildMotionControlPayload(input: {
     input: {
       character_orientation: 'video',
       input_urls: [input.referenceImageUrl],
-      mode: input.resolution === '1080p' ? 'pro' : 'std',
+      mode: input.resolution,
       prompt: input.prompt,
       video_urls: [input.motionVideoUrl],
     },
@@ -1402,6 +1444,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     workspace === 'motion-control'
       ? readEnum(formData, 'motionControlResolution', ['720p', '1080p'] as const)
       : null
+  const motionControlDurationSeconds =
+    workspace === 'motion-control'
+      ? readOptionalPositiveNumber(formData, 'motionControlDurationSeconds')
+      : null
   const motionControl =
     workspace === 'motion-control'
       ? {
@@ -1541,13 +1587,10 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       })
     }
 
-    if (
-      fieldName.startsWith('asset_') ||
-      fieldName.startsWith('product_') ||
-      fieldName.startsWith('video_reference_') ||
-      fieldName.startsWith('carousel_')
-    ) {
-      assertUploadedFileKind(file, 'image', label)
+    const expectedUploadKind = getExpectedUploadKind(fieldName)
+
+    if (expectedUploadKind) {
+      assertUploadedFileKind(file, expectedUploadKind, label)
     }
 
     const parsedKey =
@@ -1631,6 +1674,7 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     guided,
     imageModel,
     motionControl,
+    motionControlDurationSeconds,
     motionControlResolution,
     outputQuality,
     productCategory: readEnum(

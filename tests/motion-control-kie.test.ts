@@ -15,7 +15,7 @@ describe('motion control kie payload', () => {
 
     expect(payload.model).toBe('kling-3.0/motion-control')
     expect(payload.input.character_orientation).toBe('video')
-    expect(payload.input.mode).toBe('pro')
+    expect(payload.input.mode).toBe('1080p')
     expect(payload.input.input_urls).toEqual(['https://cdn.example.com/reference.png'])
     expect(payload.input.video_urls).toEqual(['https://cdn.example.com/motion.mp4'])
   })
