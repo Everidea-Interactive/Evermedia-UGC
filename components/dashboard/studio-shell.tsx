@@ -132,7 +132,11 @@ export function StudioShell() {
                   className={cn("w-full p-1.5", experience === 'manual' ? "grid-cols-4" : "grid-cols-2")}
                 >
                   {workspaceTabs
-                    .filter((tab) => experience !== 'guided' || tab.value !== 'carousel')
+                    .filter(
+                      (tab) =>
+                        experience !== 'guided' ||
+                        (tab.value !== 'carousel' && tab.value !== 'motion-control'),
+                    )
                     .map((tab) => {
                     const Icon = tab.icon
 

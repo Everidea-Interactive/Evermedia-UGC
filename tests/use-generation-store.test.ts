@@ -476,6 +476,24 @@ describe('useGenerationStore', () => {
     expect(state.analysisStatus).toBe('idle')
   })
 
+  it('forces guided experience off the motion-control tab back to image', () => {
+    const store = useGenerationStore.getState()
+
+    store.setExperience('manual')
+    store.setActiveTab('motion-control')
+    store.setExperience('guided')
+
+    let state = useGenerationStore.getState()
+
+    expect(state.experience).toBe('guided')
+    expect(state.activeTab).toBe('image')
+
+    store.setActiveTab('motion-control')
+    state = useGenerationStore.getState()
+
+    expect(state.activeTab).toBe('image')
+  })
+
   it('keeps ideation state separate and resets it independently', () => {
     const store = useGenerationStore.getState()
 

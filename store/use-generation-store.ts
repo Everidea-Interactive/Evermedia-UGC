@@ -495,6 +495,17 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
   }
 }
 
+function normalizeActiveTabForExperience(
+  activeTab: WorkspaceTab,
+  experience: GenerationExperience,
+): WorkspaceTab {
+  if (experience === 'guided' && activeTab === 'motion-control') {
+    return 'image'
+  }
+
+  return activeTab
+}
+
 function fileMatchesMediaKind(file: File, kind: MediaKind) {
   return file.type.startsWith(`${kind}/`)
 }
@@ -851,7 +862,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
       return {
         ...createInitialState(),
-        activeTab: normalizedConfig.activeTab,
+        activeTab: normalizeActiveTabForExperience(
+          normalizedConfig.activeTab,
+          normalizedConfig.experience,
+        ),
         analysisError: null,
         analysisStatus: hydratedGuidedPlan ? 'ready' : 'idle',
         batchSize: normalizedConfig.batchSize,
@@ -993,7 +1007,10 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         ),
       },
     })),
-  setActiveTab: (activeTab) => set({ activeTab }),
+  setActiveTab: (activeTab) =>
+    set((state) => ({
+      activeTab: normalizeActiveTabForExperience(activeTab, state.experience),
+    })),
   setAnalysisError: (analysisError) => set({ analysisError }),
   setAnalysisStatus: (analysisStatus) => set({ analysisStatus }),
   setBatchSize: (batchSize) => set({ batchSize }),
@@ -1044,7 +1061,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setCreativeStyle: (creativeStyle) => set({ creativeStyle }),
-  setExperience: (experience) => set({ experience }),
+  setExperience: (experience) =>
+    set((state) => ({
+      activeTab: normalizeActiveTabForExperience(state.activeTab, experience),
+      experience,
+    })),
   setFigureArtDirection: (figureArtDirection) =>
     set((state) =>
       state.subjectMode === 'lifestyle' ? { figureArtDirection } : {},

@@ -196,6 +196,28 @@ describe('StudioWorkspace', () => {
     expect(workspaceMountCounts.ideation).toBe(0)
   })
 
+  it('hides motion control from guided workspace tabs', async () => {
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    globalThis.cancelAnimationFrame = (handle: number) => {
+      window.clearTimeout(handle)
+    }
+
+    const { StudioWorkspace } = await import('@/components/dashboard/studio-workspace')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    render(<StudioWorkspace />)
+
+    await screen.findByText('References')
+
+    await act(async () => {
+      useGenerationStore.getState().setExperience('guided')
+    })
+
+    await screen.findByText('guided-workspace')
+    expect(screen.queryByRole('tab', { name: 'Motion Control' })).toBeNull()
+  })
+
   it('hides the reference board when another manual section is selected', async () => {
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)

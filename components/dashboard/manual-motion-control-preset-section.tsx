@@ -2,7 +2,6 @@
 
 import {
   presetCompactTileClassName,
-  presetGroupClassName,
   PresetGroupLabel,
 } from '@/components/dashboard/manual-workspace-ui'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,7 +18,7 @@ export function ManualMotionControlPresetSection() {
   )
 
   return (
-    <section className={presetGroupClassName}>
+    <section>
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3">
           <PresetGroupLabel>Replacement Focus</PresetGroupLabel>
