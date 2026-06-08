@@ -298,6 +298,7 @@ describe('GuidedWorkspace', () => {
     fireEvent.mouseDown(resultsTab)
     fireEvent.click(resultsTab)
 
+    expect(screen.getByTestId('video-thumbnail-overlay')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Preview Shot 1' }))
 
     expect(await screen.findByRole('dialog')).toBeTruthy()

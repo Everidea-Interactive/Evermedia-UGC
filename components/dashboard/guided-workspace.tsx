@@ -78,6 +78,7 @@ import { useGenerationStore } from '@/store/use-generation-store'
 import {
   insetPanelClassName,
   rowClassName,
+  VideoThumbnailOverlay,
   workspaceFieldLabelClassName,
   workspacePreviewMinHeightClassName,
   workspaceSectionClassName,
@@ -732,15 +733,18 @@ function GuidedResultTile({
             />
           </>
         ) : (
-          <video
-            aria-hidden="true"
-            className="pointer-events-none aspect-[3/4] w-full bg-black object-cover"
-            muted
-            playsInline
-            preload="metadata"
-            src={variant.result.url}
-            tabIndex={-1}
-          />
+          <div className="relative">
+            <video
+              aria-hidden="true"
+              className="pointer-events-none aspect-[3/4] w-full bg-black object-cover"
+              muted
+              playsInline
+              preload="metadata"
+              src={variant.result.url}
+              tabIndex={-1}
+            />
+            <VideoThumbnailOverlay />
+          </div>
         )}
       </button>
     </MediaPreviewDialog>

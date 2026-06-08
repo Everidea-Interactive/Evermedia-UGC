@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 
 import {
   MediaPreviewTrigger,
+  VideoThumbnailOverlay,
   insetPanelClassName,
   panelClassName,
   rowClassName,
@@ -283,15 +284,18 @@ function OutputGalleryCard({
       src={item.url}
     />
   ) : (
-    <video
-      aria-hidden="true"
-      className="pointer-events-none h-full w-full rounded-md bg-black object-contain"
-      muted
-      playsInline
-      preload="metadata"
-      src={item.url}
-      tabIndex={-1}
-    />
+    <div className="relative h-full w-full">
+      <video
+        aria-hidden="true"
+        className="pointer-events-none h-full w-full rounded-md bg-black object-contain"
+        muted
+        playsInline
+        preload="metadata"
+        src={item.url}
+        tabIndex={-1}
+      />
+      <VideoThumbnailOverlay />
+    </div>
   )
 
   return (

@@ -67,5 +67,6 @@ describe('manual workspace shared ui', () => {
         button.className.includes('cursor-zoom-in'),
       ),
     ).toBe(true)
+    expect(screen.getByTestId('video-thumbnail-overlay')).toBeTruthy()
   })
 })

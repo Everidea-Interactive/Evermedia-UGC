@@ -5,6 +5,7 @@ import { startTransition, useEffect, useMemo, useState, useTransition } from 're
 import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
+import { VideoThumbnailOverlay } from '@/components/dashboard/manual-workspace-ui'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
@@ -116,15 +117,18 @@ function AssetCardMedia({
             src={src}
           />
         ) : (
-          <video
-            aria-hidden="true"
-            className={`pointer-events-none ${mediaClassName} bg-secondary`}
-            muted
-            playsInline
-            preload="metadata"
-            src={src}
-            tabIndex={-1}
-          />
+          <div className="relative">
+            <video
+              aria-hidden="true"
+              className={`pointer-events-none ${mediaClassName} bg-secondary`}
+              muted
+              playsInline
+              preload="metadata"
+              src={src}
+              tabIndex={-1}
+            />
+            <VideoThumbnailOverlay />
+          </div>
         )}
       </button>
     </MediaPreviewDialog>

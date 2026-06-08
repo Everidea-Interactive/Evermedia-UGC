@@ -657,6 +657,7 @@ describe('LibraryPage', () => {
       />,
     )
 
+    expect(screen.getByTestId('video-thumbnail-overlay')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /preview output 2/i }))
 
     expect(await screen.findByRole('dialog')).toBeTruthy()

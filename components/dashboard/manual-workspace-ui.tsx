@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { LoaderCircle, Upload, X } from 'lucide-react'
+import { LoaderCircle, Play, Upload, X } from 'lucide-react'
 
 import { MediaPreviewDialog } from '@/components/media/media-preview-dialog'
 import { Button } from '@/components/ui/button'
@@ -135,6 +135,27 @@ export function MediaPreviewTrigger({
         {children}
       </button>
     </MediaPreviewDialog>
+  )
+}
+
+export function VideoThumbnailOverlay({
+  className,
+}: {
+  className?: string
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        'pointer-events-none absolute inset-0 flex items-center justify-center',
+        className,
+      )}
+      data-testid="video-thumbnail-overlay"
+    >
+      <div className="flex size-14 items-center justify-center rounded-full border border-white/15 bg-black/58 text-white shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-sm">
+        <Play className="ml-0.5 size-6 fill-current" suppressHydrationWarning />
+      </div>
+    </div>
   )
 }
 
@@ -276,19 +297,22 @@ export function ReferenceCard({
               />
             </div>
           ) : (
-            <video
-              className={cn(
-                'pointer-events-none absolute inset-0 h-full w-full object-cover',
-                previewContainerClassName,
-                previewMediaClassName,
-              )}
-              aria-hidden="true"
-              muted
-              playsInline
-              preload="metadata"
-              src={previewSrc}
-              tabIndex={-1}
-            />
+            <>
+              <video
+                aria-hidden="true"
+                className={cn(
+                  'pointer-events-none absolute inset-0 h-full w-full object-cover',
+                  previewContainerClassName,
+                  previewMediaClassName,
+                )}
+                muted
+                playsInline
+                preload="metadata"
+                src={previewSrc}
+                tabIndex={-1}
+              />
+              <VideoThumbnailOverlay />
+            </>
           )}
         </MediaPreviewTrigger>
       ) : (
