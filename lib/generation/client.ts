@@ -306,14 +306,16 @@ export function buildGenerationFormData(
   formData.append('workspace', snapshot.activeTab)
   formData.append('imageModel', snapshot.imageModel)
   formData.append('videoModel', snapshot.videoModel)
-  formData.append('productCategory', snapshot.productCategory)
-  formData.append('creativeStyle', snapshot.creativeStyle)
-  formData.append('subjectMode', snapshot.subjectMode)
-  formData.append('shotEnvironment', snapshot.shotEnvironment)
-  formData.append('characterGender', snapshot.characterGender)
-  formData.append('characterAgeGroup', snapshot.characterAgeGroup)
-  formData.append('figureArtDirection', snapshot.figureArtDirection)
   formData.append('batchSize', String(snapshot.batchSize))
+  if (snapshot.activeTab !== 'motion-control') {
+    formData.append('productCategory', snapshot.productCategory)
+    formData.append('creativeStyle', snapshot.creativeStyle)
+    formData.append('subjectMode', snapshot.subjectMode)
+    formData.append('shotEnvironment', snapshot.shotEnvironment)
+    formData.append('characterGender', snapshot.characterGender)
+    formData.append('characterAgeGroup', snapshot.characterAgeGroup)
+    formData.append('figureArtDirection', snapshot.figureArtDirection)
+  }
   formData.append(
     'textPrompt',
     appendPromptEnhancement({

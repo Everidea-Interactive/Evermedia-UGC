@@ -276,6 +276,59 @@ describe('KIE batch submission', () => {
     ])
   })
 
+  it('parses motion-control submissions without image-video creative metadata fields', () => {
+    const formData = new FormData()
+    formData.append('workspace', 'motion-control')
+    formData.append('imageModel', 'nano-banana')
+    formData.append('videoModel', 'veo-3.1')
+    formData.append('batchSize', '1')
+    formData.append('textPrompt', '')
+    formData.append('videoDuration', 'base')
+    formData.append('videoAudio', 'no-audio')
+    formData.append('outputQuality', '1080p')
+    formData.append('cameraMovement', '')
+    formData.append('motionControlPreset', 'product')
+    formData.append('motionControlAdditionalInstructions', 'Keep bottle label readable.')
+    formData.append('motionControlResolution', '1080p')
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_motionControlReferenceImage',
+          kind: 'named',
+          label: 'Reference Image',
+          order: 0,
+        },
+        {
+          fieldName: 'asset_motionControlMotionVideo',
+          kind: 'product',
+          label: 'Motion Video',
+          order: 1,
+          productId: 'motion-video',
+        },
+      ]),
+    )
+    formData.append(
+      'asset_motionControlReferenceImage',
+      new File(['image'], 'reference.png', { type: 'image/png' }),
+    )
+    formData.append(
+      'asset_motionControlMotionVideo',
+      new File(['video'], 'motion.mp4', { type: 'video/mp4' }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.workspace).toBe('motion-control')
+    expect(parsed.productCategory).toBe('miscellaneous')
+    expect(parsed.creativeStyle).toBe('ugc-lifestyle')
+    expect(parsed.subjectMode).toBe('product-only')
+    expect(parsed.shotEnvironment).toBe('indoor')
+    expect(parsed.characterGender).toBe('any')
+    expect(parsed.characterAgeGroup).toBe('any')
+    expect(parsed.figureArtDirection).toBe('none')
+  })
+
   it('uploads assets once and expands each manual image grid task into four variants', async () => {
     const formData = buildBaseFormData('3')
     const faceFile = new File(['face'], 'face.png', { type: 'image/png' })

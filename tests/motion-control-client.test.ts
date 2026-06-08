@@ -79,6 +79,13 @@ describe('motion control client payload', () => {
     expect(formData.get('motionControlAdditionalInstructions')).toBe(
       'Keep the bottle readable.',
     )
+    expect(formData.get('productCategory')).toBeNull()
+    expect(formData.get('creativeStyle')).toBeNull()
+    expect(formData.get('subjectMode')).toBeNull()
+    expect(formData.get('shotEnvironment')).toBeNull()
+    expect(formData.get('characterGender')).toBeNull()
+    expect(formData.get('characterAgeGroup')).toBeNull()
+    expect(formData.get('figureArtDirection')).toBeNull()
     expect(formData.get('assetManifest')).toBe(
       JSON.stringify([
         {

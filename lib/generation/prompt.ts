@@ -4,6 +4,7 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
+  MotionControlPreset,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -14,9 +15,6 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import {
-  buildCurrentDateContextLine,
-} from '@/lib/generation/date-context'
-import {
   getMaxVideoReferenceCount,
   getVideoDurationSeconds,
   supportsVideoEndFrameGuidance,
@@ -24,6 +22,26 @@ import {
 } from '@/lib/generation/model-mapping'
 
 type PromptVariantIndex = 1 | 2 | 3 | 4
+
+type CompileGenerationPromptInput = {
+  assets: UploadedAssetDescriptor[]
+  cameraMovement: CameraMovement | null
+  characterAgeGroup: CharacterAgeGroup
+  characterGender: CharacterGender
+  creativeStyle: CreativeStyle
+  figureArtDirection: FigureArtDirection
+  outputQuality: OutputQuality
+  productCategory: ProductCategory
+  shotEnvironment: ShotEnvironment
+  subjectMode: SubjectMode
+  textPrompt: string
+  videoDuration: VideoDuration
+  videoModel?: VideoModelOption
+  workspace: WorkspaceTab
+  currentDate?: Date
+  motionControlAdditionalInstructions?: string
+  motionControlPreset?: MotionControlPreset
+}
 
 const categoryPhrases: Record<ProductCategory, string> = {
   'food-drink': 'food and beverage',
@@ -122,6 +140,324 @@ function getOrderedVideoStartReferences(assets: UploadedAssetDescriptor[]) {
     .sort((left, right) => left.order - right.order)
 }
 
+function finalizePrompt(parts: string[]) {
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+function buildSharedCampaignContext(input: CompileGenerationPromptInput) {
+  return [
+    `Art direction: ${stylePhrases[input.creativeStyle]}.`,
+    subjectPhrases[input.subjectMode],
+    environmentPhrases[input.shotEnvironment],
+  ]
+}
+
+function buildSupportingReferenceLine(
+  assets: UploadedAssetDescriptor[],
+  explicitlyDescribedFieldNames: Set<string>,
+) {
+  const supportingReferenceLabels = assets
+    .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
+    .map((asset) => asset.label)
+    .slice()
+    .sort()
+
+  return supportingReferenceLabels.length > 0
+    ? `Additional supporting references available: ${supportingReferenceLabels.join(', ')}.`
+    : null
+}
+
+function getMotionControlPresetLine(preset: MotionControlPreset | undefined) {
+  switch (preset) {
+    case 'character':
+      return 'Preset focus: replace or animate the character while preserving the original product, product placement, and scene composition unless explicitly overridden.'
+    case 'product':
+      return 'Preset focus: replace or animate the product while preserving the original person, pose logic, and scene composition unless explicitly overridden.'
+    case 'character-product':
+    default:
+      return 'Preset focus: replace or animate both character and product together while preserving the original framing, interaction logic, and overall composition unless explicitly overridden.'
+  }
+}
+
+function compileImagePrompt(input: CompileGenerationPromptInput) {
+  const named = getNamedReferenceMap(input.assets)
+  const products = getOrderedProductReferences(input.assets)
+  const face1 = named.get('face1')
+  const face2 = named.get('face2')
+  const identityReference =
+    input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
+  const productReference = products[0] ?? null
+  const additionalProductReferences = products.slice(1)
+  const clothingReference = named.get('clothing') ?? null
+  const locationReference = named.get('location') ?? null
+  const brandLogoReference = named.get('brandLogo') ?? null
+  const explicitlyDescribedFieldNames = new Set<string>()
+
+  for (const fieldName of [
+    identityReference?.fieldName,
+    face1 && face2 ? face2.fieldName : null,
+    productReference?.fieldName,
+    ...additionalProductReferences.map((reference) => reference.fieldName),
+    clothingReference?.fieldName,
+    locationReference?.fieldName,
+    brandLogoReference?.fieldName,
+  ]) {
+    if (fieldName) {
+      explicitlyDescribedFieldNames.add(fieldName)
+    }
+  }
+
+  const promptParts = [
+    `Create a high-quality image for a ${categoryPhrases[input.productCategory]} campaign.`,
+    ...buildSharedCampaignContext(input),
+  ]
+
+  if (input.subjectMode === 'lifestyle') {
+    const demographicSelections = [
+      input.characterGender,
+      input.characterAgeGroup,
+    ].filter((value) => value !== 'any')
+
+    if (input.workspace === 'image') {
+      promptParts.push(lifestyleImageAnatomySafeguard)
+    }
+
+    if (demographicSelections.length > 0 && !identityReference) {
+      promptParts.push(
+        `Character demographics: ${demographicSelections
+          .map((value) => humanizeLabel(value))
+          .join(', ')}.`,
+      )
+    }
+
+    if (input.figureArtDirection !== 'none') {
+      promptParts.push(figureArtDirectionPhrases[input.figureArtDirection])
+    }
+  }
+
+  if (identityReference) {
+    promptParts.push(
+      `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
+    )
+  }
+
+  if (face1 && face2) {
+    promptParts.push(
+      `Additional face reference: ${face2.label}. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.`,
+    )
+  }
+
+  if (productReference) {
+    promptParts.push(
+      `Product reference: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
+    )
+  }
+
+  for (const reference of additionalProductReferences) {
+    promptParts.push(
+      `Additional product reference: ${reference.label}. Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.`,
+    )
+  }
+
+  if (clothingReference) {
+    promptParts.push(
+      `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
+    )
+  }
+
+  if (locationReference) {
+    promptParts.push(
+      `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
+    )
+  }
+
+  if (brandLogoReference) {
+    promptParts.push(
+      `Brand logo reference: ${brandLogoReference.label}. Use it for brand logo-placement, color palette guidance, and visual identity cues. Integrate the logo naturally into the composition.`,
+    )
+  }
+
+  if (input.textPrompt.trim()) {
+    promptParts.push(input.textPrompt.trim())
+  }
+
+  const supportingReferenceLine = buildSupportingReferenceLine(
+    input.assets,
+    explicitlyDescribedFieldNames,
+  )
+
+  if (supportingReferenceLine) {
+    promptParts.push(supportingReferenceLine)
+  }
+
+  return finalizePrompt(promptParts)
+}
+
+function compileVideoPrompt(input: CompileGenerationPromptInput) {
+  const firstFrame = chooseFirstFrameReference(input.assets)
+  const endFrame = chooseEndFrameReference(input.assets)
+  const videoReferences = getOrderedVideoStartReferences(input.assets)
+  const explicitlyDescribedFieldNames = new Set<string>(
+    [
+      firstFrame?.fieldName,
+      endFrame?.fieldName,
+      ...videoReferences.map((reference) => reference.fieldName),
+    ].filter((value): value is string => Boolean(value)),
+  )
+
+  const promptParts = [
+    `Create a video for a ${categoryPhrases[input.productCategory]} campaign.`,
+    ...buildSharedCampaignContext(input),
+  ]
+
+  if (input.subjectMode === 'lifestyle') {
+    const demographicSelections = [
+      input.characterGender,
+      input.characterAgeGroup,
+    ].filter((value) => value !== 'any')
+
+    const named = getNamedReferenceMap(input.assets)
+    const face1 = named.get('face1')
+    const face2 = named.get('face2')
+    const identityReference = face1 ?? face2 ?? null
+
+    if (demographicSelections.length > 0 && !identityReference) {
+      promptParts.push(
+        `Character demographics: ${demographicSelections
+          .map((value) => humanizeLabel(value))
+          .join(', ')}.`,
+      )
+    }
+
+    if (input.figureArtDirection !== 'none') {
+      promptParts.push(figureArtDirectionPhrases[input.figureArtDirection])
+    }
+  }
+
+  promptParts.push(
+    `Clip intent: ${getVideoDurationSeconds(
+      input.videoModel ?? 'veo-3.1',
+      input.videoDuration,
+    )}-second pacing.`,
+  )
+  promptParts.push(
+    `Target delivery: ${input.outputQuality} output where the selected model supports it.`,
+  )
+
+  if (input.cameraMovement) {
+    promptParts.push(movementPhrases[input.cameraMovement])
+  }
+
+  if (
+    firstFrame &&
+    supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1')
+  ) {
+    promptParts.push(
+      `First frame: ${firstFrame.label}. Treat this as the required opening frame anchor and preserve its exact composition, subject identity, and scene setup at the start of the clip.`,
+    )
+  }
+
+  videoReferences
+    .slice(0, getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'))
+    .forEach((reference, index) => {
+      promptParts.push(
+        `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
+      )
+    })
+
+  const supportingReferenceLine = buildSupportingReferenceLine(
+    input.assets,
+    explicitlyDescribedFieldNames,
+  )
+
+  if (supportingReferenceLine) {
+    promptParts.push(supportingReferenceLine)
+  }
+
+  if (input.videoModel === 'kling-3.0') {
+    promptParts.push(
+      'Describe subject motion, camera behavior, and scene composition explicitly for best temporal coherence.',
+    )
+  }
+
+  if (
+    endFrame &&
+    supportsVideoEndFrameGuidance(input.videoModel ?? 'veo-3.1') &&
+    (!supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1') ||
+      firstFrame)
+  ) {
+    promptParts.push(`Use ${endFrame.label} as the end-frame guidance when supported.`)
+  }
+
+  if (input.textPrompt.trim()) {
+    promptParts.push(input.textPrompt.trim())
+  }
+
+  return finalizePrompt(promptParts)
+}
+
+function compileMotionControlPrompt(input: CompileGenerationPromptInput) {
+  const named = getNamedReferenceMap(input.assets)
+  const products = getOrderedProductReferences(input.assets)
+  const face1 = named.get('face1')
+  const face2 = named.get('face2')
+  const identityReference =
+    input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
+  const productReference = products[0] ?? null
+  const explicitlyDescribedFieldNames = new Set<string>()
+
+  for (const fieldName of [
+    identityReference?.fieldName,
+    productReference?.fieldName,
+  ]) {
+    if (fieldName) {
+      explicitlyDescribedFieldNames.add(fieldName)
+    }
+  }
+
+  const promptParts = [
+    'Animate the supplied reference image into a motion-controlled video sequence.',
+    'Use Motion Control as a transformation task, not a fresh scene-generation task.',
+    getMotionControlPresetLine(input.motionControlPreset),
+    `Target delivery: ${input.outputQuality} output where supported by motion-control pipeline.`,
+    'Use the supplied motion guidance video as movement reference only. Preserve the reference image as the source of identity, styling, layout, and scene continuity.',
+    'Preserve subject identity, product design, composition intent, and brand readability from the supplied reference image.',
+    'Do not invent a new person, new product, new background concept, or a different campaign setup unless the user explicitly asks for that change.',
+    'Transfer motion energy, timing, and camera behavior from the supplied motion guidance video without changing the core subject or product.',
+  ]
+
+  if (identityReference) {
+    promptParts.push(
+      `Reference image anchor: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
+    )
+  }
+
+  if (productReference) {
+    promptParts.push(
+      `Product continuity anchor: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
+    )
+  }
+
+  if (input.motionControlAdditionalInstructions?.trim()) {
+    promptParts.push(input.motionControlAdditionalInstructions.trim())
+  }
+
+  if (input.textPrompt.trim()) {
+    promptParts.push(input.textPrompt.trim())
+  }
+
+  const supportingReferenceLine = buildSupportingReferenceLine(
+    input.assets,
+    explicitlyDescribedFieldNames,
+  )
+
+  if (supportingReferenceLine) {
+    promptParts.push(supportingReferenceLine)
+  }
+
+  return finalizePrompt(promptParts)
+}
+
 export function chooseFirstFrameReference(assets: UploadedAssetDescriptor[]) {
   return (
     assets.find(
@@ -157,205 +493,23 @@ export function chooseEndFrameReference(assets: UploadedAssetDescriptor[]) {
   )
 }
 
-export function compileGenerationPrompt(input: {
-  assets: UploadedAssetDescriptor[]
-  cameraMovement: CameraMovement | null
-  characterAgeGroup: CharacterAgeGroup
-  characterGender: CharacterGender
-  creativeStyle: CreativeStyle
-  figureArtDirection: FigureArtDirection
-  outputQuality: OutputQuality
-  productCategory: ProductCategory
-  shotEnvironment: ShotEnvironment
-  subjectMode: SubjectMode
-  textPrompt: string
-  videoDuration: VideoDuration
-  videoModel?: VideoModelOption
-  workspace: WorkspaceTab
-  currentDate?: Date
-}) {
-  const currentDate = input.currentDate ?? new Date()
-  const firstFrame = chooseFirstFrameReference(input.assets)
-  const endFrame = chooseEndFrameReference(input.assets)
-  const named = getNamedReferenceMap(input.assets)
-  const products = getOrderedProductReferences(input.assets)
-  const videoReferences = getOrderedVideoStartReferences(input.assets)
-  const face1 = named.get('face1')
-  const face2 = named.get('face2')
-  const identityReference =
-    input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
-  const productReference = products[0] ?? null
-  const additionalProductReferences = products.slice(1)
-  const clothingReference = named.get('clothing') ?? null
-  const locationReference = named.get('location') ?? null
-  const brandLogoReference = named.get('brandLogo') ?? null
-  const explicitlyDescribedFieldNames = new Set<string>(
-    [firstFrame?.fieldName, endFrame?.fieldName].filter(
-      (value): value is string => Boolean(value),
-    ),
-  )
-
-  if (input.workspace === 'video') {
-    for (const reference of videoReferences) {
-      explicitlyDescribedFieldNames.add(reference.fieldName)
-    }
-  } else {
-    for (const fieldName of [
-      identityReference?.fieldName,
-      face1 && face2 ? face2.fieldName : null,
-      productReference?.fieldName,
-      ...additionalProductReferences.map((reference) => reference.fieldName),
-      clothingReference?.fieldName,
-      locationReference?.fieldName,
-      brandLogoReference?.fieldName,
-    ]) {
-      if (fieldName) {
-        explicitlyDescribedFieldNames.add(fieldName)
-      }
+export function compileGenerationPrompt(input: CompileGenerationPromptInput) {
+  switch (input.workspace) {
+    case 'image':
+      return compileImagePrompt(input)
+    case 'video':
+      return compileVideoPrompt(input)
+    case 'motion-control':
+      return compileMotionControlPrompt(input)
+    case 'carousel':
+      throw new Error(
+        'Carousel prompts must be built by buildCarouselBatchPrompt.',
+      )
+    default: {
+      const exhaustiveCheck: never = input.workspace
+      return exhaustiveCheck
     }
   }
-
-  const promptParts = [
-    `Create a ${input.workspace === 'video' ? 'video' : 'high-quality image'} for a ${categoryPhrases[input.productCategory]} campaign.`,
-    `Art direction: ${stylePhrases[input.creativeStyle]}.`,
-    subjectPhrases[input.subjectMode],
-    environmentPhrases[input.shotEnvironment],
-    buildCurrentDateContextLine(currentDate),
-  ]
-
-  if (input.subjectMode === 'lifestyle') {
-    const demographicSelections = [
-      input.characterGender,
-      input.characterAgeGroup,
-    ].filter((value) => value !== 'any')
-
-    if (input.workspace === 'image') {
-      promptParts.push(lifestyleImageAnatomySafeguard)
-    }
-
-    if (demographicSelections.length > 0 && !identityReference) {
-      promptParts.push(
-        `Character demographics: ${demographicSelections
-          .map((value) => humanizeLabel(value))
-          .join(', ')}.`,
-      )
-    }
-
-    if (input.figureArtDirection !== 'none') {
-      promptParts.push(figureArtDirectionPhrases[input.figureArtDirection])
-    }
-  }
-
-  if (input.workspace === 'video') {
-    promptParts.push(
-      `Clip intent: ${getVideoDurationSeconds(
-        input.videoModel ?? 'veo-3.1',
-        input.videoDuration,
-      )}-second pacing.`,
-    )
-    promptParts.push(
-      `Target delivery: ${input.outputQuality} output where the selected model supports it.`,
-    )
-  }
-
-  if (input.cameraMovement) {
-    promptParts.push(movementPhrases[input.cameraMovement])
-  }
-
-  if (input.workspace === 'video') {
-    if (
-      firstFrame &&
-      supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1')
-    ) {
-      promptParts.push(
-        `First frame: ${firstFrame.label}. Treat this as the required opening frame anchor and preserve its exact composition, subject identity, and scene setup at the start of the clip.`,
-      )
-    }
-
-    videoReferences
-      .slice(0, getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'))
-      .forEach((reference, index) => {
-      promptParts.push(
-        `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
-      )
-      })
-  } else {
-    if (identityReference) {
-      promptParts.push(
-        `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
-      )
-    }
-
-    if (face1 && face2) {
-      promptParts.push(
-        `Additional face reference: ${face2.label}. Use it only as alternate angle or expression guidance for the same person. Do not blend multiple identities.`,
-      )
-    }
-
-    if (productReference) {
-      promptParts.push(
-        `Product reference: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
-      )
-    }
-
-    for (const reference of additionalProductReferences) {
-      promptParts.push(
-        `Additional product reference: ${reference.label}. Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.`,
-      )
-    }
-
-    if (clothingReference) {
-      promptParts.push(
-        `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Ignore any face in that image if it conflicts with the identity reference.`,
-      )
-    }
-
-    if (locationReference) {
-      promptParts.push(
-        `Location reference: ${locationReference.label}. Use it only for environment and background guidance.`,
-      )
-    }
-
-    if (brandLogoReference) {
-      promptParts.push(
-        `Brand logo reference: ${brandLogoReference.label}. Use it for brand logo-placement, color palette guidance, and visual identity cues. Integrate the logo naturally into the composition.`,
-      )
-    }
-  }
-
-  const supportingReferenceLabels = input.assets
-    .filter((asset) => !explicitlyDescribedFieldNames.has(asset.fieldName))
-    .map((asset) => asset.label)
-    .slice()
-    .sort()
-
-  if (supportingReferenceLabels.length > 0) {
-    promptParts.push(
-      `Additional supporting references available: ${supportingReferenceLabels.join(', ')}.`,
-    )
-  }
-
-  if (input.workspace === 'video' && input.videoModel === 'kling-3.0') {
-    promptParts.push(
-      'Describe subject motion, camera behavior, and scene composition explicitly for best temporal coherence.',
-    )
-  }
-
-  if (
-    endFrame &&
-    input.workspace === 'video' &&
-    supportsVideoEndFrameGuidance(input.videoModel ?? 'veo-3.1') &&
-    (!supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1') ||
-      firstFrame)
-  ) {
-    promptParts.push(`Use ${endFrame.label} as the end-frame guidance when supported.`)
-  }
-
-  if (input.textPrompt.trim()) {
-    promptParts.push(input.textPrompt.trim())
-  }
-
-  return promptParts.join(' ').replace(/\s+/g, ' ').trim()
 }
 
 export function buildVariantPromptSet(input: {

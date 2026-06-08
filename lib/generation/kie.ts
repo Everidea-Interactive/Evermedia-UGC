@@ -816,6 +816,14 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
     characterGender: input.characterGender,
     creativeStyle: input.creativeStyle,
     figureArtDirection: input.figureArtDirection,
+    motionControlAdditionalInstructions:
+      input.workspace === 'motion-control'
+        ? input.motionControl?.additionalInstructions ?? ''
+        : '',
+    motionControlPreset:
+      input.workspace === 'motion-control'
+        ? input.motionControl?.preset
+        : undefined,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
     shotEnvironment: input.shotEnvironment,
@@ -1645,60 +1653,81 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       'cameraMovement',
       ['orbit', 'dolly', 'drone', 'crash-zoom', 'macro'] as const,
     ),
-    characterAgeGroup: readEnum(
-      formData,
-      'characterAgeGroup',
-      ['any', 'young-adult', 'adult', 'middle-aged', 'senior'] as const,
-    ),
-    characterGender: readEnum(
-      formData,
-      'characterGender',
-      ['any', 'female', 'male', 'non-binary'] as const,
-    ),
-    creativeStyle: readEnum(
-      formData,
-      'creativeStyle',
-      [
-        'ugc-lifestyle',
-        'cinematic',
-        'tv-commercial',
-        'elite-product-commercial',
-      ] as const,
-    ),
+    characterAgeGroup:
+      workspace === 'motion-control'
+        ? 'any'
+        : readEnum(
+            formData,
+            'characterAgeGroup',
+            ['any', 'young-adult', 'adult', 'middle-aged', 'senior'] as const,
+          ),
+    characterGender:
+      workspace === 'motion-control'
+        ? 'any'
+        : readEnum(
+            formData,
+            'characterGender',
+            ['any', 'female', 'male', 'non-binary'] as const,
+          ),
+    creativeStyle:
+      workspace === 'motion-control'
+        ? 'ugc-lifestyle'
+        : readEnum(
+            formData,
+            'creativeStyle',
+            [
+              'ugc-lifestyle',
+              'cinematic',
+              'tv-commercial',
+              'elite-product-commercial',
+            ] as const,
+          ),
     experience,
-    figureArtDirection: readEnum(
-      formData,
-      'figureArtDirection',
-      ['none', 'curvaceous-editorial'] as const,
-    ),
+    figureArtDirection:
+      workspace === 'motion-control'
+        ? 'none'
+        : readEnum(
+            formData,
+            'figureArtDirection',
+            ['none', 'curvaceous-editorial'] as const,
+          ),
     guided,
     imageModel,
     motionControl,
     motionControlDurationSeconds,
     motionControlResolution,
     outputQuality,
-    productCategory: readEnum(
-      formData,
-      'productCategory',
-      [
-        'food-drink',
-        'jewelry',
-        'cosmetics',
-        'electronics',
-        'clothing',
-        'miscellaneous',
-      ] as const,
-    ),
-    shotEnvironment: readEnum(
-      formData,
-      'shotEnvironment',
-      ['indoor', 'outdoor'] as const,
-    ),
-    subjectMode: readEnum(
-      formData,
-      'subjectMode',
-      ['product-only', 'lifestyle'] as const,
-    ),
+    productCategory:
+      workspace === 'motion-control'
+        ? 'miscellaneous'
+        : readEnum(
+            formData,
+            'productCategory',
+            [
+              'food-drink',
+              'jewelry',
+              'cosmetics',
+              'electronics',
+              'clothing',
+              'miscellaneous',
+            ] as const,
+          ),
+    shotEnvironment:
+      workspace === 'motion-control'
+        ? 'indoor'
+        : readEnum(
+            formData,
+            'shotEnvironment',
+            ['indoor', 'outdoor'] as const,
+          ),
+    subjectMode:
+      workspace === 'motion-control'
+        ? 'product-only'
+        : readEnum(
+            formData,
+            'subjectMode',
+            ['product-only', 'lifestyle'] as const,
+          ),
     textPrompt: readString(formData, 'textPrompt'),
     videoDuration: readEnum(
       formData,

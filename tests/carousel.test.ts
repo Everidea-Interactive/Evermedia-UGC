@@ -108,6 +108,31 @@ describe('carousel prompt builder', () => {
     )
   })
 
+  it('does not inherit manual image or video baseline language', () => {
+    const panel: CarouselPanelDraft = {
+      id: 'panel-isolation',
+      imageAsset: null,
+      imageMode: 'ai',
+      imagePrompt: 'serum bottle floating over clean panel',
+      order: 1,
+      templateMode: 'inherit',
+      templatePrompt: '',
+      textMode: 'manual',
+      textPrompt: '',
+      textValue: 'Panel One',
+    }
+
+    const prompt = buildCarouselBatchPrompt([panel], createDraft(panel))
+
+    expect(prompt).not.toContain(
+      'Create a high-quality image for a beauty and cosmetics campaign.',
+    )
+    expect(prompt).not.toContain('Create a video for a beauty and cosmetics campaign.')
+    expect(prompt).not.toContain(
+      'Animate the supplied reference image into a motion-controlled video sequence.',
+    )
+  })
+
   it('treats uploaded base template as hard layout blueprint and keeps panel refs subordinate', () => {
     const panel: CarouselPanelDraft = {
       id: 'panel-4',

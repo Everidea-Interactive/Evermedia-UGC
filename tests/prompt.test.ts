@@ -76,9 +76,15 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Shot environment: curated indoor setting with studio-grade control.',
     )
-    expect(prompt).toContain('Current date context:')
+    expect(prompt).not.toContain('Current date context:')
     expect(prompt).not.toContain('Character demographics:')
     expect(prompt).toContain('Use End Frame as the end-frame guidance when supported.')
+    expect(prompt).not.toContain(
+      'Animate the supplied reference image into a motion-controlled video sequence.',
+    )
+    expect(prompt).not.toContain(
+      'Create a high-quality image for a beauty and cosmetics campaign.',
+    )
     expect(prompt).not.toContain('Identity reference:')
     expect(prompt).not.toContain('Product reference:')
     expect(prompt).not.toContain('Wardrobe reference:')
@@ -238,6 +244,9 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Shot environment: outdoor location with natural environmental context.',
     )
+    expect(prompt).not.toContain(
+      'Animate the supplied reference image into a motion-controlled video sequence.',
+    )
     expect(prompt).not.toContain('Character demographics:')
     expect(prompt).not.toContain('Figure art direction:')
   })
@@ -263,7 +272,7 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain('Identity reference:')
   })
 
-  it('adds current date context when text prompt contains date-sensitive language', () => {
+  it('does not inject date context into non-carousel prompts even when prompt text is date-sensitive', () => {
     const prompt = compileGenerationPrompt({
       assets: [],
       cameraMovement: null,
@@ -281,9 +290,112 @@ describe('compileGenerationPrompt', () => {
       workspace: 'image',
     })
 
+    expect(prompt).not.toContain('Current date context:')
+  })
+
+  it('uses a motion-control-specific baseline instead of image baseline wording', () => {
+    const prompt = compileGenerationPrompt({
+      assets: [
+        makeAsset({
+          fieldName: 'asset_motionControlReferenceImage',
+          key: 'face1',
+          label: 'Reference Image',
+          order: 1,
+          remoteUrl: 'https://example.com/reference.png',
+        }),
+        makeAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product Reference',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      shotEnvironment: 'indoor',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Keep bottle label readable during the move.',
+      videoDuration: 'base',
+      videoModel: 'kling-3.0',
+      workspace: 'motion-control',
+    })
+
     expect(prompt).toContain(
-      'Current date context: 2026-06-05. Use this only when prompt, template, base panel, or requested copy strongly indicates date-sensitive content. Resolve relative date words against this date and preserve any explicit dates exactly as written. Do not add or emphasize dates when source instructions are not date-driven.',
+      'Animate the supplied reference image into a motion-controlled video sequence.',
     )
+    expect(prompt).toContain(
+      'Use Motion Control as a transformation task, not a fresh scene-generation task.',
+    )
+    expect(prompt).toContain(
+      'Use the supplied motion guidance video as movement reference only.',
+    )
+    expect(prompt).toContain('Reference image anchor:')
+    expect(prompt).toContain('Keep bottle label readable during the move.')
+    expect(prompt).not.toContain('Current date context:')
+    expect(prompt).not.toContain('Create a high-quality image for a beauty and cosmetics campaign.')
+    expect(prompt).not.toContain('Create a video for a beauty and cosmetics campaign.')
+    expect(prompt).not.toContain('beauty and cosmetics')
+    expect(prompt).not.toContain('UGC lifestyle direction with believable real-world polish')
+    expect(prompt).not.toContain(
+      'Stage a lifestyle composition that naturally includes a person interacting with the product.',
+    )
+    expect(prompt).not.toContain(
+      'Shot environment: curated indoor setting with studio-grade control.',
+    )
+    expect(prompt).not.toContain('Figure art direction:')
+    expect(prompt).not.toContain(
+      'Anatomy integrity: render natural, physically plausible human anatomy',
+    )
+  })
+
+  it.each([
+    [
+      'character',
+      'Preset focus: replace or animate the character while preserving the original product, product placement, and scene composition unless explicitly overridden.',
+    ],
+    [
+      'product',
+      'Preset focus: replace or animate the product while preserving the original person, pose logic, and scene composition unless explicitly overridden.',
+    ],
+    [
+      'character-product',
+      'Preset focus: replace or animate both character and product together while preserving the original framing, interaction logic, and overall composition unless explicitly overridden.',
+    ],
+  ])('applies motion-control preset guidance for %s', (preset, expectedLine) => {
+    const prompt = compileGenerationPrompt({
+      assets: [
+        makeAsset({
+          fieldName: 'asset_motionControlReferenceImage',
+          key: 'face1',
+          label: 'Reference Image',
+          order: 1,
+          remoteUrl: 'https://example.com/reference.png',
+        }),
+      ],
+      cameraMovement: null,
+      characterAgeGroup: 'any',
+      characterGender: 'any',
+      creativeStyle: 'ugc-lifestyle',
+      figureArtDirection: 'none',
+      outputQuality: '1080p',
+      productCategory: 'miscellaneous',
+      shotEnvironment: 'indoor',
+      subjectMode: 'product-only',
+      textPrompt: '',
+      videoDuration: 'base',
+      videoModel: 'kling-3.0',
+      workspace: 'motion-control',
+      motionControlPreset: preset as 'character' | 'product' | 'character-product',
+    })
+
+    expect(prompt).toContain(expectedLine)
   })
 })
 
