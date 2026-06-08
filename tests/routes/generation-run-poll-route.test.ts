@@ -992,5 +992,158 @@ describe('GET /api/generation/runs/[runId]', () => {
       }),
     )
   })
+
+  it('stores motion-control completions as mp4 outputs', async () => {
+    vi.mocked(getGenerationRunBundle)
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: null,
+          configSnapshot: {
+            activeTab: 'motion-control',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            motionControl: {
+              additionalInstructions: '',
+              preset: 'character-product',
+              resolution: '1080p',
+            },
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-06-08T00:00:00.000Z',
+          id: 'run-motion',
+          model: 'kling-3.0/motion-control',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'rendering',
+          userId: 'user-1',
+          variants: [
+            {
+              completedAt: null,
+              createdAt: '2026-06-08T00:00:00.000Z',
+              error: null,
+              id: 'variant-motion-1',
+              profile: 'Profile 1',
+              prompt: 'Prompt 1',
+              resultAssetId: null,
+              runId: 'run-motion',
+              status: 'rendering',
+              taskId: 'task-motion-1',
+              variantIndex: 1,
+            },
+          ],
+          workspace: 'motion-control',
+        },
+      })
+      .mockResolvedValueOnce({
+        outputs: [],
+        run: {
+          completedAt: '2026-06-08T00:00:05.000Z',
+          configSnapshot: {
+            activeTab: 'motion-control',
+            batchSize: 1,
+            cameraMovement: 'orbit',
+            characterAgeGroup: 'any',
+            characterGender: 'any',
+            creativeStyle: 'ugc-lifestyle',
+            experience: 'manual',
+            figureArtDirection: 'none',
+            guided: null,
+            imageModel: 'nano-banana',
+            motionControl: {
+              additionalInstructions: '',
+              preset: 'character-product',
+              resolution: '1080p',
+            },
+            outputQuality: '1080p',
+            productCategory: 'cosmetics',
+            shotEnvironment: 'indoor',
+            subjectMode: 'lifestyle',
+            textPrompt: 'Prompt',
+            videoAudio: 'no-audio',
+            videoDuration: 'base',
+            videoModel: 'veo-3.1',
+          },
+          createdAt: '2026-06-08T00:00:00.000Z',
+          id: 'run-motion',
+          model: 'kling-3.0/motion-control',
+          promptSnapshot: 'Prompt snapshot',
+          provider: 'market',
+          status: 'success',
+          userId: 'user-1',
+          variants: [],
+          workspace: 'motion-control',
+        },
+      })
+    vi.mocked(getTaskStatus).mockResolvedValue({
+      error: null,
+      result: {
+        model: 'kling-3.0/motion-control',
+        taskId: 'task-motion-1',
+        type: 'video',
+        url: 'https://example.com/output.mp4',
+      },
+      status: 'success',
+      taskId: 'task-motion-1',
+    })
+    vi.mocked(saveGeneratedOutputForVariant).mockResolvedValue({
+      createdAt: '2026-06-08T00:00:05.000Z',
+      fileSize: 456,
+      id: 'output-motion-1',
+      label: 'Variation 1 Output',
+      mimeType: 'video/mp4',
+      originalName: 'task-motion-1.mp4',
+      runId: 'run-motion',
+      storagePath: 'user-1/runs/run-motion/outputs/task-motion-1.mp4',
+      userId: 'user-1',
+    })
+    vi.mocked(syncGenerationRunStatus).mockResolvedValue(null)
+    vi.mocked(createGenerationRunState).mockReturnValue({
+      completedAt: '2026-06-08T00:00:05.000Z',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      error: null,
+      experience: 'manual',
+      model: 'kling-3.0/motion-control',
+      provider: 'market',
+      runId: 'run-motion',
+      selectedVariantId: null,
+      startedAt: 0,
+      status: 'success',
+      variants: [],
+      workspace: 'motion-control',
+    })
+
+    const response = await GET(
+      new Request('http://localhost/api/generation/runs/run-motion'),
+      {
+        params: Promise.resolve({ runId: 'run-motion' }),
+      },
+    )
+
+    expect(response.status).toBe(200)
+    expect(saveGeneratedOutputForVariant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'task-motion-1.mp4',
+        fileType: 'video/mp4',
+        runId: 'run-motion',
+        sourceUrl: 'https://example.com/output.mp4',
+        variantId: 'variant-motion-1',
+      }),
+    )
+  })
 })
 

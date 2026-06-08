@@ -457,13 +457,15 @@ function createResultForVariant(
     return null
   }
 
+  const isVideoWorkspace =
+    workspace === 'video' || workspace === 'motion-control'
+
   return {
     label: output.label,
     model,
     taskId: variant.taskId ?? output.id,
-    thumbnailUrl:
-      workspace === 'video' ? `/api/media/${output.id}` : undefined,
-    type: workspace === 'video' ? ('video' as const) : ('image' as const),
+    thumbnailUrl: isVideoWorkspace ? `/api/media/${output.id}` : undefined,
+    type: isVideoWorkspace ? ('video' as const) : ('image' as const),
     url: `/api/media/${output.id}`,
   }
 }
