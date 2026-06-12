@@ -393,7 +393,6 @@ export function buildGenerationFormData(
       'Motion Control motion video must be a video file.',
     )
 
-    formData.append('motionControlPreset', motionControl.preset)
     formData.append(
       'motionControlAdditionalInstructions',
       motionControl.additionalInstructions,

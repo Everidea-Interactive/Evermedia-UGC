@@ -10,7 +10,6 @@ describe('motion control store', () => {
   it('creates a default motion control draft and keeps it isolated from normal video refs', () => {
     const state = useGenerationStore.getState()
 
-    expect(state.motionControl.preset).toBe('character-product')
     expect(state.motionControl.additionalInstructions).toBe('')
     expect(state.motionControl.referenceImage.file).toBeNull()
     expect(state.motionControl.motionVideo.file).toBeNull()
@@ -30,13 +29,11 @@ describe('motion control store', () => {
   it('updates motion control preset and additional instructions independently', () => {
     const store = useGenerationStore.getState()
 
-    store.setMotionControlPreset('product')
     store.setMotionControlAdditionalInstructions('Keep the new bottle centered.')
     store.setMotionControlMotionVideoDuration(5.257)
 
     const nextState = useGenerationStore.getState()
 
-    expect(nextState.motionControl.preset).toBe('product')
     expect(nextState.motionControl.additionalInstructions).toBe('Keep the new bottle centered.')
     expect(nextState.motionControl.motionVideo.durationSeconds).toBe(5.257)
   })
@@ -47,7 +44,6 @@ describe('motion control store', () => {
       experience: 'manual',
       motionControl: {
         additionalInstructions: 'Keep it premium.',
-        preset: 'character',
         resolution: '720p',
       },
     } as never)
@@ -55,7 +51,7 @@ describe('motion control store', () => {
     const state = useGenerationStore.getState()
 
     expect(state.activeTab).toBe('motion-control')
-    expect(state.motionControl.preset).toBe('character')
+    expect(state.motionControl.additionalInstructions).toBe('Keep it premium.')
     expect(state.motionControl.resolution).toBe('720p')
   })
 })

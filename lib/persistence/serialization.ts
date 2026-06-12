@@ -29,7 +29,6 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   imageModel: 'nano-banana',
   motionControl: {
     additionalInstructions: '',
-    preset: 'character-product',
     resolution: '1080p',
   },
   outputQuality: '1080p',
@@ -44,7 +43,6 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
 
 const defaultMotionControlSnapshot = {
   additionalInstructions: '',
-  preset: 'character-product',
   resolution: '1080p',
 } satisfies NonNullable<GenerationConfigSnapshot['motionControl']>
 
@@ -414,11 +412,6 @@ export function normalizeProjectConfigSnapshot(
         typeof snapshot.motionControl?.additionalInstructions === 'string'
           ? snapshot.motionControl.additionalInstructions
           : defaultMotionControlSnapshot.additionalInstructions,
-      preset: readSnapshotEnum(
-        snapshot.motionControl?.preset,
-        ['character', 'product', 'character-product'] as const,
-        defaultMotionControlSnapshot.preset,
-      ),
       resolution: readSnapshotEnum(
         snapshot.motionControl?.resolution,
         ['720p', '1080p'] as const,

@@ -33,12 +33,6 @@ const ManualCarouselSetupSection = dynamic(() =>
   ),
 )
 
-const ManualMotionControlPresetSection = dynamic(() =>
-  import('@/components/dashboard/manual-motion-control-preset-section').then(
-    (module) => module.ManualMotionControlPresetSection,
-  ),
-)
-
 type ManualSection = 'references' | 'preset' | 'setup' | 'outputs'
 
 export function normalizeManualSection(
@@ -55,6 +49,10 @@ export function normalizeManualSection(
     return manualSection === 'setup' || manualSection === 'outputs'
       ? manualSection
       : 'setup'
+  }
+
+  if (activeTab === 'motion-control') {
+    return manualSection === 'outputs' ? 'outputs' : 'references'
   }
 
   if (manualSection === 'setup') {
@@ -97,9 +95,6 @@ export function DashboardShell({
     if (activeTab === 'motion-control') {
       if (visibleManualSection === 'references') {
         return <ManualMotionControlReferenceSection />
-      }
-      if (visibleManualSection === 'preset') {
-        return <ManualMotionControlPresetSection />
       }
       return <OutputPanel />
     }
@@ -193,11 +188,21 @@ export function DashboardShell({
           >
             <TabsList
               aria-label="Workspace Sections"
-              className={cn("w-full", activeTab === 'carousel' ? "grid-cols-2" : "grid-cols-3")}
+              className={cn(
+                'w-full',
+                activeTab === 'carousel' || activeTab === 'motion-control'
+                  ? 'grid-cols-2'
+                  : 'grid-cols-3',
+              )}
             >
               {activeTab === 'carousel' ? (
                 <>
                   <TabsTrigger value="setup">Setup</TabsTrigger>
+                  <TabsTrigger value="outputs">Outputs</TabsTrigger>
+                </>
+              ) : activeTab === 'motion-control' ? (
+                <>
+                  <TabsTrigger value="references">References</TabsTrigger>
                   <TabsTrigger value="outputs">Outputs</TabsTrigger>
                 </>
               ) : (

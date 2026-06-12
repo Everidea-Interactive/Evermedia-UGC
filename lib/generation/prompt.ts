@@ -4,7 +4,6 @@ import type {
   CharacterGender,
   CreativeStyle,
   FigureArtDirection,
-  MotionControlPreset,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -40,7 +39,6 @@ type CompileGenerationPromptInput = {
   workspace: WorkspaceTab
   currentDate?: Date
   motionControlAdditionalInstructions?: string
-  motionControlPreset?: MotionControlPreset
 }
 
 const categoryPhrases: Record<ProductCategory, string> = {
@@ -165,18 +163,6 @@ function buildSupportingReferenceLine(
   return supportingReferenceLabels.length > 0
     ? `Additional supporting references available: ${supportingReferenceLabels.join(', ')}.`
     : null
-}
-
-function getMotionControlPresetLine(preset: MotionControlPreset | undefined) {
-  switch (preset) {
-    case 'character':
-      return 'Preset focus: replace or animate the character while preserving the original product, product placement, and scene composition unless explicitly overridden.'
-    case 'product':
-      return 'Preset focus: replace or animate the product while preserving the original person, pose logic, and scene composition unless explicitly overridden.'
-    case 'character-product':
-    default:
-      return 'Preset focus: replace or animate both character and product together while preserving the original framing, interaction logic, and overall composition unless explicitly overridden.'
-  }
 }
 
 function compileImagePrompt(input: CompileGenerationPromptInput) {
@@ -397,46 +383,15 @@ function compileVideoPrompt(input: CompileGenerationPromptInput) {
 }
 
 function compileMotionControlPrompt(input: CompileGenerationPromptInput) {
-  const named = getNamedReferenceMap(input.assets)
-  const products = getOrderedProductReferences(input.assets)
-  const face1 = named.get('face1')
-  const face2 = named.get('face2')
-  const identityReference =
-    input.subjectMode === 'lifestyle' ? face1 ?? face2 ?? null : null
-  const productReference = products[0] ?? null
-  const explicitlyDescribedFieldNames = new Set<string>()
-
-  for (const fieldName of [
-    identityReference?.fieldName,
-    productReference?.fieldName,
-  ]) {
-    if (fieldName) {
-      explicitlyDescribedFieldNames.add(fieldName)
-    }
-  }
-
   const promptParts = [
-    'Animate the supplied reference image into a motion-controlled video sequence.',
-    'Use Motion Control as a transformation task, not a fresh scene-generation task.',
-    getMotionControlPresetLine(input.motionControlPreset),
+    'Use the supplied motion reference video as the source of motion, action timing, and pose transitions.',
+    'Use the supplied reference image as the visual replacement source.',
+    'Preserve the original motion flow from the motion reference video while keeping the generated character visually consistent with the supplied reference image.',
+    'The character image acts as a strong global visual reference and may influence wardrobe, props, or held products during generation.',
+    'Maintain stable continuity, believable anatomy, correct object contact, clear brand readability, and commercially usable output.',
+    'Do not introduce extra people, extra products, broken limbs, warped hands, floating objects, unreadable labels, identity blending, or unstable subject consistency.',
     `Target delivery: ${input.outputQuality} output where supported by motion-control pipeline.`,
-    'Use the supplied motion guidance video as movement reference only. Preserve the reference image as the source of identity, styling, layout, and scene continuity.',
-    'Preserve subject identity, product design, composition intent, and brand readability from the supplied reference image.',
-    'Do not invent a new person, new product, new background concept, or a different campaign setup unless the user explicitly asks for that change.',
-    'Transfer motion energy, timing, and camera behavior from the supplied motion guidance video without changing the core subject or product.',
   ]
-
-  if (identityReference) {
-    promptParts.push(
-      `Reference image anchor: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
-    )
-  }
-
-  if (productReference) {
-    promptParts.push(
-      `Product continuity anchor: ${productReference.label}. Preserve the exact product design, packaging, branding, proportions, materials, and colorway from this reference.`,
-    )
-  }
 
   if (input.motionControlAdditionalInstructions?.trim()) {
     promptParts.push(input.motionControlAdditionalInstructions.trim())
@@ -444,15 +399,6 @@ function compileMotionControlPrompt(input: CompileGenerationPromptInput) {
 
   if (input.textPrompt.trim()) {
     promptParts.push(input.textPrompt.trim())
-  }
-
-  const supportingReferenceLine = buildSupportingReferenceLine(
-    input.assets,
-    explicitlyDescribedFieldNames,
-  )
-
-  if (supportingReferenceLine) {
-    promptParts.push(supportingReferenceLine)
   }
 
   return finalizePrompt(promptParts)
@@ -522,6 +468,8 @@ export function buildVariantPromptSet(input: {
     index + 1,
   ) as PromptVariantIndex[]).map((variantIndex) => {
     const profile = variantProfileSuffixes[variantIndex]
+    const shouldApplyVariantSuffix =
+      input.workspace === 'image' || input.workspace === 'video'
     const movementSentence =
       input.workspace === 'video' && input.cameraMovement
         ? ` ${movementVariantPhrases[input.cameraMovement]}`
@@ -530,7 +478,7 @@ export function buildVariantPromptSet(input: {
     return {
       index: variantIndex,
       profile,
-      prompt: `${input.basePrompt} ${profile}${movementSentence}`
+      prompt: `${input.basePrompt}${shouldApplyVariantSuffix ? ` ${profile}` : ''}${movementSentence}`
         .replace(/\s+/g, ' ')
         .trim(),
     }

@@ -231,7 +231,6 @@ describe('KIE batch submission', () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'motion-control')
     formData.set('outputQuality', '1080p')
-    formData.set('motionControlPreset', 'product')
     formData.set('motionControlAdditionalInstructions', 'Keep bottle label readable.')
     formData.set('motionControlResolution', '1080p')
     formData.append(
@@ -267,7 +266,6 @@ describe('KIE batch submission', () => {
     expect(parsed.videoModel).toBe('kling-3.0')
     expect(parsed.motionControl).toEqual({
       additionalInstructions: 'Keep bottle label readable.',
-      preset: 'product',
       resolution: '1080p',
     })
     expect(parsed.assetDescriptors.map((asset) => asset.fieldName)).toEqual([
@@ -287,7 +285,6 @@ describe('KIE batch submission', () => {
     formData.append('videoAudio', 'no-audio')
     formData.append('outputQuality', '1080p')
     formData.append('cameraMovement', '')
-    formData.append('motionControlPreset', 'product')
     formData.append('motionControlAdditionalInstructions', 'Keep bottle label readable.')
     formData.append('motionControlResolution', '1080p')
     formData.append(
@@ -320,6 +317,7 @@ describe('KIE batch submission', () => {
     const parsed = parseGenerationFormData(formData)
 
     expect(parsed.workspace).toBe('motion-control')
+    expect(parsed.motionControl?.additionalInstructions).toBe('Keep bottle label readable.')
     expect(parsed.productCategory).toBe('miscellaneous')
     expect(parsed.creativeStyle).toBe('ugc-lifestyle')
     expect(parsed.subjectMode).toBe('product-only')

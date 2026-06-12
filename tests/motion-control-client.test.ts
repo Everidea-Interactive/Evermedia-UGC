@@ -49,7 +49,6 @@ describe('motion control client payload', () => {
           ...createSlot('mv', 'Motion Video', video),
           durationSeconds: 5.25,
         },
-        preset: 'product',
         referenceImage: createSlot('ri', 'Reference Image', file),
         resolution: '1080p',
       },
@@ -73,7 +72,8 @@ describe('motion control client payload', () => {
     })
 
     expect(formData.get('workspace')).toBe('motion-control')
-    expect(formData.get('motionControlPreset')).toBe('product')
+    expect(formData.get('motionControlPreset')).toBeNull()
+    expect(formData.get('motionControlBackgroundSource')).toBeNull()
     expect(formData.get('motionControlResolution')).toBe('1080p')
     expect(formData.get('motionControlDurationSeconds')).toBe('5.25')
     expect(formData.get('motionControlAdditionalInstructions')).toBe(
@@ -125,7 +125,6 @@ describe('motion control client payload', () => {
         motionControl: {
           additionalInstructions: 'Keep the bottle readable.',
           motionVideo: createSlot('mv', 'Motion Video', image),
-          preset: 'product',
           referenceImage: createSlot('ri', 'Reference Image', video),
           resolution: '1080p',
         },

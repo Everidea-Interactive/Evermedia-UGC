@@ -2,17 +2,11 @@ export type WorkspaceTab = 'image' | 'video' | 'carousel' | 'motion-control'
 
 export type MediaKind = 'image' | 'video'
 
-export type MotionControlPreset =
-  | 'character'
-  | 'product'
-  | 'character-product'
-
 export type MotionControlResolution = '720p' | '1080p'
 
 export type MotionControlDraft = {
   additionalInstructions: string
   motionVideo: AssetSlot
-  preset: MotionControlPreset
   referenceImage: AssetSlot
   resolution: MotionControlResolution
 }

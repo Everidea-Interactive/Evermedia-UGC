@@ -7,6 +7,7 @@ import {
   isLocale,
   localeCookieName,
   normalizeLocale,
+  translateText,
 } from '@/lib/i18n'
 
 describe('i18n locale utilities', () => {
@@ -28,6 +29,12 @@ describe('i18n locale utilities', () => {
     expect(dictionaries.id.ideation.outputLanguageInstruction).toContain(
       'Bahasa Indonesia',
     )
+    expect(dictionaries.en.dashboard.workspaceTabs.motionControl).toBe(
+      'Motion Control',
+    )
+    expect(dictionaries.id.dashboard.workspaceTabs.motionControl).toBe(
+      'Kontrol Gerak',
+    )
     expect(Object.keys(dictionaries.id.dashboard.experienceTabs)).toEqual(
       Object.keys(dictionaries.en.dashboard.experienceTabs),
     )
@@ -36,5 +43,30 @@ describe('i18n locale utilities', () => {
   it('formats compact language toggle labels', () => {
     expect(getLocaleToggleLabel('id')).toBe('ID')
     expect(getLocaleToggleLabel('en')).toBe('EN')
+  })
+
+  it('translates motion-control UI and validation strings into Indonesian', () => {
+    expect(
+      translateText(
+        'id',
+        'Build the motion-control input set',
+      ),
+    ).toBe('Siapkan materi input kontrol gerak')
+    expect(
+      translateText(
+        'id',
+        'Upload one character reference image and one motion video. Kling Motion Control uses the character image as a strong global visual reference, so the result may inherit wardrobe, props, or held products from that image.',
+      ),
+    ).toBe(
+      'Unggah satu gambar referensi karakter dan satu video gerakan. Kling Motion Control menggunakan gambar karakter sebagai referensi visual global yang kuat, sehingga hasilnya dapat mewarisi wardrobe, properti, atau produk yang dipegang dari gambar tersebut.',
+    )
+    expect(
+      translateText('id', 'Motion Control workspace requires a reference image and motion video.'),
+    ).toBe(
+      'Workspace Kontrol Gerak memerlukan gambar referensi dan video gerakan.',
+    )
+    expect(
+      translateText('id', 'Checking motion video duration.'),
+    ).toBe('Memeriksa durasi video gerakan.')
   })
 })

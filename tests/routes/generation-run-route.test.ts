@@ -471,7 +471,6 @@ describe('POST /api/generation/run', () => {
       imageModel: 'nano-banana',
       motionControl: {
         additionalInstructions: 'Keep bottle readable.',
-        preset: 'product',
         resolution: '1080p',
       },
       motionControlDurationSeconds: 5.25,
@@ -526,7 +525,6 @@ describe('POST /api/generation/run', () => {
         imageModel: 'nano-banana',
         motionControl: {
           additionalInstructions: 'Keep bottle readable.',
-          preset: 'product',
           resolution: '1080p',
         },
         outputQuality: '1080p',
@@ -566,7 +564,6 @@ describe('POST /api/generation/run', () => {
           imageModel: 'nano-banana',
           motionControl: {
             additionalInstructions: 'Keep bottle readable.',
-            preset: 'product',
             resolution: '1080p',
           },
           outputQuality: '1080p',
@@ -613,6 +610,14 @@ describe('POST /api/generation/run', () => {
 
     expect(response.status).toBe(200)
     expect(submitGenerationRequest).toHaveBeenCalled()
+    expect(buildPromptSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        motionControl: expect.objectContaining({
+          additionalInstructions: 'Keep bottle readable.',
+        }),
+        workspace: 'motion-control',
+      }),
+    )
     await expect(response.json()).resolves.toMatchObject({
       runId: 'run-motion-1',
       workspace: 'motion-control',

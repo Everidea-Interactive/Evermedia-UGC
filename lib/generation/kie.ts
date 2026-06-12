@@ -50,7 +50,6 @@ import type {
   GenerationVariantIndex,
   ImageModelOption,
   KieAnalysisModel,
-  MotionControlPreset,
   NamedAssetKey,
   MotionControlResolution,
   OutputQuality,
@@ -112,7 +111,6 @@ export type ParsedGenerationRequest = {
   imageModel: ImageModelOption
   motionControl?: {
     additionalInstructions: string
-    preset: MotionControlPreset
     resolution: MotionControlResolution
   } | null
   motionControlDurationSeconds?: number | null
@@ -820,10 +818,6 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
       input.workspace === 'motion-control'
         ? input.motionControl?.additionalInstructions ?? ''
         : '',
-    motionControlPreset:
-      input.workspace === 'motion-control'
-        ? input.motionControl?.preset
-        : undefined,
     outputQuality: input.outputQuality,
     productCategory: input.productCategory,
     shotEnvironment: input.shotEnvironment,
@@ -1461,11 +1455,6 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
       ? {
           additionalInstructions:
             readOptionalString(formData, 'motionControlAdditionalInstructions') ?? '',
-          preset: readEnum(
-            formData,
-            'motionControlPreset',
-            ['character', 'product', 'character-product'] as const,
-          ),
           resolution: motionControlResolution ?? '1080p',
         }
       : null

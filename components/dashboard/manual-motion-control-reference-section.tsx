@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Film, ImageIcon } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 
 import {
   getAcceptForMediaKind,
@@ -14,14 +15,6 @@ import {
 import { readVideoDurationSeconds } from '@/lib/generation/video-metadata'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
-
-const presetDescriptions = {
-  character: 'Use an image that clearly shows the replacement character.',
-  product:
-    'Use an image that clearly shows the replacement product in the intended handling or framing.',
-  'character-product':
-    'Use an image that clearly shows both the replacement character and product together in near-final composition.',
-} as const
 
 export function ManualMotionControlReferenceSection({
   className,
@@ -40,6 +33,9 @@ export function ManualMotionControlReferenceSection({
   )
   const setMotionControlMotionVideoDuration = useGenerationStore(
     (state) => state.setMotionControlMotionVideoDuration,
+  )
+  const setMotionControlAdditionalInstructions = useGenerationStore(
+    (state) => state.setMotionControlAdditionalInstructions,
   )
   const setMotionControlReferenceImageFile = useGenerationStore(
     (state) => state.setMotionControlReferenceImageFile,
@@ -79,7 +75,7 @@ export function ManualMotionControlReferenceSection({
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-5">
         <SectionHeader
-          description={presetDescriptions[motionControl.preset]}
+          description="Upload one character reference image and one motion video. Kling Motion Control uses the character image as a strong global visual reference, so the result may inherit wardrobe, props, or held products from that image."
           eyebrow="Reference board"
           title="Build the motion-control input set"
         />
@@ -103,6 +99,20 @@ export function ManualMotionControlReferenceSection({
             slot={motionControl.motionVideo}
           />
         </ReferenceCardGroup>
+        <div className="flex flex-col gap-2">
+          <SectionHeader
+            description="Optional extra direction appended to the motion-control baseline."
+            eyebrow="Instructions"
+            title="Additional Instructions"
+          />
+          <Textarea
+            onChange={(event) =>
+              setMotionControlAdditionalInstructions(event.target.value)
+            }
+            placeholder="Optional extra direction for continuity, readability, or action emphasis."
+            value={motionControl.additionalInstructions}
+          />
+        </div>
       </div>
     </section>
   )

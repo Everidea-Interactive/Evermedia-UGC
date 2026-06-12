@@ -30,7 +30,6 @@ import type {
   KieAnalysisModel,
   MotionControlDraft,
   MediaKind,
-  MotionControlPreset,
   MotionControlResolution,
   NamedAssetKey,
   NamedAssetSlots,
@@ -188,7 +187,6 @@ type GenerationStore = GenerationStateShape & {
   setMotionControlAdditionalInstructions: (value: string) => void
   setMotionControlMotionVideoFile: (file: File | null) => void
   setMotionControlMotionVideoDuration: (value: number | null) => void
-  setMotionControlPreset: (preset: MotionControlPreset) => void
   setMotionControlReferenceImageFile: (file: File | null) => void
   setMotionControlResolution: (value: MotionControlResolution) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
@@ -327,7 +325,6 @@ function createMotionControlDraft(): MotionControlDraft {
   return {
     additionalInstructions: '',
     motionVideo: createSlot('motion-control-video', 'Motion Reference Video'),
-    preset: 'character-product',
     referenceImage: createSlot('motion-control-image', 'Reference Image'),
     resolution: '1080p',
   }
@@ -903,7 +900,6 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
           ...createMotionControlDraft(),
           additionalInstructions:
             normalizedConfig.motionControl?.additionalInstructions ?? '',
-          preset: normalizedConfig.motionControl?.preset ?? 'character-product',
           resolution: normalizedConfig.motionControl?.resolution ?? '1080p',
         },
         sessionStats: state.sessionStats,
@@ -1266,13 +1262,6 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
               ? Number(value.toFixed(3))
               : null,
         },
-      },
-    })),
-  setMotionControlPreset: (preset) =>
-    set((state) => ({
-      motionControl: {
-        ...state.motionControl,
-        preset,
       },
     })),
   setMotionControlReferenceImageFile: (file) =>

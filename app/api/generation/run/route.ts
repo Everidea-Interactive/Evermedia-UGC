@@ -162,7 +162,6 @@ function createEstimateSnapshot(
               }),
               durationSeconds: input.motionControlDurationSeconds ?? null,
             },
-            preset: input.motionControl.preset,
             referenceImage: createEstimateSlot({
               file: input.assetDescriptors.find(
                 (assetDescriptor) =>
@@ -211,7 +210,6 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
     motionControl: input.motionControl
       ? {
           additionalInstructions: input.motionControl.additionalInstructions,
-          preset: input.motionControl.preset,
           resolution: input.motionControl.resolution,
         }
       : undefined,

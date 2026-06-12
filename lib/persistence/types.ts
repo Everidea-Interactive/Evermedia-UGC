@@ -19,7 +19,6 @@ import type {
   GenerationVariantStatus,
   ImageModelOption,
   KieAnalysisModel,
-  MotionControlPreset,
   MotionControlResolution,
   OutputQuality,
   ProductCategory,
@@ -54,7 +53,6 @@ export type GenerationConfigSnapshot = {
   imageModel: ImageModelOption
   motionControl?: {
     additionalInstructions: string
-    preset: MotionControlPreset
     resolution: MotionControlResolution
   }
   outputQuality: OutputQuality

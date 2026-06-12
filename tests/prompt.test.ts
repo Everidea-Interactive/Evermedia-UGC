@@ -328,47 +328,25 @@ describe('compileGenerationPrompt', () => {
     })
 
     expect(prompt).toContain(
-      'Animate the supplied reference image into a motion-controlled video sequence.',
+      'Use the supplied motion reference video as the source of motion, action timing, and pose transitions.',
     )
     expect(prompt).toContain(
-      'Use Motion Control as a transformation task, not a fresh scene-generation task.',
+      'Use the supplied reference image as the visual replacement source.',
     )
     expect(prompt).toContain(
-      'Use the supplied motion guidance video as movement reference only.',
+      'Maintain stable continuity, believable anatomy, correct object contact, clear brand readability, and commercially usable output.',
     )
-    expect(prompt).toContain('Reference image anchor:')
+    expect(prompt).toContain(
+      'The character image acts as a strong global visual reference and may influence wardrobe, props, or held products during generation.',
+    )
     expect(prompt).toContain('Keep bottle label readable during the move.')
     expect(prompt).not.toContain('Current date context:')
     expect(prompt).not.toContain('Create a high-quality image for a beauty and cosmetics campaign.')
     expect(prompt).not.toContain('Create a video for a beauty and cosmetics campaign.')
-    expect(prompt).not.toContain('beauty and cosmetics')
-    expect(prompt).not.toContain('UGC lifestyle direction with believable real-world polish')
-    expect(prompt).not.toContain(
-      'Stage a lifestyle composition that naturally includes a person interacting with the product.',
-    )
-    expect(prompt).not.toContain(
-      'Shot environment: curated indoor setting with studio-grade control.',
-    )
-    expect(prompt).not.toContain('Figure art direction:')
-    expect(prompt).not.toContain(
-      'Anatomy integrity: render natural, physically plausible human anatomy',
-    )
+    expect(prompt).not.toContain('Animate the supplied reference image into a motion-controlled video sequence.')
   })
 
-  it.each([
-    [
-      'character',
-      'Preset focus: replace or animate the character while preserving the original product, product placement, and scene composition unless explicitly overridden.',
-    ],
-    [
-      'product',
-      'Preset focus: replace or animate the product while preserving the original person, pose logic, and scene composition unless explicitly overridden.',
-    ],
-    [
-      'character-product',
-      'Preset focus: replace or animate both character and product together while preserving the original framing, interaction logic, and overall composition unless explicitly overridden.',
-    ],
-  ])('applies motion-control preset guidance for %s', (preset, expectedLine) => {
+  it('uses a generic motion-control baseline without preset or background-specific wording', () => {
     const prompt = compileGenerationPrompt({
       assets: [
         makeAsset({
@@ -392,10 +370,15 @@ describe('compileGenerationPrompt', () => {
       videoDuration: 'base',
       videoModel: 'kling-3.0',
       workspace: 'motion-control',
-      motionControlPreset: preset as 'character' | 'product' | 'character-product',
     })
 
-    expect(prompt).toContain(expectedLine)
+    expect(prompt).toContain(
+      'Preserve the original motion flow from the motion reference video while keeping the generated character visually consistent with the supplied reference image.',
+    )
+    expect(prompt).not.toContain('Replace only the on-camera actor')
+    expect(prompt).not.toContain('Replace only the featured product')
+    expect(prompt).not.toContain('Keep the environment and backdrop aligned')
+    expect(prompt).not.toContain('Adapt the environment and backdrop')
   })
 })
 
@@ -419,6 +402,18 @@ describe('buildVariantPromptSet', () => {
     expect(variants[0]?.prompt).toContain(
       'Let the motion emphasize a steady dolly move that builds momentum toward the hero beat.',
     )
+  })
+
+  it('does not append variant suffixes for motion-control prompts', () => {
+    const variants = buildVariantPromptSet({
+      basePrompt: 'Use motion control.',
+      batchSize: 2,
+      cameraMovement: null,
+      workspace: 'motion-control',
+    })
+
+    expect(variants[0]?.prompt).toBe('Use motion control.')
+    expect(variants[1]?.prompt).toBe('Use motion control.')
   })
 })
 

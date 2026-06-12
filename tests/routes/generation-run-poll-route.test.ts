@@ -1012,7 +1012,6 @@ describe('GET /api/generation/runs/[runId]', () => {
             imageModel: 'nano-banana',
             motionControl: {
               additionalInstructions: '',
-              preset: 'character-product',
               resolution: '1080p',
             },
             outputQuality: '1080p',
@@ -1066,7 +1065,6 @@ describe('GET /api/generation/runs/[runId]', () => {
             imageModel: 'nano-banana',
             motionControl: {
               additionalInstructions: '',
-              preset: 'character-product',
               resolution: '1080p',
             },
             outputQuality: '1080p',

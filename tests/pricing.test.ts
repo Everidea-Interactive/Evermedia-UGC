@@ -520,7 +520,6 @@ describe('generation pricing', () => {
             durationSeconds: 5.25,
             mimeType: 'video/mp4',
           },
-          preset: 'product',
           referenceImage: {
             ...createSlot('reference-image', 'Reference Image', true),
             mimeType: 'image/png',

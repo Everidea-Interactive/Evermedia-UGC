@@ -74,6 +74,7 @@ export const dictionaries = {
         image: 'Image',
         video: 'Video',
         carousel: 'Carousel',
+        motionControl: 'Motion Control',
       },
     },
     ideation: {
@@ -165,6 +166,7 @@ export const dictionaries = {
         image: 'Gambar',
         video: 'Video',
         carousel: 'Karusel',
+        motionControl: 'Kontrol Gerak',
       },
     },
     ideation: {
@@ -497,6 +499,35 @@ export const uiTranslations: Record<string, string> = {
   'Motion controls': 'Kontrol gerakan',
   'Motion language used during analysis and rendering.':
     'Arah gerakan yang dipakai saat analisis dan rendering.',
+  'Motion Control': 'Kontrol Gerak',
+  'Kling 3.0 Motion Control': 'Kling 3.0 Kontrol Gerak',
+  'Motion Control workspace': 'Workspace Kontrol Gerak',
+  'Motion Control Inputs': 'Input Kontrol Gerak',
+  'Build the motion-control input set': 'Siapkan materi input kontrol gerak',
+  'Upload one character reference image and one motion video. Kling Motion Control uses the character image as a strong global visual reference, so the result may inherit wardrobe, props, or held products from that image.':
+    'Unggah satu gambar referensi karakter dan satu video gerakan. Kling Motion Control menggunakan gambar karakter sebagai referensi visual global yang kuat, sehingga hasilnya dapat mewarisi wardrobe, properti, atau produk yang dipegang dari gambar tersebut.',
+  'Optional extra direction appended to the motion-control baseline.':
+    'Arahan tambahan opsional yang ditambahkan ke baseline motion-control.',
+  'Optional extra direction for continuity, readability, or action emphasis.':
+    'Arahan tambahan opsional untuk kontinuitas, keterbacaan, atau penekanan aksi.',
+  'Motion Control Resolution': 'Resolusi Kontrol Gerak',
+  'Motion Control uses fixed Kling 3.0 provider settings.':
+    'Motion Control menggunakan pengaturan provider Kling 3.0 yang tetap.',
+  'Reference image plus motion-video replacement':
+    'Gambar referensi dengan penggantian berbasis video gerakan',
+  'Checking motion video duration.': 'Memeriksa durasi video gerakan.',
+  'Unable to read motion video duration metadata.':
+    'Tidak dapat membaca metadata durasi video gerakan.',
+  'Add reference image and motion video first.':
+    'Tambahkan dulu gambar referensi dan video gerakan.',
+  'Motion Control workspace requires a reference image and motion video.':
+    'Workspace Kontrol Gerak memerlukan gambar referensi dan video gerakan.',
+  'Motion Control workspace state is missing.':
+    'State workspace Kontrol Gerak tidak ditemukan.',
+  'Motion Control reference image must be an image file.':
+    'Gambar referensi Kontrol Gerak harus berupa file gambar.',
+  'Motion Control motion video must be a video file.':
+    'Video gerakan Kontrol Gerak harus berupa file video.',
   'Movement language': 'Bahasa pergerakan',
   'Needs Attention': 'Perlu Perhatian',
   'No media references loaded yet': 'Belum ada referensi media yang dimuat',
