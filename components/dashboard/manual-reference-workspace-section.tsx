@@ -1,6 +1,7 @@
 'use client'
 
 import { Image, Package2, ScanLine } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 
 import {
   miscReferenceCards,
@@ -33,6 +34,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   const assets = useGenerationStore((state) => state.assets)
   const imageModel = useGenerationStore((state) => state.imageModel)
   const products = useGenerationStore((state) => state.products)
+  const textPrompt = useGenerationStore((state) => state.textPrompt)
   const videoReferences = useGenerationStore((state) => state.videoReferences)
   const videoModel = useGenerationStore((state) => state.videoModel)
   const clearNamedAsset = useGenerationStore((state) => state.clearNamedAsset)
@@ -48,6 +50,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   const setVideoReferenceFile = useGenerationStore(
     (state) => state.setVideoReferenceFile,
   )
+  const setTextPrompt = useGenerationStore((state) => state.setTextPrompt)
   const productSlots = products.slice(0, 2)
   const videoReferenceLimit = getMaxVideoReferenceCount(videoModel)
   const isKlingVideoModel = videoModel === 'kling-3.0'
@@ -205,6 +208,29 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
             </div>
           </div>
         )}
+
+        <div className="flex flex-col gap-2">
+          <SectionHeader
+            description="Optional free-form direction appended after the structured preset."
+            eyebrow="Instructions"
+            title="Additional Instructions"
+          />
+          <Textarea
+            aria-label={
+              activeTab === 'image'
+                ? 'Image generation additional instructions'
+                : 'Video generation additional instructions'
+            }
+            autoComplete="off"
+            className="preset-textarea"
+            onChange={(event) => setTextPrompt(event.target.value)}
+            placeholder="Add any extra creative direction, for example: dramatic backlight, golden hour, neon rim light…"
+            value={textPrompt}
+          />
+          <p className="text-xs text-muted-foreground">
+            Use this only for direction that does not fit the preset controls.
+          </p>
+        </div>
       </div>
     </section>
   )

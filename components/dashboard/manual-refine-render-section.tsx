@@ -1,6 +1,5 @@
 'use client'
 
-import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PromptEnhancementControls } from '@/components/dashboard/prompt-enhancement-controls'
 import { useLocale } from '@/components/i18n/locale-provider'
@@ -53,8 +52,6 @@ export function RefineRenderSection({ className }: { className?: string }) {
   const setShotEnvironment = useGenerationStore(
     (state) => state.setShotEnvironment,
   )
-  const textPrompt = useGenerationStore((state) => state.textPrompt)
-  const setTextPrompt = useGenerationStore((state) => state.setTextPrompt)
   const promptEnhancement = useGenerationStore(
     (state) => state.promptEnhancement,
   )
@@ -380,28 +377,6 @@ export function RefineRenderSection({ className }: { className?: string }) {
               ) : null}
             </ControlGroup>
           )}
-
-          <ControlGroup
-            className={cn(presetGroupClassName, 'xl:col-span-12')}
-            description="Optional free-form direction appended after the structured preset."
-            title="Additional Instructions"
-          >
-            <Textarea
-              aria-label={
-                activeTab === 'image'
-                  ? 'Image generation additional instructions'
-                  : 'Video generation additional instructions'
-              }
-              autoComplete="off"
-              className="preset-textarea"
-              onChange={(event) => setTextPrompt(event.target.value)}
-              placeholder="Add any extra creative direction, for example: dramatic backlight, golden hour, neon rim light…"
-              value={textPrompt}
-            />
-            <p className="text-xs text-muted-foreground">
-              Use this only for direction that does not fit the preset controls.
-            </p>
-          </ControlGroup>
 
           <ControlGroup
             className={cn(presetGroupClassName, 'xl:col-span-12')}
