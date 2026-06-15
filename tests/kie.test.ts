@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -155,6 +156,31 @@ describe('KIE batch submission', () => {
     expect(() => parseGenerationFormData(formData)).toThrow(
       'Face 1 must be an image file.',
     )
+  })
+
+  it('accepts heic uploads for image asset fields before normalization', () => {
+    const formData = buildBaseFormData('1')
+    const heicFile = new File(['image'], 'location.heic', { type: '' })
+
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_location',
+          kind: 'named',
+          key: 'location',
+          label: 'Location',
+          order: 0,
+        },
+      ]),
+    )
+    formData.append('asset_location', heicFile)
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.assetDescriptors).toHaveLength(1)
+    expect(parsed.assetDescriptors[0]?.label).toBe('Location')
+    expect(parsed.assetDescriptors[0]?.file).toBe(heicFile)
   })
 
   it('rejects invalid environment values during form parsing', () => {
@@ -420,6 +446,98 @@ describe('KIE batch submission', () => {
         }),
       ]),
     )
+  })
+
+  it('normalizes unsupported manual motion-control images before upload', async () => {
+    const formData = buildBaseFormData('1')
+    const referenceImage = await sharp({
+      create: {
+        background: { alpha: 1, b: 50, g: 100, r: 150 },
+        channels: 3,
+        height: 2,
+        width: 2,
+      },
+    })
+      .webp()
+      .toBuffer()
+
+    formData.set('workspace', 'motion-control')
+    formData.set('outputQuality', '1080p')
+    formData.set('motionControlResolution', '1080p')
+    formData.append(
+      'assetManifest',
+      JSON.stringify([
+        {
+          fieldName: 'asset_motionControlReferenceImage',
+          kind: 'named',
+          label: 'Reference Image',
+          order: 0,
+        },
+        {
+          fieldName: 'asset_motionControlMotionVideo',
+          kind: 'product',
+          label: 'Motion Video',
+          order: 1,
+          productId: 'motion-video',
+        },
+      ]),
+    )
+    formData.append(
+      'asset_motionControlReferenceImage',
+      new File([Uint8Array.from(referenceImage)], 'reference.webp', {
+        type: 'image/webp',
+      }),
+    )
+    formData.append(
+      'asset_motionControlMotionVideo',
+      new File(['video'], 'motion.mp4', { type: 'video/mp4' }),
+    )
+
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/reference.png',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://files.example.com/motion.mp4',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            taskId: 'task-1',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const parsedRequest = parseGenerationFormData(formData)
+    await submitGenerationRequest(parsedRequest)
+
+    const uploadFormData = fetchMock.mock.calls
+      .map(([, init]) => init?.body)
+      .filter((body): body is FormData => body instanceof FormData)
+    const uploadedImage = uploadFormData
+      .map((body) => body.get('file'))
+      .find(
+        (value): value is File =>
+          value instanceof File && value.type.startsWith('image/'),
+      )
+
+    expect(uploadedImage).toBeInstanceOf(File)
+    expect(uploadedImage?.type).toMatch(/^image\/(jpeg|png)$/)
+    expect(uploadedImage?.name).toMatch(/\.(jpg|png)$/)
   })
 
   it('applies a timeout signal to KIE file uploads', async () => {

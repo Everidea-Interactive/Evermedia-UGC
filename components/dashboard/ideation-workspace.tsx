@@ -33,6 +33,7 @@ import {
   formatIdeationResultText,
 } from '@/lib/generation/ideation'
 import { kieAnalysisModels } from '@/lib/generation/guided'
+import { guidedIdeationImageAccept } from '@/lib/generation/upload-support'
 import type {
   AssetSlot,
   ContentConcept,
@@ -192,7 +193,7 @@ function IdeationHeroUploadCard({
       </div>
 
       <input
-        accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+        accept={guidedIdeationImageAccept}
         className="sr-only"
         id={inputId}
         onChange={(event) => handleFileInput(event, onSelect)}

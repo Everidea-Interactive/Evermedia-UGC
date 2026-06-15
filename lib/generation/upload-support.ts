@@ -1,15 +1,26 @@
 import type { ImageModelOption, VideoModelOption } from '@/lib/generation/types'
+import {
+  getImageUploadAccept,
+  getImageUploadSupportProfile,
+} from '@/lib/generation/image-upload-support'
 
 type UploadSupport = {
   accept: string
   hint: string
 }
 
-const jpegPngWebpAccept =
-  '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp'
-const seedance2ImageAccept =
-  '.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.gif,image/jpeg,image/png,image/webp,image/bmp,image/tiff,image/gif'
-const jpgPngAccept = '.jpg,.jpeg,.png,image/jpeg,image/png'
+const jpegPngWebpAccept = getImageUploadAccept(
+  getImageUploadSupportProfile('image-model', 'nano-banana'),
+)
+const seedance2ImageAccept = getImageUploadAccept(
+  getImageUploadSupportProfile('video-model-image', 'seedance-2'),
+)
+const jpgPngAccept = getImageUploadAccept(
+  getImageUploadSupportProfile('video-model-image', 'kling-3.0'),
+)
+export const guidedIdeationImageAccept = getImageUploadAccept(
+  getImageUploadSupportProfile('guided-hero'),
+)
 const motionControlVideoAccept = '.mp4,.mov,video/mp4,video/quicktime'
 
 export function getImageModelUploadSupport(

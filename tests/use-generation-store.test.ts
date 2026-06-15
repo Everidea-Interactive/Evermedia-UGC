@@ -92,6 +92,20 @@ describe('useGenerationStore', () => {
     expect(state.assets.face1.error).toBe('Please upload an image file.')
   })
 
+  it('accepts heic files in image-only slots for later normalization', () => {
+    const heicFile = new File(['image'], 'face.heic', { type: '' })
+
+    useGenerationStore.getState().setNamedAssetFile('face1', heicFile)
+
+    const state = useGenerationStore.getState()
+
+    expect(state.assets.face1.file?.name).toBe('face.heic')
+    expect(state.assets.face1.error).toBeNull()
+    expect(state.assets.face1.mimeType).toBe('image/*')
+    expect(state.assets.face1.previewUrl).toMatch(/^blob:face\.heic-/)
+    expect(state.assets.face1.uploadStatus).toBe('staged')
+  })
+
   it('keeps existing valid image when invalid replacement is selected', () => {
     const imageFile = new File(['image'], 'face.png', { type: 'image/png' })
     const videoFile = new File(['video'], 'clip.mp4', { type: 'video/mp4' })
@@ -585,6 +599,20 @@ describe('useGenerationStore', () => {
       // Forwarding creates a default panel alongside base template
       expect(state.carouselDraft.panels).toHaveLength(1)
       expect(state.carouselDraft.panels[0]?.imageMode).toBe('ai')
+    })
+
+    it('keeps convertible carousel base-template files tagged as images', () => {
+      const file = new File(['seed'], 'seed.heic', { type: '' })
+
+      useGenerationStore.getState().setCarouselBaseTemplateAsset(file)
+
+      const state = useGenerationStore.getState()
+
+      expect(state.carouselDraft.baseTemplateAsset?.file?.name).toBe('seed.heic')
+      expect(state.carouselDraft.baseTemplateAsset?.mimeType).toBe('image/*')
+      expect(state.carouselDraft.baseTemplateAsset?.previewUrl).toMatch(
+        /^blob:seed\.heic-/,
+      )
     })
   })
 

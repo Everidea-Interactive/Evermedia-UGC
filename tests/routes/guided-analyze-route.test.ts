@@ -1,4 +1,7 @@
+import sharp from 'sharp'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/auth/session', () => ({
   getOptionalAuthenticatedUser: vi.fn(),
@@ -55,6 +58,21 @@ function buildBaseFormData() {
   formData.append('shotCount', '1')
 
   return formData
+}
+
+async function createTiffFile() {
+  const bytes = await sharp({
+    create: {
+      background: { alpha: 1, b: 220, g: 220, r: 220 },
+      channels: 3,
+      height: 2,
+      width: 2,
+    },
+  })
+    .tiff()
+    .toBuffer()
+
+  return new File([Uint8Array.from(bytes)], 'hero.tiff', { type: 'image/tiff' })
 }
 
 describe('POST /api/guided/analyze', () => {
@@ -202,6 +220,22 @@ describe('POST /api/guided/analyze', () => {
     expect(payload.error).toContain('PNG, JPG, JPEG, WEBP, or GIF')
     expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
     expect(analyzeGuidedProductPlan).not.toHaveBeenCalled()
+  })
+
+  it('accepts convertible raster hero image formats', async () => {
+    const formData = buildBaseFormData()
+
+    formData.set('heroImage', await createTiffFile())
+
+    const response = await POST(createRequest(formData))
+
+    expect(response.status).toBe(200)
+    expect(uploadImageFileToKieBase64).not.toHaveBeenCalled()
+    expect(analyzeGuidedProductPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        heroImageDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+      }),
+    )
   })
 
   it('returns a gateway timeout when the KIE upload hangs', async () => {

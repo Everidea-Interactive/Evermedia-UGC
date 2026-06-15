@@ -34,6 +34,7 @@ import {
   buildGuidedGenerationFormData,
   readJsonResponse,
 } from '@/lib/generation/client'
+import { guidedIdeationImageAccept } from '@/lib/generation/upload-support'
 import {
   clampGuidedShotCount,
   getGuidedCreativeStyleForConcept,
@@ -510,7 +511,7 @@ function GuidedHeroUploadCard({
       </div>
 
         <input
-          accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+          accept={guidedIdeationImageAccept}
           className="sr-only"
           id={inputId}
           onChange={(event) => handleFileInput(event, setGuidedHeroFile)}
@@ -632,7 +633,7 @@ function GuidedEndFrameUploadCard({ slot }: { slot: AssetSlot }) {
   return (
     <div className={cn(insetPanelClassName, 'grid gap-4 p-4')}>
       <input
-        accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+        accept={guidedIdeationImageAccept}
         className="sr-only"
         id={inputId}
         onChange={(event) => handleFileInput(event, setGuidedEndFrameFile)}

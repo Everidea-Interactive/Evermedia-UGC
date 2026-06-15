@@ -17,6 +17,11 @@ import {
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
 import {
+  getImageUploadSupportProfile,
+  isFileSupportedByImageProfile,
+  isConvertibleUploadImage,
+} from '@/lib/generation/image-upload-support'
+import {
   getMaxVideoReferenceCount,
   getKling3Duration,
   getNanoBananaResolution,
@@ -25,6 +30,7 @@ import {
   getVideoResolution,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
+import { normalizeImageFileForProfile } from '@/lib/generation/upload-normalization'
 import { wrapPromptForImageGrid } from '@/lib/media/image-grid'
 import type {
   AssetSlot,
@@ -267,6 +273,10 @@ function assertUploadedFileKind(
   kind: 'image' | 'video',
   label: string,
 ) {
+  if (kind === 'image' && isConvertibleUploadImage(file)) {
+    return
+  }
+
   if (isMimeTypeOfKind(file.type, kind)) {
     return
   }
@@ -300,6 +310,82 @@ function getExpectedUploadKind(fieldName: string): 'image' | 'video' | null {
   }
 
   return null
+}
+
+function getGenerationImageUploadProfile(input: {
+  fieldName: string
+  imageModel: ImageModelOption
+  videoModel: VideoModelOption
+  workspace: WorkspaceTab
+}) {
+  if (
+    input.fieldName === 'asset_motionControlMotionVideo' ||
+    input.fieldName.endsWith('MotionVideo')
+  ) {
+    return null
+  }
+
+  if (input.fieldName === 'asset_motionControlReferenceImage') {
+    return getImageUploadSupportProfile('motion-control-image')
+  }
+
+  if (
+    input.fieldName === 'carousel_base_template_image' ||
+    input.fieldName.startsWith('carousel_panel_image_')
+  ) {
+    return getImageUploadSupportProfile('image-model', input.imageModel)
+  }
+
+  if (
+    input.fieldName.startsWith('asset_') ||
+    input.fieldName.startsWith('product_') ||
+    input.fieldName.startsWith('video_reference_') ||
+    input.fieldName.startsWith('carousel_')
+  ) {
+    if (input.workspace === 'video') {
+      return getImageUploadSupportProfile('video-model-image', input.videoModel)
+    }
+
+    if (input.workspace === 'motion-control') {
+      return getImageUploadSupportProfile('motion-control-image')
+    }
+
+    return getImageUploadSupportProfile('image-model', input.imageModel)
+  }
+
+  return null
+}
+
+async function normalizeGenerationImageUpload(input: {
+  fieldName: string
+  file: File
+  imageModel: ImageModelOption
+  label: string
+  videoModel: VideoModelOption
+  workspace: WorkspaceTab
+}) {
+  const profile = getGenerationImageUploadProfile({
+    fieldName: input.fieldName,
+    imageModel: input.imageModel,
+    videoModel: input.videoModel,
+    workspace: input.workspace,
+  })
+
+  if (!profile) {
+    return input.file
+  }
+
+  const normalizedFile = await normalizeImageFileForProfile(input.file, profile)
+
+  if (isFileSupportedByImageProfile(normalizedFile, profile)) {
+    return normalizedFile
+  }
+
+  throw new GenerationRequestError({
+    code: 'invalid_input',
+    message: `${input.label} must use a supported image format for this model. HEIC, HEIF, AVIF, BMP, TIFF, and WEBP are converted automatically when possible.`,
+    status: 400,
+  })
 }
 
 function safeJsonParse(value: string) {
@@ -1861,15 +1947,29 @@ export function resolveSubmission(input: {
 async function uploadResolvedAssets(input: {
   apiKey?: string
   assetDescriptors: ResolvedAssetDescriptor[]
+  imageModel: ImageModelOption
+  videoModel: VideoModelOption
   workspace: WorkspaceTab
 }) {
   const apiKey = input.apiKey ?? getKieApiKey()
 
   return Promise.all(
-    input.assetDescriptors.map(async (descriptor) => ({
-      ...descriptor,
-      remoteUrl: await uploadFileToKie(apiKey, descriptor.file, input.workspace),
-    })),
+    input.assetDescriptors.map(async (descriptor) => {
+      const normalizedFile = await normalizeGenerationImageUpload({
+        fieldName: descriptor.fieldName,
+        file: descriptor.file,
+        imageModel: input.imageModel,
+        label: descriptor.label,
+        videoModel: input.videoModel,
+        workspace: input.workspace,
+      })
+
+      return {
+        ...descriptor,
+        file: normalizedFile,
+        remoteUrl: await uploadFileToKie(apiKey, normalizedFile, input.workspace),
+      }
+    }),
   )
 }
 
@@ -1890,7 +1990,18 @@ async function submitCarouselGenerationRequest(
 
   const orderedPanels = [...draft.panels].sort((a, b) => a.order - b.order)
   const baseTemplateRemoteUrl = draft.baseTemplateAsset?.file
-    ? await uploadFileToKie(apiKey, draft.baseTemplateAsset.file, input.workspace)
+    ? await uploadFileToKie(
+        apiKey,
+        await normalizeGenerationImageUpload({
+          fieldName: 'carousel_base_template_image',
+          file: draft.baseTemplateAsset.file,
+          imageModel: input.imageModel,
+          label: 'Base template',
+          videoModel: input.videoModel,
+          workspace: input.workspace,
+        }),
+        input.workspace,
+      )
     : null
   const panelImageRemoteUrlByPanelId = new Map<string, string>()
 
@@ -1901,7 +2012,18 @@ async function submitCarouselGenerationRequest(
 
     panelImageRemoteUrlByPanelId.set(
       panel.id,
-      await uploadFileToKie(apiKey, panel.imageAsset.file, input.workspace),
+      await uploadFileToKie(
+        apiKey,
+        await normalizeGenerationImageUpload({
+          fieldName: `carousel_panel_image_${panel.id}`,
+          file: panel.imageAsset.file,
+          imageModel: input.imageModel,
+          label: `Carousel panel ${panel.order} image`,
+          videoModel: input.videoModel,
+          workspace: input.workspace,
+        }),
+        input.workspace,
+      ),
     )
   }
 
@@ -1963,6 +2085,8 @@ export async function submitGenerationRequest(
   const uploadedAssets = await uploadResolvedAssets({
     apiKey,
     assetDescriptors: resolvedAssets,
+    imageModel: input.imageModel,
+    videoModel: input.videoModel,
     workspace: input.workspace,
   })
   const basePrompt = options.basePrompt ?? buildPromptSnapshot(input)

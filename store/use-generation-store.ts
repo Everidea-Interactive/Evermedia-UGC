@@ -50,6 +50,7 @@ import {
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
+import { isConvertibleUploadImage } from '@/lib/generation/image-upload-support'
 import type { ProjectConfigSnapshot } from '@/lib/persistence/types'
 import { normalizeProjectConfigSnapshot } from '@/lib/persistence/serialization'
 import { createInitialPromptEnhancement } from '@/lib/generation/prompt-enhancements'
@@ -485,7 +486,7 @@ function setSlotFile(slot: AssetSlot, file: File | null): AssetSlot {
     durationSeconds: null,
     error: null,
     file,
-    mimeType: file?.type ?? null,
+    mimeType: file ? file.type || (isConvertibleUploadImage(file) ? 'image/*' : null) : null,
     previewUrl,
     size: file?.size ?? null,
     uploadStatus: file ? 'staged' : 'idle',
@@ -504,6 +505,10 @@ function normalizeActiveTabForExperience(
 }
 
 function fileMatchesMediaKind(file: File, kind: MediaKind) {
+  if (kind === 'image' && isConvertibleUploadImage(file)) {
+    return true
+  }
+
   return file.type.startsWith(`${kind}/`)
 }
 
@@ -620,7 +625,7 @@ function createAssetSlotFromFile(file: File): AssetSlot {
     file,
     id: crypto.randomUUID(),
     label: file.name,
-    mimeType: file.type,
+    mimeType: file.type || (isConvertibleUploadImage(file) ? 'image/*' : null),
     previewUrl: createPreviewUrl(file),
     size: file.size,
     uploadStatus: 'staged',

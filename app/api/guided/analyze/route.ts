@@ -7,26 +7,20 @@ import {
   contentConcepts,
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
+import {
+  getImageUploadSupportProfile,
+  isFileSupportedByImageProfile,
+} from '@/lib/generation/image-upload-support'
 import { analyzeGuidedProductPlan } from '@/lib/generation/kie-analysis'
 import { getKieApiKey, uploadImageFileToKieBase64 } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
+import { normalizeImageFileForProfile } from '@/lib/generation/upload-normalization'
 
 export const runtime = 'nodejs'
 
-const supportedGuidedHeroExtensions = new Set([
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.webp',
-  '.gif',
-])
-
-const supportedGuidedHeroMimeTypes = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-])
+const guidedHeroImageProfile = getImageUploadSupportProfile('guided-hero')
+const guidedHeroImageErrorMessage =
+  'Hero image must be a PNG, JPG, JPEG, WEBP, or GIF file. HEIC, HEIF, AVIF, BMP, and TIFF are converted automatically.'
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key)
@@ -63,15 +57,7 @@ function readOptionalEnum<T extends string>(
 }
 
 function isSupportedGuidedHeroImage(file: File) {
-  if (supportedGuidedHeroMimeTypes.has(file.type)) {
-    return true
-  }
-
-  const normalizedName = file.name.toLowerCase()
-
-  return Array.from(supportedGuidedHeroExtensions).some((extension) =>
-    normalizedName.endsWith(extension),
-  )
+  return isFileSupportedByImageProfile(file, guidedHeroImageProfile)
 }
 
 function getGuidedAnalyzeErrorStatus(message: string) {
@@ -150,8 +136,13 @@ export async function POST(request: Request) {
       throw new Error('A hero product image is required.')
     }
 
-    if (!isSupportedGuidedHeroImage(heroImage)) {
-      throw new Error('Hero image must be a PNG, JPG, JPEG, WEBP, or GIF file.')
+    const normalizedHeroImage = await normalizeImageFileForProfile(
+      heroImage,
+      guidedHeroImageProfile,
+    )
+
+    if (!isSupportedGuidedHeroImage(normalizedHeroImage)) {
+      throw new Error(guidedHeroImageErrorMessage)
     }
 
     if (!analysisModel) {
@@ -181,13 +172,13 @@ export async function POST(request: Request) {
     }
 
     const heroImageDataUrl = shouldUseInlineHeroImage
-      ? await createGeminiHeroImageDataUrl(heroImage)
+      ? await createGeminiHeroImageDataUrl(normalizedHeroImage)
       : null
     const heroImageUrl = shouldUseInlineHeroImage
       ? 'inline://guided-hero-image'
       : await uploadImageFileToKieBase64(
           getKieApiKey(),
-          heroImage,
+          normalizedHeroImage,
           'evermedia-ugc/image',
         )
     const guidedShotCount =

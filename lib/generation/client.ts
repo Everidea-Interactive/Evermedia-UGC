@@ -28,6 +28,7 @@ import {
   appendPromptEnhancement,
   createInitialPromptEnhancement,
 } from '@/lib/generation/prompt-enhancements'
+import { isConvertibleUploadImage } from '@/lib/generation/image-upload-support'
 import { defaultLocale, normalizeLocale } from '@/lib/i18n'
 
 function normalizeResponsePreview(text: string) {
@@ -169,6 +170,10 @@ function assertSlotMediaKind(
   }
 
   const mimeType = slot.mimeType ?? slot.file.type
+
+  if (kind === 'image' && isConvertibleUploadImage(slot.file)) {
+    return
+  }
 
   if (!isMimeTypeOfKind(mimeType, kind)) {
     throw new Error(message)

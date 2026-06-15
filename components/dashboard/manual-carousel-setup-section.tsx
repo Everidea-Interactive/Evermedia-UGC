@@ -13,6 +13,7 @@ import {
   ReferenceCard,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
+import { isConvertibleUploadImage } from '@/lib/generation/image-upload-support'
 import { getImageModelUploadSupport } from '@/lib/generation/upload-support'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,7 +31,7 @@ function createPanelAssetSlot(file: File): AssetSlot {
     file,
     id: crypto.randomUUID(),
     label: file.name,
-    mimeType: file.type,
+    mimeType: file.type || (isConvertibleUploadImage(file) ? 'image/*' : null),
     previewUrl: URL.createObjectURL(file),
     size: file.size,
     uploadStatus: 'staged',

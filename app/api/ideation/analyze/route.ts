@@ -6,28 +6,22 @@ import {
   contentFormats,
   normalizeKieAnalysisModel,
 } from '@/lib/generation/guided'
+import {
+  getImageUploadSupportProfile,
+  isFileSupportedByImageProfile,
+} from '@/lib/generation/image-upload-support'
 import { analyzeContentIdeation } from '@/lib/generation/kie-ideation'
 import { getKieApiKey, uploadFileToKie } from '@/lib/generation/kie'
 import { scrapeProductPage } from '@/lib/generation/product-page'
+import { normalizeImageFileForProfile } from '@/lib/generation/upload-normalization'
 import { normalizeLocale } from '@/lib/i18n'
 import { createSavedIdeationForUser } from '@/lib/persistence/repository'
 
 export const runtime = 'nodejs'
 
-const supportedIdeationHeroExtensions = new Set([
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.webp',
-  '.gif',
-])
-
-const supportedIdeationHeroMimeTypes = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-])
+const ideationHeroImageProfile = getImageUploadSupportProfile('ideation-hero')
+const ideationHeroImageErrorMessage =
+  'Hero image must be a PNG, JPG, JPEG, WEBP, or GIF file. HEIC, HEIF, AVIF, BMP, and TIFF are converted automatically.'
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key)
@@ -46,15 +40,7 @@ function readOptionalString(formData: FormData, key: string) {
 }
 
 function isSupportedIdeationHeroImage(file: File) {
-  if (supportedIdeationHeroMimeTypes.has(file.type)) {
-    return true
-  }
-
-  const normalizedName = file.name.toLowerCase()
-
-  return Array.from(supportedIdeationHeroExtensions).some((extension) =>
-    normalizedName.endsWith(extension),
-  )
+  return isFileSupportedByImageProfile(file, ideationHeroImageProfile)
 }
 
 function getIdeationAnalyzeErrorStatus(message: string) {
@@ -97,8 +83,13 @@ export async function POST(request: Request) {
       throw new Error('Add a hero product image or a product URL.')
     }
 
-    if (hasHeroImage && !isSupportedIdeationHeroImage(heroImage)) {
-      throw new Error('Hero image must be a PNG, JPG, JPEG, WEBP, or GIF file.')
+    const normalizedHeroImage =
+      hasHeroImage && heroImage instanceof File
+        ? await normalizeImageFileForProfile(heroImage, ideationHeroImageProfile)
+        : null
+
+    if (normalizedHeroImage && !isSupportedIdeationHeroImage(normalizedHeroImage)) {
+      throw new Error(ideationHeroImageErrorMessage)
     }
 
     if (!analysisModel) {
@@ -128,8 +119,8 @@ export async function POST(request: Request) {
     }
 
     const apiKey = getKieApiKey()
-    const heroImageUrl = hasHeroImage
-      ? await uploadFileToKie(apiKey, heroImage, 'image')
+    const heroImageUrl = normalizedHeroImage
+      ? await uploadFileToKie(apiKey, normalizedHeroImage, 'image')
       : null
     const result = await analyzeContentIdeation({
       analysisModel,
@@ -146,7 +137,7 @@ export async function POST(request: Request) {
         briefText,
         contentConcept: contentConcept as (typeof contentConcepts)[number],
         contentFormat: contentFormat as (typeof contentFormats)[number],
-        heroImageName: hasHeroImage ? heroImage.name : null,
+        heroImageName: normalizedHeroImage?.name ?? (hasHeroImage ? heroImage.name : null),
         heroImageUrl,
         outputLanguage,
         productUrl: productUrl || null,

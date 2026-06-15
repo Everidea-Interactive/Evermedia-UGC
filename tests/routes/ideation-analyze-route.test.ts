@@ -1,4 +1,7 @@
+import sharp from 'sharp'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('server-only', () => ({}))
 
 vi.mock('@/lib/auth/session', () => ({
   getOptionalAuthenticatedUser: vi.fn(),
@@ -81,6 +84,21 @@ function buildBaseFormData() {
   formData.append('productUrl', 'https://example.com/product')
 
   return formData
+}
+
+async function createTiffFile() {
+  const bytes = await sharp({
+    create: {
+      background: { alpha: 1, b: 200, g: 200, r: 200 },
+      channels: 3,
+      height: 2,
+      width: 2,
+    },
+  })
+    .tiff()
+    .toBuffer()
+
+  return new File([Uint8Array.from(bytes)], 'hero.tiff', { type: 'image/tiff' })
 }
 
 describe('POST /api/ideation/analyze', () => {
@@ -215,6 +233,23 @@ describe('POST /api/ideation/analyze', () => {
     expect(response.status).toBe(400)
     expect(payload.error).toContain('PNG, JPG, JPEG, WEBP, or GIF')
     expect(uploadFileToKie).not.toHaveBeenCalled()
+  })
+
+  it('normalizes convertible raster hero images before KIE upload', async () => {
+    const formData = buildBaseFormData()
+    formData.set('heroImage', await createTiffFile())
+
+    const response = await POST(createRequest(formData))
+
+    expect(response.status).toBe(200)
+    expect(uploadFileToKie).toHaveBeenCalledWith(
+      'test-key',
+      expect.objectContaining({
+        name: expect.stringMatching(/\.(jpg|png)$/),
+        type: expect.stringMatching(/^image\/(jpeg|png)$/),
+      }),
+      'image',
+    )
   })
 
   it('allows image-only ideation analysis when no product URL is provided', async () => {

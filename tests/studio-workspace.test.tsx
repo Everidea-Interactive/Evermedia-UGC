@@ -251,6 +251,45 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByText('Build the input set')).toBeNull()
   })
 
+  it('keeps additional instructions on the manual references tab for image and video', async () => {
+    const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
+    const { useGenerationStore } = await import('@/store/use-generation-store')
+
+    render(
+      <DashboardShell
+        isPricingLoading={false}
+        kiePricing={null}
+        kiePricingError={null}
+        kieStatus={{
+          connected: true,
+          credits: 100,
+          error: null,
+          fetchedAt: null,
+          source: 'chat-credit',
+        }}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Image generation additional instructions')).toBeTruthy()
+
+    const presetTab = screen.getByRole('tab', { name: 'Preset' })
+    fireEvent.mouseDown(presetTab)
+    fireEvent.click(presetTab)
+
+    await screen.findByText('Build the generation preset')
+    expect(screen.queryByLabelText('Image generation additional instructions')).toBeNull()
+
+    await act(async () => {
+      useGenerationStore.getState().setActiveTab('video')
+    })
+
+    const referencesTab = await screen.findByRole('tab', { name: 'References' })
+    fireEvent.mouseDown(referencesTab)
+    fireEvent.click(referencesTab)
+
+    expect(await screen.findByLabelText('Video generation additional instructions')).toBeTruthy()
+  })
+
   it('switches to outputs when a manual generation run starts rendering', async () => {
     const { DashboardShell } = await import('@/components/dashboard/dashboard-shell')
     const { useGenerationStore } = await import('@/store/use-generation-store')

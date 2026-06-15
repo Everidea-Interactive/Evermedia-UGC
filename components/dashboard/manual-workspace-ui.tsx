@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, type ReactNode } from 'react'
+import { type ChangeEvent, type ReactNode, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { LoaderCircle, Play, Upload, X } from 'lucide-react'
 
@@ -75,6 +75,10 @@ function getReferenceCardStatusLabel(slot: AssetSlot) {
     slot.durationSeconds > 0
   ) {
     return `${slot.durationSeconds.toFixed(1)}s motion video`
+  }
+
+  if (slot.file) {
+    return 'Ready'
   }
 
   return slot.previewUrl ? 'Ready' : 'Not loaded'
@@ -258,8 +262,15 @@ export function ReferenceCard({
   slot: AssetSlot
 }) {
   const previewSrc = slot.previewUrl
-  const hasMedia = Boolean(previewSrc)
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false)
+  const isImagePreview = Boolean(previewSrc) && isImageMimeType(slot.mimeType)
+  const hasMedia = Boolean(previewSrc) && !(isImagePreview && imagePreviewFailed)
+  const hasStagedFileWithoutPreview = Boolean(slot.file) && !hasMedia
   const showFooterMeta = hasMedia || Boolean(slot.error) || slot.uploadStatus === 'staged'
+
+  useEffect(() => {
+    setImagePreviewFailed(false)
+  }, [previewSrc])
 
   return (
     <div
@@ -279,7 +290,7 @@ export function ReferenceCard({
         type="file"
       />
 
-      {previewSrc ? (
+      {hasMedia && previewSrc ? (
         <MediaPreviewTrigger
           alt={`${slot.label} reference preview`}
           className="absolute inset-0 rounded-[1rem]"
@@ -287,12 +298,14 @@ export function ReferenceCard({
           mimeType={slot.mimeType}
           src={previewSrc}
         >
-          {slot.mimeType && isImageMimeType(slot.mimeType) ? (
+          {isImagePreview ? (
             <div className={cn('absolute inset-0', previewContainerClassName)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt={`${slot.label} reference preview`}
                 className={cn('h-full w-full object-cover', previewMediaClassName)}
+                onError={() => setImagePreviewFailed(true)}
+                onLoad={() => setImagePreviewFailed(false)}
                 src={previewSrc}
               />
             </div>
@@ -329,11 +342,15 @@ export function ReferenceCard({
             <p className="text-sm font-semibold tracking-tight text-foreground">
               {slot.label}
             </p>
-            <p className="text-xs text-muted-foreground">{emptyStateLabel}</p>
+            <p className="text-xs text-muted-foreground">
+              {hasStagedFileWithoutPreview
+                ? 'Preview unavailable for this format'
+                : emptyStateLabel}
+            </p>
           </div>
           <div className="reference-upload-chip inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Upload className="size-3.5" suppressHydrationWarning />
-            Choose file
+            {hasStagedFileWithoutPreview ? 'Replace file' : 'Choose file'}
           </div>
         </Button>
       )}
@@ -350,14 +367,15 @@ export function ReferenceCard({
               </p>
             </div>
             <div className="flex items-center gap-1">
-              {slot.uploadStatus === 'staged' && !hasMedia ? (
+              {slot.uploadStatus === 'staged' && !hasMedia && !slot.file ? (
                 <LoaderCircle
                   className="size-4 animate-spin text-muted-foreground"
                   suppressHydrationWarning
                 />
               ) : null}
-              {hasMedia ? (
+              {hasMedia || slot.file ? (
                 <Button
+                  aria-label={`Clear ${slot.label}`}
                   className="pointer-events-auto"
                   onClick={onClear}
                   size="icon"
