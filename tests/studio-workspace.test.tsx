@@ -308,6 +308,11 @@ describe('StudioWorkspace', () => {
     expect(screen.getAllByText('Face 2')).toHaveLength(1)
     expect(screen.getAllByText('Product 1')).toHaveLength(1)
     expect(screen.getAllByText('Location')).toHaveLength(1)
+    expect(
+      screen.getByText(
+        'Nano Banana 2 supports JPEG, PNG, and WebP uploads up to 30MB per image.',
+      ),
+    ).toBeTruthy()
   })
 
   it('reveals manual video reference cards progressively up to the selected model limit', async () => {
@@ -401,6 +406,11 @@ describe('StudioWorkspace', () => {
     expect(screen.queryAllByText('Reference 2').length).toBeGreaterThan(0)
     expect(screen.queryByText('Reference 3')).toBeNull()
     expect(screen.queryByText('End Frame')).toBeNull()
+    expect(
+      screen.getByText(
+        'Seedance 1.5 Pro supports JPEG, PNG, and WebP uploads up to 10MB per image.',
+      ),
+    ).toBeTruthy()
   })
 
   it('shows the End Frame card for Seedance 2.0 manual video mode', async () => {
@@ -432,6 +442,11 @@ describe('StudioWorkspace', () => {
     expect(screen.queryAllByText('Reference 1').length).toBeGreaterThan(0)
     expect(screen.getAllByText('First Frame')).toHaveLength(1)
     expect(screen.queryByText('End Frame')).toBeNull()
+    expect(
+      screen.getByText(
+        'Seedance 2.0 supports JPEG, PNG, WebP, BMP, TIFF, and GIF uploads up to 30MB per image.',
+      ),
+    ).toBeTruthy()
   })
 
   it('shows only first-frame guidance cards for Kling 3.0 manual video mode', async () => {
@@ -463,6 +478,9 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByText('Reference 1')).toBeNull()
     expect(screen.getAllByText('First Frame')).toHaveLength(1)
     expect(screen.queryByText('End Frame')).toBeNull()
+    expect(
+      screen.getByText('Kling 3.0 supports JPG and PNG uploads up to 10MB per image.'),
+    ).toBeTruthy()
   })
 
   it('only reveals the Seedance 2.0 End Frame card after the First Frame is staged', async () => {
@@ -569,6 +587,16 @@ describe('StudioWorkspace', () => {
     )
 
     await screen.findByText('Review and run generation')
+    expect(
+      screen.getByText(
+        'Kling 3.0 Motion Control reference images support JPEG, PNG, or JPG up to 10MB each.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Kling 3.0 Motion Control motion videos support MP4 or QuickTime up to 100MB each and must run 3-30 seconds.',
+      ),
+    ).toBeTruthy()
 
     expect(screen.getByText('Primary input')).toBeTruthy()
     expect(screen.getByText('Staged assets')).toBeTruthy()
@@ -653,6 +681,11 @@ describe('StudioWorkspace', () => {
     expect(
       screen.getByText(
         'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Nano Banana 2 mendukung unggahan JPEG, PNG, dan WebP hingga 30MB per gambar.',
       ),
     ).toBeTruthy()
     expect(screen.getByText('Orang')).toBeTruthy()

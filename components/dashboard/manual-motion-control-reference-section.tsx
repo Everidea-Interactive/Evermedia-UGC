@@ -5,13 +5,16 @@ import { Film, ImageIcon } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 
 import {
-  getAcceptForMediaKind,
   getEmptyStateCopy,
   panelClassName,
   ReferenceCard,
   ReferenceCardGroup,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
+import {
+  getMotionControlImageUploadSupport,
+  getMotionControlVideoUploadSupport,
+} from '@/lib/generation/upload-support'
 import { readVideoDurationSeconds } from '@/lib/generation/video-metadata'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -40,6 +43,8 @@ export function ManualMotionControlReferenceSection({
   const setMotionControlReferenceImageFile = useGenerationStore(
     (state) => state.setMotionControlReferenceImageFile,
   )
+  const imageUploadSupport = getMotionControlImageUploadSupport()
+  const videoUploadSupport = getMotionControlVideoUploadSupport()
 
   useEffect(() => {
     const file = motionControl.motionVideo.file
@@ -79,9 +84,17 @@ export function ManualMotionControlReferenceSection({
           eyebrow="Reference board"
           title="Build the motion-control input set"
         />
+        <div className="flex flex-col gap-1">
+          <p className="text-xs leading-5 text-muted-foreground">
+            {imageUploadSupport.hint}
+          </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {videoUploadSupport.hint}
+          </p>
+        </div>
         <ReferenceCardGroup title="Motion Control Inputs">
           <ReferenceCard
-            accept={getAcceptForMediaKind('image')}
+            accept={imageUploadSupport.accept}
             emptyStateLabel={getEmptyStateCopy('image')}
             icon={ImageIcon}
             inputId="motion-control-reference-image"
@@ -90,7 +103,7 @@ export function ManualMotionControlReferenceSection({
             slot={motionControl.referenceImage}
           />
           <ReferenceCard
-            accept={getAcceptForMediaKind('video')}
+            accept={videoUploadSupport.accept}
             emptyStateLabel={getEmptyStateCopy('video')}
             icon={Film}
             inputId="motion-control-motion-video"

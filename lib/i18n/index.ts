@@ -506,6 +506,10 @@ export const uiTranslations: Record<string, string> = {
   'Build the motion-control input set': 'Siapkan materi input kontrol gerak',
   'Upload one character reference image and one motion video. Kling Motion Control uses the character image as a strong global visual reference, so the result may inherit wardrobe, props, or held products from that image.':
     'Unggah satu gambar referensi karakter dan satu video gerakan. Kling Motion Control menggunakan gambar karakter sebagai referensi visual global yang kuat, sehingga hasilnya dapat mewarisi wardrobe, properti, atau produk yang dipegang dari gambar tersebut.',
+  'Kling 3.0 Motion Control reference images support JPEG, PNG, or JPG up to 10MB each.':
+    'Gambar referensi Kling 3.0 Motion Control mendukung JPEG, PNG, atau JPG hingga 10MB per file.',
+  'Kling 3.0 Motion Control motion videos support MP4 or QuickTime up to 100MB each and must run 3-30 seconds.':
+    'Video gerakan Kling 3.0 Motion Control mendukung MP4 atau QuickTime hingga 100MB per file dan durasinya harus 3-30 detik.',
   'Optional extra direction appended to the motion-control baseline.':
     'Arahan tambahan opsional yang ditambahkan ke baseline motion-control.',
   'Optional extra direction for continuity, readability, or action emphasis.':
@@ -668,6 +672,16 @@ export const uiTranslations: Record<string, string> = {
     'Kumpulkan semua materi visual di sini terlebih dahulu. Biarkan susunannya tetap rapi agar orang, styling, lokasi, dan produk mudah ditinjau.',
   'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.':
     'Siapkan referensi frame awal di sini. Mulai dari Referensi 1, lalu buka kartu berikutnya hanya jika model yang dipilih mendukung panduan visual tambahan.',
+  'Nano Banana 2 supports JPEG, PNG, and WebP uploads up to 30MB per image.':
+    'Nano Banana 2 mendukung unggahan JPEG, PNG, dan WebP hingga 30MB per gambar.',
+  'Seedance 1.5 Pro supports JPEG, PNG, and WebP uploads up to 10MB per image.':
+    'Seedance 1.5 Pro mendukung unggahan JPEG, PNG, dan WebP hingga 10MB per gambar.',
+  'Seedance 2.0 supports JPEG, PNG, WebP, BMP, TIFF, and GIF uploads up to 30MB per image.':
+    'Seedance 2.0 mendukung unggahan JPEG, PNG, WebP, BMP, TIFF, dan GIF hingga 30MB per gambar.',
+  'Kling 3.0 supports JPG and PNG uploads up to 10MB per image.':
+    'Kling 3.0 mendukung unggahan JPG dan PNG hingga 10MB per gambar.',
+  'Veo 3.1 supports common guidance image formats such as JPG, PNG, and WebP.':
+    'Veo 3.1 mendukung format gambar panduan umum seperti JPG, PNG, dan WebP.',
   'hero': 'hero',
   'Staged assets': 'Aset tersiap',
   'Style & Environment': 'Gaya & Lingkungan',

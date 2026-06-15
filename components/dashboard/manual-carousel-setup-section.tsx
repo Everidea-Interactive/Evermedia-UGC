@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Image as ImageIcon, Trash2 } from 'lucide-react'
 
 import {
-  getAcceptForMediaKind,
   getEmptyStateCopy,
   panelClassName,
   presetCompactTileClassName,
@@ -14,10 +13,14 @@ import {
   ReferenceCard,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
+import { getImageModelUploadSupport } from '@/lib/generation/upload-support'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import type { AssetSlot, CarouselPanelDraft } from '@/lib/generation/types'
+import type {
+  AssetSlot,
+  CarouselPanelDraft,
+} from '@/lib/generation/types'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
 
@@ -50,10 +53,10 @@ function createEmptyReferenceSlot(id: string, label: string): AssetSlot {
 const carouselReferenceCardClassName = 'min-h-[13rem] sm:min-h-[13rem] sm:aspect-[16/10]'
 const carouselReferencePreviewContainerClassName = 'bg-secondary/30 p-3'
 const carouselReferencePreviewMediaClassName = 'object-contain'
-const imageAccept = getAcceptForMediaKind('image')
 const imageEmptyState = getEmptyStateCopy('image')
 
 export function ManualCarouselSetupSection({ className }: { className?: string }) {
+  const imageModel = useGenerationStore((state) => state.imageModel)
   const baseTemplateMode = useGenerationStore((state) => state.carouselDraft.baseTemplateMode)
   const baseTemplatePrompt = useGenerationStore((state) => state.carouselDraft.baseTemplatePrompt)
   const baseTemplateAsset = useGenerationStore((state) => state.carouselDraft.baseTemplateAsset)
@@ -65,15 +68,21 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
   const deleteCarouselPanel = useGenerationStore((state) => state.deleteCarouselPanel)
   const moveCarouselPanel = useGenerationStore((state) => state.moveCarouselPanel)
   const updateCarouselPanel = useGenerationStore((state) => state.updateCarouselPanel)
+  const imageUploadSupport = getImageModelUploadSupport(imageModel)
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-5">
-        <SectionHeader
-          description="Set the base panel template, configure panels, and define per-panel content."
-          eyebrow="Carousel Setup"
-          title="Base panel"
-        />
+        <div className="flex flex-col gap-2">
+          <SectionHeader
+            description="Set the base panel template, configure panels, and define per-panel content."
+            eyebrow="Carousel Setup"
+            title="Base panel"
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
+            {imageUploadSupport.hint}
+          </p>
+        </div>
 
         {/* Group 1: Base panel */}
         <div className={cn(presetGroupClassName, 'flex flex-col gap-3')}>
@@ -115,6 +124,7 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
           ) : (
             <div className="flex flex-col gap-2">
               <BaseTemplateUploadZone
+                accept={imageUploadSupport.accept}
                 asset={baseTemplateAsset}
                 onClear={() => setCarouselBaseTemplateAsset(null)}
                 onUpload={(file) => setCarouselBaseTemplateAsset(file)}
@@ -157,6 +167,7 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
                   onMoveDown={() => moveCarouselPanel(panel.id, 'down')}
                   onMoveUp={() => moveCarouselPanel(panel.id, 'up')}
                   panel={panel}
+                  imageAccept={imageUploadSupport.accept}
                   updateCarouselPanel={updateCarouselPanel}
                 />
               ))}
@@ -169,10 +180,12 @@ export function ManualCarouselSetupSection({ className }: { className?: string }
 }
 
 function BaseTemplateUploadZone({
+  accept,
   asset,
   onClear,
   onUpload,
 }: {
+  accept: string
   asset: AssetSlot | null
   onClear: () => void
   onUpload: (file: File | null) => void
@@ -181,7 +194,7 @@ function BaseTemplateUploadZone({
 
   return (
     <ReferenceCard
-      accept={imageAccept}
+      accept={accept}
       className={carouselReferenceCardClassName}
       emptyStateLabel={imageEmptyState}
       icon={ImageIcon}
@@ -203,9 +216,11 @@ function PanelDetailAccordion({
   onMoveDown,
   onMoveUp,
   panel,
+  imageAccept,
   updateCarouselPanel,
 }: {
   canDelete: boolean
+  imageAccept: string
   isFirst: boolean
   isLast: boolean
   onDelete: () => void
@@ -297,7 +312,11 @@ function PanelDetailAccordion({
           <div className={cn(presetSubgroupClassName, 'flex flex-col gap-3')}>
             <PresetGroupLabel>Content image</PresetGroupLabel>
 
-            <PanelImageSection panel={panel} updateCarouselPanel={updateCarouselPanel} />
+            <PanelImageSection
+              imageAccept={imageAccept}
+              panel={panel}
+              updateCarouselPanel={updateCarouselPanel}
+            />
           </div>
 
           {/* Text content */}
@@ -371,9 +390,11 @@ function PanelDetailAccordion({
 }
 
 function PanelImageSection({
+  imageAccept,
   panel,
   updateCarouselPanel,
 }: {
+  imageAccept: string
   panel: CarouselPanelDraft
   updateCarouselPanel: (panelId: string, patch: Partial<CarouselPanelDraft>) => void
 }) {

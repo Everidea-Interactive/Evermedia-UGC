@@ -20,6 +20,10 @@ import {
   ReferenceCardGroup,
   SectionHeader,
 } from '@/components/dashboard/manual-workspace-ui'
+import {
+  getImageModelUploadSupport,
+  getVideoModelImageUploadSupport,
+} from '@/lib/generation/upload-support'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useGenerationStore } from '@/store/use-generation-store'
@@ -27,6 +31,7 @@ import { useGenerationStore } from '@/store/use-generation-store'
 export function ReferenceWorkspaceSection({ className }: { className?: string }) {
   const activeTab = useGenerationStore((state) => state.activeTab)
   const assets = useGenerationStore((state) => state.assets)
+  const imageModel = useGenerationStore((state) => state.imageModel)
   const products = useGenerationStore((state) => state.products)
   const videoReferences = useGenerationStore((state) => state.videoReferences)
   const videoModel = useGenerationStore((state) => state.videoModel)
@@ -58,24 +63,33 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
     ),
   )
   const visibleVideoReferences = videoReferences.slice(0, visibleVideoReferenceCount)
-  const imageAccept = getAcceptForMediaKind('image')
+  const imageUploadSupport =
+    activeTab === 'video'
+      ? getVideoModelImageUploadSupport(videoModel)
+      : getImageModelUploadSupport(imageModel)
+  const imageAccept = imageUploadSupport.accept || getAcceptForMediaKind('image')
   const imageEmptyState = getEmptyStateCopy('image')
 
   return (
     <section className={cn(panelClassName, 'p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <SectionHeader
-            description={
-              activeTab === 'video'
-                ? isKlingVideoModel
-                  ? 'Kling 3.0 supports first-frame and optional end-frame guidance here. Generic Reference 1/2/3 cards are hidden because Kling does not use them in this flow.'
-                  : 'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.'
-                : 'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.'
-            }
-            eyebrow="Reference board"
-            title="Build the input set"
-          />
+          <div className="min-w-0">
+            <SectionHeader
+              description={
+                activeTab === 'video'
+                  ? isKlingVideoModel
+                    ? 'Kling 3.0 supports first-frame and optional end-frame guidance here. Generic Reference 1/2/3 cards are hidden because Kling does not use them in this flow.'
+                    : 'Stage start-frame references here. Begin with Reference 1, then unlock the next card only when the selected model supports more visual guidance.'
+                  : 'Stage every visual input here first. Keep the board fixed so people, styling, environment, and products remain easy to scan.'
+              }
+              eyebrow="Reference board"
+              title="Build the input set"
+            />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {imageUploadSupport.hint}
+            </p>
+          </div>
           <Button
             onClick={() => resetGenerationState()}
             size="sm"
