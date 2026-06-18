@@ -76,6 +76,7 @@ describe('guided generation client payloads', () => {
       cameraMovement: 'macro',
       contentConcept: 'affiliate',
       heroAsset,
+      orientationPreference: 'portrait',
       productUrl: '',
       shotCount: 2,
       videoModel: 'seedance-1.5-pro',
@@ -88,6 +89,7 @@ describe('guided generation client payloads', () => {
     expect(formData.get('videoModel')).toBe('seedance-1.5-pro')
     expect(formData.get('videoDuration')).toBe('extended')
     expect(formData.get('videoAudio')).toBe('no-audio')
+    expect(formData.get('orientationPreference')).toBe('portrait')
     expect(formData.get('cameraMovement')).toBe('macro')
   })
 
@@ -141,6 +143,7 @@ describe('guided generation client payloads', () => {
     expect(formData.get('videoDuration')).toBe('base')
     expect(formData.get('videoAudio')).toBe('no-audio')
     expect(formData.get('cameraMovement')).toBe('')
+    expect(formData.get('orientationPreference')).toBeNull()
     expect(assetManifest).toEqual([
       {
         fieldName: 'product_guided_hero',

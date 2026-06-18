@@ -49,6 +49,7 @@ function createSnapshot(overrides: Partial<GenerationSnapshot> = {}): Generation
     figureArtDirection: 'none',
     imageModel: 'nano-banana',
     outputQuality: '1080p',
+    orientationPreference: 'auto',
     productCategory: 'cosmetics',
     products: [
       createSlot('product-1', 'Product 1', null),
@@ -98,6 +99,42 @@ describe('manual generation client payloads', () => {
     })
 
     expect(getGenerationValidation(snapshot).canGenerate).toBe(true)
+  })
+
+  it('serializes explicit output format preference', () => {
+    const { formData } = buildGenerationFormData(
+      createSnapshot({
+        orientationPreference: 'portrait',
+        textPrompt: 'Create a vertical ad video.',
+      }),
+    )
+
+    expect(formData.get('orientationPreference')).toBe('portrait')
+  })
+
+  it('does not serialize output format for image grid generations', () => {
+    const { formData } = buildGenerationFormData(
+      createSnapshot({
+        activeTab: 'image',
+        orientationPreference: 'portrait',
+        textPrompt: 'Create image grid.',
+      }),
+    )
+
+    expect(formData.get('orientationPreference')).toBeNull()
+  })
+
+  it('blocks square output for Veo 3.1 because the model supports only 16:9 and 9:16', () => {
+    const validation = getGenerationValidation(
+      createSnapshot({
+        orientationPreference: 'square',
+        textPrompt: 'Create a square video.',
+        videoModel: 'veo-3.1',
+      }),
+    )
+
+    expect(validation.canGenerate).toBe(false)
+    expect(validation.reason).toContain('not square 1:1')
   })
 
   it('rejects Kling manual video generation when only generic references are present', () => {

@@ -82,6 +82,7 @@ export type VideoAudio = 'no-audio' | 'with-audio'
 export type OutputQuality = '720p' | '1080p' | '4k'
 export type ImageResolution = '1K' | '2K' | '4K'
 export type VideoResolution = '720p' | '1080p'
+export type OrientationPreference = 'auto' | 'portrait' | 'landscape' | 'square'
 export type BatchSize = 1 | 2 | 3 | 4
 export type CameraMovement =
   | 'orbit'
@@ -301,6 +302,7 @@ export type GenerationSnapshot = {
   imageModel: ImageModelOption
   locale?: GenerationLocale
   outputQuality: OutputQuality
+  orientationPreference?: OrientationPreference
   promptEnhancement?: PromptEnhancement
   productCategory: ProductCategory
   products: AssetSlot[]

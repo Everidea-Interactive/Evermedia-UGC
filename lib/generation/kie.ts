@@ -58,6 +58,7 @@ import type {
   KieAnalysisModel,
   NamedAssetKey,
   MotionControlResolution,
+  OrientationPreference,
   OutputQuality,
   ProductCategory,
   RunSubmissionResponse,
@@ -122,6 +123,7 @@ export type ParsedGenerationRequest = {
   motionControlDurationSeconds?: number | null
   motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
+  orientationPreference?: OrientationPreference
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
   subjectMode: SubjectMode
@@ -820,7 +822,22 @@ function getImageAspectRatio(subjectMode: SubjectMode) {
   return subjectMode === 'product-only' ? '1:1' : '2:3'
 }
 
-function getVideoAspectRatio(subjectMode: SubjectMode) {
+function getVideoAspectRatio(
+  subjectMode: SubjectMode,
+  orientationPreference: OrientationPreference,
+) {
+  if (orientationPreference === 'portrait') {
+    return '9:16'
+  }
+
+  if (orientationPreference === 'landscape') {
+    return '16:9'
+  }
+
+  if (orientationPreference === 'square') {
+    return '1:1'
+  }
+
   return subjectMode === 'product-only' ? '16:9' : '9:16'
 }
 
@@ -1116,7 +1133,7 @@ function buildMarketImagePayload(input: {
     input.imageModel === 'nano-banana'
       ? collectNanoBananaReferenceAssets(input.subjectMode, input.assets)
       : collectImageReferenceAssets(input.subjectMode, input.assets)
-  const aspectRatio = getImageAspectRatio(input.subjectMode)
+  const aspectRatio = input.imageGrid ? '9:16' : getImageAspectRatio(input.subjectMode)
   const prompt = input.imageGrid
     ? wrapPromptForImageGrid(input.prompt)
     : input.prompt
@@ -1153,6 +1170,7 @@ function buildMarketImagePayload(input: {
 function buildVideoPayload(input: {
   assets: UploadedAssetDescriptor[]
   outputQuality: OutputQuality
+  orientationPreference: OrientationPreference
   prompt: string
   subjectMode: SubjectMode
   videoAudio: VideoAudio
@@ -1162,7 +1180,10 @@ function buildVideoPayload(input: {
   const primaryReference = choosePrimaryReference(input.subjectMode, input.assets)
   const firstFrameReference = chooseFirstFrameReference(input.assets)
   const endFrameReference = chooseEndFrameReference(input.assets)
-  const aspectRatio = getVideoAspectRatio(input.subjectMode)
+  const aspectRatio = getVideoAspectRatio(
+    input.subjectMode,
+    input.orientationPreference,
+  )
   const videoResolution = getVideoResolution(input.outputQuality)
   const maxReferenceCount = getMaxVideoReferenceCount(input.videoModel)
   const orderedStartReferenceUrls = collectVideoReferenceUrls(
@@ -1174,6 +1195,14 @@ function buildVideoPayload(input: {
   )
 
   if (input.videoModel === 'veo-3.1') {
+    if (aspectRatio === '1:1') {
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Veo 3.1 supports portrait 9:16 or landscape 16:9 output, not square 1:1.',
+        status: 400,
+      })
+    }
+
     const imageUrls =
       endFrameReference?.remoteUrl
         ? [...orderedStartReferenceUrls.slice(0, 2), endFrameReference.remoteUrl]
@@ -1772,6 +1801,14 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     motionControlDurationSeconds,
     motionControlResolution,
     outputQuality,
+    orientationPreference:
+      workspace === 'motion-control'
+        ? 'auto'
+        : readOptionalEnum(
+            formData,
+            'orientationPreference',
+            ['auto', 'portrait', 'landscape', 'square'] as const,
+          ) ?? 'auto',
     productCategory:
       workspace === 'motion-control'
         ? 'miscellaneous'
@@ -1887,6 +1924,7 @@ export function resolveSubmission(input: {
   imageModel: ImageModelOption
   motionControlResolution?: MotionControlResolution | null
   outputQuality: OutputQuality
+  orientationPreference?: OrientationPreference
   productCategory: ProductCategory
   prompt: string
   subjectMode: SubjectMode
@@ -1936,6 +1974,7 @@ export function resolveSubmission(input: {
     : buildVideoPayload({
         assets: input.assets,
         outputQuality: input.outputQuality,
+        orientationPreference: input.orientationPreference ?? 'auto',
         prompt: input.prompt,
         subjectMode: input.subjectMode,
         videoAudio: input.videoAudio,
@@ -2116,6 +2155,7 @@ export async function submitGenerationRequest(
     imageGrid: usesManualImageGrid,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
+    orientationPreference: input.orientationPreference,
     productCategory: input.productCategory,
     prompt: resolvedPromptSet[0]?.prompt ?? basePrompt,
     subjectMode: resolvedPromptSet[0]?.subjectMode ?? input.subjectMode,
@@ -2135,6 +2175,7 @@ export async function submitGenerationRequest(
         imageGrid: usesManualImageGrid,
         imageModel: input.imageModel,
         outputQuality: input.outputQuality,
+        orientationPreference: input.orientationPreference,
         productCategory: input.productCategory,
         prompt,
         subjectMode,

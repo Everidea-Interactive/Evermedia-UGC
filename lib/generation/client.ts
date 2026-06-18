@@ -12,6 +12,7 @@ import type {
   KieAnalysisModel,
   MotionControlDraft,
   NamedAssetKey,
+  OrientationPreference,
   SubmittedAssetDescriptor,
   VideoDuration,
   VideoAudio,
@@ -108,6 +109,7 @@ const imageWorkspaceNamedAssets: NamedAssetKey[] = [
 type ManualGenerationSnapshot = GenerationSnapshot & {
   carouselDraft?: CarouselDraft
   motionControl?: MotionControlDraft
+  orientationPreference?: OrientationPreference
 }
 
 function getWorkspaceNamedAssetKeys(workspace: WorkspaceTab) {
@@ -267,6 +269,17 @@ export function getGenerationValidation(snapshot: ManualGenerationSnapshot) {
     }
   }
 
+  if (
+    snapshot.activeTab === 'video' &&
+    snapshot.videoModel === 'veo-3.1' &&
+    snapshot.orientationPreference === 'square'
+  ) {
+    return {
+      canGenerate: false,
+      reason: 'Veo 3.1 supports portrait 9:16 or landscape 16:9 output, not square 1:1.',
+    }
+  }
+
   const hasPrimaryReference = Boolean(getPrimaryReference(snapshot))
   const hasPrompt = snapshot.textPrompt.trim().length > 0
 
@@ -333,6 +346,9 @@ export function buildGenerationFormData(
   formData.append('videoDuration', snapshot.videoDuration)
   formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
+  if (snapshot.activeTab === 'video') {
+    formData.append('orientationPreference', snapshot.orientationPreference ?? 'auto')
+  }
   formData.append('cameraMovement', snapshot.cameraMovement ?? '')
 
   if (snapshot.activeTab === 'carousel') {
@@ -557,6 +573,7 @@ export function buildGuidedAnalysisFormData(input: {
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
   heroAsset: AssetSlot
+  orientationPreference?: OrientationPreference
   productUrl: string
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -580,6 +597,9 @@ export function buildGuidedAnalysisFormData(input: {
   formData.append('videoModel', input.videoModel ?? 'veo-3.1')
   formData.append('videoDuration', input.videoDuration ?? 'base')
   formData.append('videoAudio', input.videoAudio ?? 'no-audio')
+  if (workspace === 'video') {
+    formData.append('orientationPreference', input.orientationPreference ?? 'auto')
+  }
   formData.append('cameraMovement', input.cameraMovement ?? '')
 
   return { formData }
@@ -594,6 +614,7 @@ export function buildGuidedGenerationFormData(input: {
   endFrameAsset?: AssetSlot
   heroAsset: AssetSlot
   imageModel: GenerationSnapshot['imageModel']
+  orientationPreference?: OrientationPreference
   outputQuality: GenerationSnapshot['outputQuality']
   plan: GuidedAnalysisPlan
   locale?: GenerationSnapshot['locale']
@@ -673,6 +694,9 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('videoDuration', input.videoDuration ?? 'base')
   formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('outputQuality', input.outputQuality)
+  if (workspace === 'video') {
+    formData.append('orientationPreference', input.orientationPreference ?? 'auto')
+  }
   formData.append('cameraMovement', input.cameraMovement ?? '')
   formData.append('guidedShots', JSON.stringify(guidedShots))
   formData.append('guidedSummary', input.plan.summary)

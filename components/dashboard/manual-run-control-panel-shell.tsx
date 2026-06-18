@@ -50,6 +50,7 @@ import type {
   MotionControlDraft,
   MotionControlResolution,
   NamedAssetSlots,
+  OrientationPreference,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -134,6 +135,12 @@ function RunControlPanel({
   const videoDuration = useGenerationStore((state) => state.videoDuration)
   const videoAudio = useGenerationStore((state) => state.videoAudio)
   const motionControl = useGenerationStore((state) => state.motionControl)
+  const orientationPreference = useGenerationStore(
+    (state) => state.orientationPreference,
+  )
+  const setOrientationPreference = useGenerationStore(
+    (state) => state.setOrientationPreference,
+  )
   const setMotionControlResolution = useGenerationStore(
     (state) => state.setMotionControlResolution,
   )
@@ -186,6 +193,15 @@ function RunControlPanel({
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
   const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
   const isImageLikeWorkspace = activeTab === 'image' || activeTab === 'carousel'
+  const supportsOrientationControl = activeTab === 'video'
+  const orientationOptions = useMemo(
+    () =>
+      getOrientationPreferenceOptions({
+        activeTab,
+        videoModel,
+      }),
+    [activeTab, videoModel],
+  )
   const activeModelLabel =
     activeTab === 'carousel'
       ? 'Carousel'
@@ -252,6 +268,16 @@ function RunControlPanel({
     }
   }, [activeTab, videoAudio, videoModel, setVideoAudio])
 
+  useEffect(() => {
+    const isCurrentFormatSupported = orientationOptions.some(
+      (option) => option.value === orientationPreference,
+    )
+
+    if (!isCurrentFormatSupported) {
+      setOrientationPreference('auto')
+    }
+  }, [orientationOptions, orientationPreference, setOrientationPreference])
+
   return (
     <section className={cn(panelClassName, 'min-w-0 p-4 sm:p-5', className)}>
       <div className="flex flex-col gap-4">
@@ -311,6 +337,12 @@ function RunControlPanel({
                         label="Subject"
                         value={getSubjectModeLabel(subjectMode)}
                       />
+                      {supportsOrientationControl ? (
+                        <StatusPill
+                          label="Format"
+                          value={getOrientationPreferenceLabel(orientationPreference)}
+                        />
+                      ) : null}
                       <StatusPill
                         label="Environment"
                         value={getShotEnvironmentLabel(shotEnvironment)}
@@ -610,6 +642,32 @@ function RunControlPanel({
                         : selectedVideoModel?.helper}
                   </p>
 
+                  {supportsOrientationControl ? (
+                    <>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Output format
+                      </p>
+                      <Select
+                        aria-label="Output Format"
+                        onChange={(event) =>
+                          setOrientationPreference(
+                            event.target.value as OrientationPreference,
+                          )
+                        }
+                        value={orientationPreference}
+                      >
+                        {orientationOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Preset controls output shape. Prompt text alone does not override it.
+                      </p>
+                    </>
+                  ) : null}
+
                   {isImageLikeWorkspace ? (
                     <>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -665,6 +723,31 @@ function RunControlPanel({
       </div>
     </section>
   )
+}
+
+const orientationPreferenceOptions: Array<{
+  label: string
+  value: OrientationPreference
+}> = [
+  { label: 'Auto', value: 'auto' },
+  { label: 'Portrait 9:16', value: 'portrait' },
+  { label: 'Landscape 16:9', value: 'landscape' },
+  { label: 'Square 1:1', value: 'square' },
+]
+
+function getOrientationPreferenceOptions(input: {
+  activeTab: WorkspaceTab
+  videoModel: VideoModelOption
+}) {
+  if (input.activeTab === 'video' && input.videoModel === 'veo-3.1') {
+    return orientationPreferenceOptions.filter((option) => option.value !== 'square')
+  }
+
+  return orientationPreferenceOptions
+}
+
+function getOrientationPreferenceLabel(value: OrientationPreference) {
+  return orientationPreferenceOptions.find((option) => option.value === value)?.label ?? 'Auto'
 }
 
 function isSlotLoaded(slot: AssetSlot) {

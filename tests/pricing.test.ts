@@ -238,6 +238,7 @@ function createSnapshot(
     figureArtDirection: 'none',
     imageModel: 'nano-banana',
     outputQuality: '1080p',
+    orientationPreference: 'auto',
     productCategory: 'cosmetics',
     products: [createSlot('product-1', 'Product 1'), createSlot('product-2', 'Product 2')],
     shotEnvironment: 'indoor',

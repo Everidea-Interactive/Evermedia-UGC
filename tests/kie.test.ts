@@ -133,6 +133,27 @@ describe('KIE batch submission', () => {
     expect(parsed.characterAgeGroup).toBe('young-adult')
     expect(parsed.figureArtDirection).toBe('curvaceous-editorial')
     expect(parsed.experience).toBe('manual')
+    expect(parsed.orientationPreference).toBe('auto')
+  })
+
+  it('parses explicit output format preferences', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('orientationPreference', 'portrait')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.orientationPreference).toBe('portrait')
+  })
+
+  it('rejects invalid output format preferences', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('orientationPreference', 'vertical')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Invalid value for orientationPreference.',
+    )
   })
 
   it('rejects non-image uploads for image asset fields', () => {
@@ -436,7 +457,7 @@ describe('KIE batch submission', () => {
         expect.objectContaining({
           model: 'nano-banana-2',
           input: expect.objectContaining({
-            aspect_ratio: '2:3',
+            aspect_ratio: '9:16',
             google_search: false,
             image_input: ['https://files.example.com/face-1.png'],
             output_format: 'png',
@@ -446,6 +467,7 @@ describe('KIE batch submission', () => {
         }),
       ]),
     )
+    expect(taskRequests[0].input.prompt).toContain('TikTok-ready 9:16 output')
   })
 
   it('normalizes unsupported manual motion-control images before upload', async () => {
@@ -1125,6 +1147,7 @@ describe('KIE batch submission', () => {
       creativeStyle: 'ugc-lifestyle',
       imageModel: 'nano-banana',
       outputQuality: '1080p',
+      orientationPreference: 'landscape',
       productCategory: 'cosmetics',
       prompt: 'Create a polished product motion clip.',
       subjectMode: 'product-only',
@@ -1152,6 +1175,60 @@ describe('KIE batch submission', () => {
         resolution: '1080p',
       },
     })
+  })
+
+  it('lets explicit portrait format override product-only video auto landscape', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'product_slot_1',
+          kind: 'product',
+          label: 'Product 1',
+          order: 100,
+          productId: 'product-1',
+          remoteUrl: 'https://files.example.com/product.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      orientationPreference: 'portrait',
+      productCategory: 'cosmetics',
+      prompt: 'Create a vertical product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'no-audio',
+      videoModel: 'seedance-1.5-pro',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-1.5-pro',
+      input: {
+        aspect_ratio: '9:16',
+      },
+    })
+  })
+
+  it('rejects square output for Veo 3.1 before sending an unsupported provider payload', () => {
+    expect(() =>
+      resolveSubmission({
+        assets: [],
+        cameraMovement: null,
+        creativeStyle: 'ugc-lifestyle',
+        imageModel: 'nano-banana',
+        outputQuality: '1080p',
+        orientationPreference: 'square',
+        productCategory: 'cosmetics',
+        prompt: 'Create a square video.',
+        subjectMode: 'product-only',
+        videoDuration: 'base',
+        videoAudio: 'with-audio',
+        videoModel: 'veo-3.1',
+        workspace: 'video',
+      }),
+    ).toThrow('Veo 3.1 supports portrait 9:16 or landscape 16:9 output')
   })
 
   it('builds Seedance 2.0 video payloads with model-specific duration and audio', () => {
@@ -1484,7 +1561,7 @@ describe('KIE batch submission', () => {
         prompt: expect.stringContaining(
           'Image 1 (Clothing) Use it only for wardrobe and styling cues. Ignore any face in this image.',
         ),
-        aspect_ratio: '2:3',
+        aspect_ratio: '9:16',
         google_search: false,
         image_input: [
           'https://files.example.com/clothing.png',
@@ -1726,7 +1803,7 @@ describe('KIE batch submission', () => {
           'Create exactly one clean 2x2 grid image',
         ),
         image_input: [],
-        aspect_ratio: '1:1',
+        aspect_ratio: '9:16',
         resolution: '4K',
         output_format: 'png',
         google_search: false,

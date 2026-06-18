@@ -29,6 +29,23 @@ describe('normalizeProjectConfigSnapshot', () => {
     expect(snapshot.figureArtDirection).toBe('none')
     expect(snapshot.experience).toBe('manual')
     expect(snapshot.guided).toBeNull()
+    expect(snapshot.orientationPreference).toBe('auto')
+  })
+
+  it('preserves valid output format preferences', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      orientationPreference: 'portrait',
+    })
+
+    expect(snapshot.orientationPreference).toBe('portrait')
+  })
+
+  it('falls back to auto for invalid output format preferences', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      orientationPreference: 'vertical' as never,
+    })
+
+    expect(snapshot.orientationPreference).toBe('auto')
   })
 
   it('resets lifestyle-only fields for product-only snapshots', () => {

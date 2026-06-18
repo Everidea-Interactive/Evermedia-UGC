@@ -33,6 +33,7 @@ import type {
   MotionControlResolution,
   NamedAssetKey,
   NamedAssetSlots,
+  OrientationPreference,
   OutputQuality,
   PromptEnhancement,
   ProductCategory,
@@ -105,6 +106,7 @@ type GenerationStateShape = {
   imageModel: ImageModelOption
   motionControl: MotionControlDraft
   outputQuality: OutputQuality
+  orientationPreference: OrientationPreference
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
   products: AssetSlot[]
@@ -192,6 +194,7 @@ type GenerationStore = GenerationStateShape & {
   setMotionControlResolution: (value: MotionControlResolution) => void
   setNamedAssetFile: (slot: NamedAssetKey, file: File | null) => void
   setOutputQuality: (outputQuality: OutputQuality) => void
+  setOrientationPreference: (orientationPreference: OrientationPreference) => void
   setPromptEnhancement: (patch: Partial<PromptEnhancement>) => void
   setProductCategory: (productCategory: ProductCategory) => void
   setProductSlotFile: (id: string, file: File | null) => void
@@ -439,6 +442,7 @@ function createInitialState(): GenerationStateShape {
     imageModel: 'nano-banana',
     motionControl: createMotionControlDraft(),
     outputQuality: '1080p',
+    orientationPreference: 'auto',
     promptEnhancement: createInitialPromptEnhancement(),
     productCategory: 'cosmetics',
     products: createProductSlots(),
@@ -899,6 +903,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         },
         guidedPlan: hydratedGuidedPlan,
         outputQuality: normalizedConfig.outputQuality,
+        orientationPreference: normalizedConfig.orientationPreference ?? 'auto',
         promptEnhancement: createInitialPromptEnhancement(),
         productCategory: normalizedConfig.productCategory,
         motionControl: {
@@ -951,6 +956,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         imageModel: nextState.imageModel,
       motionControl: nextState.motionControl,
       outputQuality: nextState.outputQuality,
+      orientationPreference: nextState.orientationPreference,
       promptEnhancement: nextState.promptEnhancement,
       productCategory: nextState.productCategory,
       products: nextState.products,
@@ -1298,6 +1304,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
     })),
   setOutputQuality: (outputQuality) => set({ outputQuality }),
+  setOrientationPreference: (orientationPreference) => set({ orientationPreference }),
   setPromptEnhancement: (patch) =>
     set((state) => ({
       promptEnhancement: {

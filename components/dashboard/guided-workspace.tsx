@@ -1682,6 +1682,9 @@ export function GuidedWorkspace({
   const guidedInput = useGenerationStore((state) => state.guidedInput)
   const guidedPlan = useGenerationStore((state) => state.guidedPlan)
   const imageModel = useGenerationStore((state) => state.imageModel)
+  const orientationPreference = useGenerationStore(
+    (state) => state.orientationPreference,
+  )
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const promptEnhancement = useGenerationStore(
     (state) => state.promptEnhancement,
@@ -1915,6 +1918,7 @@ export function GuidedWorkspace({
         cameraMovement,
         contentConcept: guidedInput.contentConcept,
         heroAsset: guidedInput.heroAsset,
+        orientationPreference,
         productUrl: guidedInput.productUrl,
         shotCount: activeTab === 'video' ? 1 : guidedInput.shotCount,
         videoDuration,
@@ -2028,6 +2032,7 @@ export function GuidedWorkspace({
         heroAsset: guidedInput.heroAsset,
         imageModel,
         locale,
+        orientationPreference,
         outputQuality,
         plan: guidedPlan,
         promptEnhancement,

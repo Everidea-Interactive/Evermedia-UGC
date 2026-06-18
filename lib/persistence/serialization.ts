@@ -32,6 +32,7 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
     resolution: '1080p',
   },
   outputQuality: '1080p',
+  orientationPreference: 'auto',
   productCategory: 'cosmetics',
   shotEnvironment: 'indoor',
   subjectMode: 'lifestyle',
@@ -420,6 +421,11 @@ export function normalizeProjectConfigSnapshot(
     },
     guided: normalizeGuidedSnapshot(snapshot.guided),
     carouselDraft: normalizeCarouselDraft(snapshot.carouselDraft),
+    orientationPreference: readSnapshotEnum(
+      snapshot.orientationPreference,
+      ['auto', 'portrait', 'landscape', 'square'] as const,
+      defaultProjectConfigSnapshot.orientationPreference ?? 'auto',
+    ),
   }
 
   if (mergedSnapshot.subjectMode === 'lifestyle') {

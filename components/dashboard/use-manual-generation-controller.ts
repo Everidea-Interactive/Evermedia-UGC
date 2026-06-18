@@ -30,6 +30,7 @@ import type {
   KieStatusResponse,
   MotionControlDraft,
   NamedAssetSlots,
+  OrientationPreference,
   OutputQuality,
   PromptEnhancement,
   ProductCategory,
@@ -57,6 +58,7 @@ function createGenerationSnapshot(input: {
   imageModel: ImageModelOption
   locale: GenerationLocale
   motionControl: MotionControlDraft
+  orientationPreference: OrientationPreference
   outputQuality: OutputQuality
   promptEnhancement: PromptEnhancement
   productCategory: ProductCategory
@@ -169,6 +171,9 @@ export function useManualGenerationController(input: {
   )
   const imageModel = useGenerationStore((state) => state.imageModel)
   const motionControl = useGenerationStore((state) => state.motionControl)
+  const orientationPreference = useGenerationStore(
+    (state) => state.orientationPreference,
+  )
   const outputQuality = useGenerationStore((state) => state.outputQuality)
   const promptEnhancement = useGenerationStore(
     (state) => state.promptEnhancement,
@@ -203,6 +208,7 @@ export function useManualGenerationController(input: {
         imageModel,
         locale,
         motionControl,
+        orientationPreference,
         outputQuality,
         promptEnhancement,
         productCategory,
@@ -228,6 +234,7 @@ export function useManualGenerationController(input: {
       imageModel,
       locale,
       motionControl,
+      orientationPreference,
       outputQuality,
       promptEnhancement,
       productCategory,
@@ -372,6 +379,7 @@ export function useManualGenerationController(input: {
       imageModel: state.imageModel,
       locale,
       motionControl: state.motionControl,
+      orientationPreference: state.orientationPreference,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,
@@ -459,6 +467,7 @@ export function useManualGenerationController(input: {
       imageModel: state.imageModel,
       locale,
       motionControl: state.motionControl,
+      orientationPreference: state.orientationPreference,
       outputQuality: state.outputQuality,
       promptEnhancement: state.promptEnhancement,
       productCategory: state.productCategory,

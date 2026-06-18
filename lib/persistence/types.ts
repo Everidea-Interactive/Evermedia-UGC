@@ -20,6 +20,7 @@ import type {
   ImageModelOption,
   KieAnalysisModel,
   MotionControlResolution,
+  OrientationPreference,
   OutputQuality,
   ProductCategory,
   ShotEnvironment,
@@ -56,6 +57,7 @@ export type GenerationConfigSnapshot = {
     resolution: MotionControlResolution
   }
   outputQuality: OutputQuality
+  orientationPreference?: OrientationPreference
   productCategory: ProductCategory
   shotEnvironment: ShotEnvironment
   subjectMode: 'product-only' | 'lifestyle'
