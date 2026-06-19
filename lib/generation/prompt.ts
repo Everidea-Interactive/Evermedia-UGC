@@ -67,6 +67,15 @@ const subjectPhrases: Record<SubjectMode, string> = {
 const lifestyleImageAnatomySafeguard =
   'Anatomy integrity: render natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, correctly attached limbs, and no duplicated, missing, fused, or distorted body parts.'
 
+const imageProductUsageSafeguard =
+  'Image safeguards: maintain believable hand-to-product contact, correct product usage, stable label readability, faithful packaging, accurate brand marks, and no extra limbs, duplicate people, floating products, broken grips, wrong packaging variants, or off-brand logos.'
+
+const lifestyleVideoContinuitySafeguard =
+  'Continuity safeguards: maintain natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, stable facial identity, correct hand-to-product contact, and commercially believable product usage throughout the full clip.'
+
+const productUsageSafeguard =
+  'Do not introduce extra limbs, duplicate people, floating products, broken object interaction, unreadable labels, wrong packaging, off-brand logos, or incorrect product handling.'
+
 const environmentPhrases: Record<ShotEnvironment, string> = {
   indoor: 'Shot environment: curated indoor setting with studio-grade control.',
   outdoor: 'Shot environment: outdoor location with natural environmental context.',
@@ -221,6 +230,8 @@ function compileImagePrompt(input: CompileGenerationPromptInput) {
     }
   }
 
+  promptParts.push(imageProductUsageSafeguard)
+
   if (identityReference) {
     promptParts.push(
       `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person with matching facial structure, skin tone, hairline, and overall likeness.`,
@@ -280,14 +291,70 @@ function compileImagePrompt(input: CompileGenerationPromptInput) {
 }
 
 function compileVideoPrompt(input: CompileGenerationPromptInput) {
+  const named = getNamedReferenceMap(input.assets)
+  const products = getOrderedProductReferences(input.assets)
   const firstFrame = chooseFirstFrameReference(input.assets)
   const endFrame = chooseEndFrameReference(input.assets)
-  const videoReferences = getOrderedVideoStartReferences(input.assets)
+  const videoReferences = getOrderedVideoStartReferences(input.assets).slice(
+    0,
+    getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'),
+  )
+  const limitedReferenceFieldNames = new Set(
+    videoReferences.map((reference) => reference.fieldName),
+  )
+  const face1 = named.get('face1')
+  const face2 = named.get('face2')
+  const identityReference =
+    input.subjectMode === 'lifestyle' &&
+    face1 &&
+    limitedReferenceFieldNames.has(face1.fieldName)
+      ? face1
+      : input.subjectMode === 'lifestyle' &&
+          face2 &&
+          limitedReferenceFieldNames.has(face2.fieldName)
+        ? face2
+        : null
+  const additionalFaceReference =
+    identityReference?.fieldName === face1?.fieldName &&
+    face2 &&
+    limitedReferenceFieldNames.has(face2.fieldName)
+      ? face2
+      : null
+  const productReference =
+    products.find((reference) => limitedReferenceFieldNames.has(reference.fieldName)) ?? null
+  const additionalProductReferences = productReference
+    ? products.filter(
+        (reference) =>
+          reference.fieldName !== productReference.fieldName &&
+          limitedReferenceFieldNames.has(reference.fieldName),
+      )
+    : products.filter((reference) => limitedReferenceFieldNames.has(reference.fieldName))
+  const clothingReference =
+    named.get('clothing') &&
+    limitedReferenceFieldNames.has(named.get('clothing')!.fieldName)
+      ? named.get('clothing')!
+      : null
+  const locationReference =
+    named.get('location') &&
+    limitedReferenceFieldNames.has(named.get('location')!.fieldName)
+      ? named.get('location')!
+      : null
+  const brandLogoReference =
+    named.get('brandLogo') &&
+    limitedReferenceFieldNames.has(named.get('brandLogo')!.fieldName)
+      ? named.get('brandLogo')!
+      : null
   const explicitlyDescribedFieldNames = new Set<string>(
     [
       firstFrame?.fieldName,
       endFrame?.fieldName,
-      ...videoReferences.map((reference) => reference.fieldName),
+      identityReference?.fieldName,
+      additionalFaceReference?.fieldName,
+      productReference?.fieldName,
+      ...additionalProductReferences.map((reference) => reference.fieldName),
+      clothingReference?.fieldName,
+      locationReference?.fieldName,
+      brandLogoReference?.fieldName,
     ].filter((value): value is string => Boolean(value)),
   )
 
@@ -302,10 +369,7 @@ function compileVideoPrompt(input: CompileGenerationPromptInput) {
       input.characterAgeGroup,
     ].filter((value) => value !== 'any')
 
-    const named = getNamedReferenceMap(input.assets)
-    const face1 = named.get('face1')
-    const face2 = named.get('face2')
-    const identityReference = face1 ?? face2 ?? null
+    promptParts.push(lifestyleVideoContinuitySafeguard)
 
     if (demographicSelections.length > 0 && !identityReference) {
       promptParts.push(
@@ -334,6 +398,50 @@ function compileVideoPrompt(input: CompileGenerationPromptInput) {
     promptParts.push(movementPhrases[input.cameraMovement])
   }
 
+  promptParts.push(productUsageSafeguard)
+
+  if (identityReference) {
+    promptParts.push(
+      `Identity reference: ${identityReference.label}. Keep the on-camera subject as the same person throughout the full clip with matching facial structure, skin tone, hairline, and overall likeness.`,
+    )
+  }
+
+  if (additionalFaceReference) {
+    promptParts.push(
+      `Additional face reference: ${additionalFaceReference.label}. Use it only as alternate angle or expression guidance for the same person. Do not introduce a second identity or blend multiple people.`,
+    )
+  }
+
+  if (productReference) {
+    promptParts.push(
+      `Product reference: ${productReference.label}. Preserve the same exact product SKU throughout the clip, including packaging, branding, proportions, materials, and colorway.`,
+    )
+  }
+
+  for (const reference of additionalProductReferences) {
+    promptParts.push(
+      `Additional product reference: ${reference.label}. Use it only as alternate angle or composition guidance for the same exact product. Do not introduce a different product, packaging variant, colorway, or material finish.`,
+    )
+  }
+
+  if (clothingReference) {
+    promptParts.push(
+      `Wardrobe reference: ${clothingReference.label}. Use it only for outfit and styling cues. Do not let it override the identity reference.`,
+    )
+  }
+
+  if (locationReference) {
+    promptParts.push(
+      `Location reference: ${locationReference.label}. Use it only for environment and background guidance while keeping scene continuity coherent across the clip.`,
+    )
+  }
+
+  if (brandLogoReference) {
+    promptParts.push(
+      `Brand logo reference: ${brandLogoReference.label}. Use it for brand identity cues and keep any visible logo treatment faithful to the source branding.`,
+    )
+  }
+
   if (
     firstFrame &&
     supportsVideoFirstLastFramePair(input.videoModel ?? 'veo-3.1')
@@ -343,13 +451,11 @@ function compileVideoPrompt(input: CompileGenerationPromptInput) {
     )
   }
 
-  videoReferences
-    .slice(0, getMaxVideoReferenceCount(input.videoModel ?? 'veo-3.1'))
-    .forEach((reference, index) => {
-      promptParts.push(
-        `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
-      )
-    })
+  videoReferences.forEach((reference, index) => {
+    promptParts.push(
+      `Reference ${index + 1}: ${reference.label}. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.`,
+    )
+  })
 
   const supportingReferenceLine = buildSupportingReferenceLine(
     input.assets,

@@ -1115,6 +1115,7 @@ describe('KIE batch submission', () => {
 
     expect(taskRequests).toEqual([
       expect.objectContaining({
+        enableTranslation: false,
         generationType: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
         imageUrls: [
           'https://files.example.com/product.png',
@@ -1434,6 +1435,7 @@ describe('KIE batch submission', () => {
     })
 
     expect(submission.requestBody).toMatchObject({
+      enableTranslation: false,
       imageUrls: [
         'https://files.example.com/ref-1.png',
         'https://files.example.com/ref-2.png',

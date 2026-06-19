@@ -65,10 +65,25 @@ describe('compileGenerationPrompt', () => {
 
     expect(prompt).toContain('Create a video for a beauty and cosmetics campaign.')
     expect(prompt).toContain(
+      'Continuity safeguards: maintain natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, stable facial identity, correct hand-to-product contact, and commercially believable product usage throughout the full clip.',
+    )
+    expect(prompt).toContain(
+      'Do not introduce extra limbs, duplicate people, floating products, broken object interaction, unreadable labels, wrong packaging, off-brand logos, or incorrect product handling.',
+    )
+    expect(prompt).toContain(
+      'Identity reference: Face 1. Keep the on-camera subject as the same person throughout the full clip with matching facial structure, skin tone, hairline, and overall likeness.',
+    )
+    expect(prompt).toContain(
       'Reference 1: Face 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
     )
     expect(prompt).toContain(
+      'Wardrobe reference: Clothing. Use it only for outfit and styling cues. Do not let it override the identity reference.',
+    )
+    expect(prompt).toContain(
       'Reference 2: Clothing. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
+    )
+    expect(prompt).toContain(
+      'Product reference: Product 1. Preserve the same exact product SKU throughout the clip, including packaging, branding, proportions, materials, and colorway.',
     )
     expect(prompt).toContain(
       'Reference 3: Product 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',
@@ -85,10 +100,6 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).not.toContain(
       'Create a high-quality image for a beauty and cosmetics campaign.',
     )
-    expect(prompt).not.toContain('Identity reference:')
-    expect(prompt).not.toContain('Product reference:')
-    expect(prompt).not.toContain('Wardrobe reference:')
-    expect(prompt).not.toContain('Location reference:')
     expect(prompt).not.toContain('south asian')
     expect(prompt).toContain(
       'Figure art direction: curvaceous editorial with full-figure styling, dramatic curves, and fashion-forward composition language.',
@@ -207,6 +218,9 @@ describe('compileGenerationPrompt', () => {
     expect(prompt).toContain(
       'Anatomy integrity: render natural, physically plausible human anatomy with exactly two arms, two hands, five fingers per visible hand, correctly attached limbs, and no duplicated, missing, fused, or distorted body parts.',
     )
+    expect(prompt).toContain(
+      'Image safeguards: maintain believable hand-to-product contact, correct product usage, stable label readability, faithful packaging, accurate brand marks, and no extra limbs, duplicate people, floating products, broken grips, wrong packaging variants, or off-brand logos.',
+    )
   })
 
   it('omits demographics and figure art direction for product-only prompts', () => {
@@ -243,6 +257,9 @@ describe('compileGenerationPrompt', () => {
     )
     expect(prompt).toContain(
       'Shot environment: outdoor location with natural environmental context.',
+    )
+    expect(prompt).toContain(
+      'Image safeguards: maintain believable hand-to-product contact, correct product usage, stable label readability, faithful packaging, accurate brand marks, and no extra limbs, duplicate people, floating products, broken grips, wrong packaging variants, or off-brand logos.',
     )
     expect(prompt).not.toContain(
       'Animate the supplied reference image into a motion-controlled video sequence.',
@@ -586,6 +603,9 @@ describe('video duration prompt wording', () => {
 
     expect(prompt).toContain(
       'First frame: First Frame. Treat this as the required opening frame anchor and preserve its exact composition, subject identity, and scene setup at the start of the clip.',
+    )
+    expect(prompt).toContain(
+      'Product reference: Reference 1. Preserve the same exact product SKU throughout the clip, including packaging, branding, proportions, materials, and colorway.',
     )
     expect(prompt).toContain(
       'Reference 1: Reference 1. Treat this as ordered visual guidance and preserve its key subject details, design cues, and scene fidelity.',

@@ -1246,7 +1246,7 @@ function buildVideoPayload(input: {
         model: VEO_DEFAULT_MODEL,
         aspect_ratio: aspectRatio,
         enableFallback: false,
-        enableTranslation: true,
+        enableTranslation: false,
         generationType:
           hasExplicitEndFramePair
             ? 'FIRST_AND_LAST_FRAMES_2_VIDEO'
