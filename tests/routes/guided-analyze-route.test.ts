@@ -114,6 +114,7 @@ describe('POST /api/guided/analyze', () => {
     formData.set('shotCount', '3')
     formData.append('videoModel', 'seedance-1.5-pro')
     formData.append('videoDuration', 'extended')
+    formData.append('orientationPreference', 'portrait')
     formData.append('cameraMovement', 'dolly')
 
     const response = await POST(createRequest(formData))
@@ -122,6 +123,7 @@ describe('POST /api/guided/analyze', () => {
     expect(analyzeGuidedProductPlan).toHaveBeenCalledWith(
       expect.objectContaining({
         cameraMovement: 'dolly',
+        orientationPreference: 'portrait',
         shotCount: 1,
         videoModel: 'seedance-1.5-pro',
         videoDuration: 'extended',

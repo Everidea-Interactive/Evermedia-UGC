@@ -99,6 +99,7 @@ function createEstimateSnapshot(
   | 'batchSize'
   | 'imageModel'
   | 'outputQuality'
+  | 'orientationPreference'
   | 'products'
   | 'subjectMode'
   | 'videoReferences'
@@ -143,6 +144,7 @@ function createEstimateSnapshot(
     batchSize: input.batchSize,
     imageModel: input.imageModel,
     outputQuality: input.outputQuality,
+    orientationPreference: input.orientationPreference,
     products,
     subjectMode: input.subjectMode,
     videoReferences: input.workspace === 'video' ? products.slice(0, 3) : [],
@@ -214,6 +216,7 @@ function createConfigSnapshot(input: ReturnType<typeof parseGenerationFormData>)
         }
       : undefined,
     outputQuality: input.outputQuality,
+    orientationPreference: input.orientationPreference,
     productCategory: input.productCategory,
     shotEnvironment: input.shotEnvironment,
     subjectMode: input.subjectMode,

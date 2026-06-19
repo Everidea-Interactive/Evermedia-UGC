@@ -6,6 +6,7 @@ import type {
   ContentConcept,
   GuidedAnalysisPlan,
   KieAnalysisModel,
+  OrientationPreference,
   VideoDuration,
   VideoModelOption,
   WorkspaceTab,
@@ -125,6 +126,7 @@ function formatProductPageContext(productPage: ScrapedProductPage | null) {
 }
 
 function getVideoTargetClipInstruction(input: {
+  orientationPreference?: OrientationPreference
   videoDuration?: VideoDuration
   videoModel?: VideoModelOption
 }) {
@@ -138,6 +140,24 @@ function getVideoTargetClipInstruction(input: {
         : 'Veo 3.1'
 
   return `Target clip length: ${getVideoDurationSeconds(videoModel, videoDuration)} seconds for ${modelLabel}.`
+}
+
+function getVideoOrientationInstruction(
+  orientationPreference?: OrientationPreference,
+) {
+  if (orientationPreference === 'portrait') {
+    return 'Target framing: portrait 9:16 vertical composition. Block the shot for tall mobile-safe framing.'
+  }
+
+  if (orientationPreference === 'landscape') {
+    return 'Target framing: landscape 16:9 horizontal composition. Block the shot for wide cinematic framing.'
+  }
+
+  if (orientationPreference === 'square') {
+    return 'Target framing: square 1:1 composition. Keep the subject centered and balanced for square crop safety.'
+  }
+
+  return 'Target framing: choose the strongest composition for the requested subject mode and commerce goal.'
 }
 
 function createSystemPrompt(workspace: WorkspaceTab = 'image') {
@@ -164,6 +184,7 @@ function createClaudeSystemPrompt(workspace: WorkspaceTab = 'image') {
 function createUserPrompt(input: {
   cameraMovement?: CameraMovement | null
   contentConcept: ContentConcept
+  orientationPreference?: OrientationPreference
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -182,6 +203,7 @@ function createUserPrompt(input: {
   if (workspace === 'video') {
     promptLines.push(
       getVideoTargetClipInstruction(input),
+      getVideoOrientationInstruction(input.orientationPreference),
       'Write complete prompts with motion, pacing, subject action, and end state.',
     )
 
@@ -207,6 +229,7 @@ export function buildGeminiAnalysisBody(input: {
   heroImageDataUrl?: string | null
   heroImageUrl: string
   model: Extract<KieAnalysisModel, 'gemini-2.5-flash'>
+  orientationPreference?: OrientationPreference
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -254,6 +277,7 @@ export function buildClaudeAnalysisBody(input: {
   contentConcept: ContentConcept
   heroImageUrl: string
   model: Extract<KieAnalysisModel, 'claude-sonnet-4-6'>
+  orientationPreference?: OrientationPreference
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration
@@ -514,6 +538,7 @@ export async function analyzeGuidedProductPlan(input: {
   contentConcept: ContentConcept
   heroImageDataUrl?: string | null
   heroImageUrl: string
+  orientationPreference?: OrientationPreference
   productPage: ScrapedProductPage | null
   shotCount: BatchSize
   videoDuration?: VideoDuration

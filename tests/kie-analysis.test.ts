@@ -123,6 +123,7 @@ describe('KIE analysis adapters', () => {
       contentConcept: 'driven-ads',
       heroImageUrl: 'https://files.example.com/hero.png',
       model: 'gemini-2.5-flash',
+      orientationPreference: 'portrait',
       productPage: null,
       shotCount: 1,
       videoModel: 'seedance-1.5-pro',
@@ -136,7 +137,27 @@ describe('KIE analysis adapters', () => {
 
     expect(userText).toContain('Create exactly 1 video-generation shot.')
     expect(userText).toContain('Target clip length: 12 seconds for Seedance 1.5 Pro.')
+    expect(userText).toContain('Target framing: portrait 9:16 vertical composition.')
     expect(userText).toContain('dolly')
+  })
+
+  it('states landscape framing intent in guided video analysis prompts', () => {
+    const body = buildGeminiAnalysisBody({
+      contentConcept: 'affiliate',
+      heroImageUrl: 'https://files.example.com/hero.png',
+      model: 'gemini-2.5-flash',
+      orientationPreference: 'landscape',
+      productPage: null,
+      shotCount: 1,
+      videoModel: 'veo-3.1',
+      workspace: 'video',
+    })
+    const userContent = body.messages[1]?.content
+    const userText = Array.isArray(userContent)
+      ? userContent.find((entry) => entry.type === 'text')?.text
+      : ''
+
+    expect(userText).toContain('Target framing: landscape 16:9 horizontal composition.')
   })
 
   it('uses Seedance 1.5 Pro clip length in guided video analysis prompts', () => {

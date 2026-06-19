@@ -125,6 +125,11 @@ export async function POST(request: Request) {
         'videoModel',
         ['veo-3.1', 'seedance-1.5-pro', 'seedance-2'] as const,
       ) ?? 'veo-3.1'
+    const orientationPreference = readOptionalEnum(
+      formData,
+      'orientationPreference',
+      ['auto', 'portrait', 'landscape', 'square'] as const,
+    )
     const cameraMovement = readOptionalEnum(
       formData,
       'cameraMovement',
@@ -189,6 +194,7 @@ export async function POST(request: Request) {
       cameraMovement,
       heroImageDataUrl,
       heroImageUrl,
+      orientationPreference: orientationPreference ?? undefined,
       productPage,
       shotCount: guidedShotCount,
       videoDuration,
