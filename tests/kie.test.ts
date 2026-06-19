@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}))
 
 import {
   KIE_REQUEST_TIMEOUT_MS,
+  buildPromptSnapshot,
   fetchKieWithTimeout,
   getKieStatus,
   parseGenerationFormData,
@@ -1922,6 +1923,35 @@ describe('carousel generation', () => {
 
     expect(parsed.workspace).toBe('carousel')
     expect(parsed.carouselDraft?.panels).toHaveLength(1)
+  })
+
+  it('builds carousel prompt snapshots with carousel batch builder', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'carousel')
+    formData.set(
+      'carouselDraft',
+      JSON.stringify({
+        baseTemplateMode: 'ai',
+        baseTemplatePrompt: 'white card',
+        baseTemplateAsset: null,
+        panels: [
+          makeCarouselAiPanel('panel-5', 5),
+          makeCarouselAiPanel('panel-1', 1),
+          makeCarouselAiPanel('panel-2', 2),
+          makeCarouselAiPanel('panel-3', 3),
+          makeCarouselAiPanel('panel-4', 4),
+        ],
+      }),
+    )
+
+    const parsed = parseGenerationFormData(formData)
+    const snapshot = buildPromptSnapshot(parsed)
+
+    expect(snapshot).toContain('Create one cohesive 2x2 carousel sheet')
+    expect(snapshot).toContain('Slot 1 (top-left): export panel.')
+    expect(snapshot).toContain('Panel 1 content')
+    expect(snapshot).toContain('Panel 5 content')
+    expect(snapshot).toContain('\n\n---\n\n')
   })
 })
 

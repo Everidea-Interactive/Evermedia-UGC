@@ -910,6 +910,28 @@ export function buildPromptSnapshot(input: ParsedGenerationRequest) {
     return input.guided.summary
   }
 
+  if (input.workspace === 'carousel') {
+    const draft = input.carouselDraft
+
+    if (!draft || draft.panels.length === 0) {
+      throw new GenerationRequestError({
+        code: 'invalid_input',
+        message: 'Carousel draft is empty or missing panels.',
+        status: 400,
+      })
+    }
+
+    const orderedPanels = [...draft.panels].sort((a, b) => a.order - b.order)
+    const panelBatches = Array.from(
+      { length: Math.ceil(orderedPanels.length / 4) },
+      (_, index) => orderedPanels.slice(index * 4, index * 4 + 4),
+    )
+
+    return panelBatches
+      .map((panels) => buildCarouselBatchPrompt(panels, draft))
+      .join('\n\n---\n\n')
+  }
+
   return compileGenerationPrompt({
     assets: createPromptAssets(input.assetDescriptors),
     cameraMovement: input.workspace === 'video' ? input.cameraMovement : null,
