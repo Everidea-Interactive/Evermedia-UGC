@@ -218,6 +218,16 @@ describe('StudioWorkspace', () => {
     expect(screen.queryByRole('tab', { name: 'Motion Control' })).toBeNull()
   })
 
+  it('keeps the shared workspace tabs configured to hide icons on narrow screens', async () => {
+    const source = await readFile(
+      join(process.cwd(), 'components/dashboard/studio-shell.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('max-[420px]:hidden')
+    expect(source).toContain('max-[420px]:gap-0')
+  })
+
   it('hides the reference board when another manual section is selected', async () => {
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)

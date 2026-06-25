@@ -138,23 +138,26 @@ export function StudioShell() {
                         (tab.value !== 'carousel' && tab.value !== 'motion-control'),
                     )
                     .map((tab) => {
-                    const Icon = tab.icon
+                      const Icon = tab.icon
 
-                    return (
-                      <TabsTrigger
-                        className="min-h-[3.15rem] px-3 py-2"
-                        key={tab.value}
-                        value={tab.value}
-                      >
-                        <span className="mx-auto flex items-center justify-center gap-2">
-                          <Icon className="size-4.5 shrink-0" suppressHydrationWarning />
-                          <span className="text-sm font-semibold sm:text-base">
-                            {tab.label}
+                      return (
+                        <TabsTrigger
+                          className="min-h-[3.15rem] px-2 py-2 sm:px-3"
+                          key={tab.value}
+                          value={tab.value}
+                        >
+                          <span className="mx-auto flex items-center justify-center gap-2 max-[420px]:gap-0">
+                            <Icon
+                              className="size-4.5 shrink-0 max-[420px]:hidden"
+                              suppressHydrationWarning
+                            />
+                            <span className="text-center text-sm font-semibold leading-tight sm:text-base">
+                              {tab.label}
+                            </span>
                           </span>
-                        </span>
-                      </TabsTrigger>
-                    )
-                  })}
+                        </TabsTrigger>
+                      )
+                    })}
                 </TabsList>
               </Tabs>
             ) : null}
