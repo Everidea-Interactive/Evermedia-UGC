@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { LogOut, Menu, X } from 'lucide-react'
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -30,12 +30,12 @@ type AuthenticatedHeaderProps = {
 export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
   const { dictionary } = useLocale()
   const pathname = usePathname()
-  const router = useRouter()
   const copy = dictionary.shared
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const mobileMenuId = useId()
+  const resetGenerationRun = useGenerationStore((state) => state.resetGenerationRun)
   const isGenerationBusy = useGenerationStore((s) =>
     s.generationRun.status === 'rendering' ||
       s.analysisStatus === 'analyzing' ||
@@ -63,7 +63,8 @@ export function AuthenticatedHeader({ user }: AuthenticatedHeaderProps) {
   function handleConfirmLeave() {
     setIsLeaveDialogOpen(false)
     if (pendingHref) {
-      router.push(pendingHref)
+      resetGenerationRun()
+      window.location.assign(pendingHref)
       setPendingHref(null)
     }
   }

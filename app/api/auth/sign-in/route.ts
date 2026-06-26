@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 import { resolveAuthenticatedUser } from '@/lib/auth/access-control'
 import {
@@ -10,6 +11,16 @@ import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
 
 export const runtime = 'nodejs'
+
+async function clearStaleSupabaseCookies() {
+  const cookieStore = await cookies()
+
+  for (const cookie of cookieStore.getAll()) {
+    if (cookie.name.startsWith('sb-')) {
+      cookieStore.delete(cookie.name)
+    }
+  }
+}
 
 export async function POST(request: Request) {
   const requestUrl = new URL(request.url)
@@ -50,8 +61,9 @@ export async function POST(request: Request) {
   }
 
   const normalizedEmail = email.trim()
+  await clearStaleSupabaseCookies()
   const supabase = await createSupabaseServerClient()
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
     password,
   })
@@ -70,9 +82,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = data.user
 
   if (!user) {
     return NextResponse.redirect(
