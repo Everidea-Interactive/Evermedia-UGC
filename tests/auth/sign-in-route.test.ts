@@ -4,6 +4,10 @@ vi.mock('@/lib/auth/supabase/server', () => ({
   createSupabaseServerClient: vi.fn(),
 }))
 
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(),
+}))
+
 vi.mock('@/lib/auth/supabase/shared', () => ({
   isSupabaseConfigured: vi.fn(),
 }))
@@ -16,6 +20,7 @@ import { POST } from '@/app/api/auth/sign-in/route'
 import { resolveAuthenticatedUser } from '@/lib/auth/access-control'
 import { createSupabaseServerClient } from '@/lib/auth/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth/supabase/shared'
+import { cookies } from 'next/headers'
 
 function createSignInRequest({
   email,
@@ -64,6 +69,10 @@ describe('POST /api/auth/sign-in', () => {
       },
     })
     signOut.mockResolvedValue({ error: null })
+    vi.mocked(cookies).mockResolvedValue({
+      delete: vi.fn(),
+      getAll: vi.fn().mockReturnValue([]),
+    } as never)
     vi.mocked(resolveAuthenticatedUser).mockResolvedValue({
       canManageAccounts: false,
       email: 'creator@example.com',
@@ -86,7 +95,15 @@ describe('POST /api/auth/sign-in', () => {
   })
 
   it('redirects to the next path after a successful password sign-in', async () => {
-    signInWithPassword.mockResolvedValue({ error: null })
+    signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          email: 'creator@example.com',
+          id: 'user-1',
+        },
+      },
+      error: null,
+    })
 
     const response = await POST(
       createSignInRequest({
@@ -110,7 +127,15 @@ describe('POST /api/auth/sign-in', () => {
 
   it('redirects successful sign-ins to the configured public base url behind a proxy', async () => {
     vi.stubEnv('SUPABASE_AUTH_REDIRECT_URL', 'https://studio.evermedia.id')
-    signInWithPassword.mockResolvedValue({ error: null })
+    signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          email: 'creator@example.com',
+          id: 'user-1',
+        },
+      },
+      error: null,
+    })
 
     const formData = new FormData()
     formData.set('email', 'creator@example.com')
@@ -149,6 +174,9 @@ describe('POST /api/auth/sign-in', () => {
 
   it('redirects back with invalid_credentials on auth failure', async () => {
     signInWithPassword.mockResolvedValue({
+      data: {
+        user: null,
+      },
       error: {
         message: 'Invalid login credentials',
       },
@@ -173,7 +201,15 @@ describe('POST /api/auth/sign-in', () => {
   })
 
   it('signs the user back out and redirects with account_disabled when app access is blocked', async () => {
-    signInWithPassword.mockResolvedValue({ error: null })
+    signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          email: 'creator@example.com',
+          id: 'user-1',
+        },
+      },
+      error: null,
+    })
     vi.mocked(resolveAuthenticatedUser).mockResolvedValue({
       reason: 'account_disabled',
       status: 'blocked',
@@ -196,7 +232,15 @@ describe('POST /api/auth/sign-in', () => {
   })
 
   it('signs the user back out and redirects with account_not_provisioned when access was never granted', async () => {
-    signInWithPassword.mockResolvedValue({ error: null })
+    signInWithPassword.mockResolvedValue({
+      data: {
+        user: {
+          email: 'creator@example.com',
+          id: 'user-1',
+        },
+      },
+      error: null,
+    })
     vi.mocked(resolveAuthenticatedUser).mockResolvedValue({
       reason: 'account_not_provisioned',
       status: 'blocked',

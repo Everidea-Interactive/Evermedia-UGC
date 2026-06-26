@@ -13,6 +13,25 @@ import {
 
 export const runtime = 'nodejs'
 
+const OWNER_EMAIL_LOOKUP_TIMEOUT_MS = 3_000
+
+async function resolveOwnerEmailsWithTimeout() {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race([
+      listManagedAccountEmailsByUserId(),
+      new Promise<Map<string, string>>((resolve) => {
+        timeoutId = setTimeout(() => resolve(new Map()), OWNER_EMAIL_LOOKUP_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 export async function GET() {
   const user = await getOptionalAuthenticatedUser()
 
@@ -23,7 +42,7 @@ export async function GET() {
   const [ideations, outputs, ownerEmailsByUserId] = await Promise.all([
     listSavedIdeationHistory(),
     listSavedOutputHistory(),
-    listManagedAccountEmailsByUserId(),
+    resolveOwnerEmailsWithTimeout(),
   ])
 
   return NextResponse.json({

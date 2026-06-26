@@ -14,6 +14,25 @@ import {
 export const dynamic = 'force-dynamic'
 
 const DEFAULT_LIBRARY_PAGE_SIZE = 12
+const OWNER_EMAIL_LOOKUP_TIMEOUT_MS = 3_000
+
+async function resolveOwnerEmailsWithTimeout() {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race([
+      listManagedAccountEmailsByUserId(),
+      new Promise<Map<string, string>>((resolve) => {
+        timeoutId = setTimeout(() => resolve(new Map()), OWNER_EMAIL_LOOKUP_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 function parsePositiveIntegerSearchParam(
   value: string | string[] | undefined,
   fallback: number,
@@ -51,7 +70,7 @@ export default async function LibraryRoutePage({
   const [outputs, ideations, ownerEmailsByUserId, stats] = await Promise.all([
     listSavedOutputHistory(),
     listSavedIdeationHistory(),
-    listManagedAccountEmailsByUserId(),
+    resolveOwnerEmailsWithTimeout(),
     getLibraryStats(),
   ])
 

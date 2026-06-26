@@ -66,13 +66,15 @@ function getAssetDownloadUrl(assetId: string) {
 }
 
 function formatLibraryTimestamp(value: string) {
-  return new Date(value).toLocaleString(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
     hour: 'numeric',
+    hour12: true,
     minute: '2-digit',
     month: 'numeric',
+    timeZone: 'Asia/Jakarta',
     year: 'numeric',
-  })
+  }).format(new Date(value))
 }
 
 function getWorkspaceLabel(workspace: ProjectConfigSnapshot['activeTab']) {
@@ -696,7 +698,7 @@ export function LibraryPage({
                         <span>·</span>
                         <span>{activeRun.run.status}</span>
                         <span>·</span>
-                        <span>{new Date(activeRun.run.createdAt).toLocaleString()}</span>
+                        <span>{formatLibraryTimestamp(activeRun.run.createdAt)}</span>
                       </div>
                       <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
                         {activeRun.run.promptSnapshot}
@@ -851,7 +853,7 @@ export function LibraryPage({
                           </Button>
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                          {new Date(entry.output.createdAt).toLocaleString()}
+                          {formatLibraryTimestamp(entry.output.createdAt)}
                         </p>
                       </div>
                     </article>
@@ -986,7 +988,7 @@ export function LibraryPage({
                           : 'Video'}
                       </span>
                       <span>·</span>
-                      <span>{new Date(activeIdeation.createdAt).toLocaleString()}</span>
+                      <span>{formatLibraryTimestamp(activeIdeation.createdAt)}</span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
                       {activeIdeation.result.summary}

@@ -17,10 +17,20 @@ function getDatabaseUrl() {
   return databaseUrl
 }
 
+function getDatabaseMaxConnections() {
+  const parsed = Number.parseInt(process.env.DATABASE_MAX_CONNECTIONS ?? '', 10)
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 5
+  }
+
+  return parsed
+}
+
 function getSqlClient() {
   if (!globalThis.__evermediaSql__) {
     globalThis.__evermediaSql__ = postgres(getDatabaseUrl(), {
-      max: 1,
+      max: getDatabaseMaxConnections(),
       prepare: false,
     })
   }
