@@ -55,7 +55,7 @@ function createPricingResponse(credits: number) {
         },
       },
       video: {
-        'grok-imagine': {
+        'grok-imagine-video-1.5': {
           promptOnly: {
             '720p': {
               base: { credits: credits + 11, usd: 12 },
@@ -195,7 +195,7 @@ function createPricingResponse(credits: number) {
             },
           },
         },
-        'seedance-2': {
+        'seedance-2-mini': {
           promptOnly: {
             '720p': {
               'no-audio': {
@@ -237,6 +237,52 @@ function createPricingResponse(credits: number) {
               'with-audio': {
                 base: { credits: credits + 75, usd: 76 },
                 extended: { credits: credits + 76, usd: 77 },
+              },
+            },
+          },
+        },
+        'seedance-2': {
+          promptOnly: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 78, usd: 79 },
+                extended: { credits: credits + 79, usd: 80 },
+              },
+              'with-audio': {
+                base: { credits: credits + 80, usd: 81 },
+                extended: { credits: credits + 81, usd: 82 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 82, usd: 83 },
+                extended: { credits: credits + 83, usd: 84 },
+              },
+              'with-audio': {
+                base: { credits: credits + 84, usd: 85 },
+                extended: { credits: credits + 85, usd: 86 },
+              },
+            },
+          },
+          withReference: {
+            '720p': {
+              'no-audio': {
+                base: { credits: credits + 86, usd: 87 },
+                extended: { credits: credits + 87, usd: 88 },
+              },
+              'with-audio': {
+                base: { credits: credits + 88, usd: 89 },
+                extended: { credits: credits + 89, usd: 90 },
+              },
+            },
+            '1080p': {
+              'no-audio': {
+                base: { credits: credits + 90, usd: 91 },
+                extended: { credits: credits + 91, usd: 92 },
+              },
+              'with-audio': {
+                base: { credits: credits + 92, usd: 93 },
+                extended: { credits: credits + 93, usd: 94 },
               },
             },
           },

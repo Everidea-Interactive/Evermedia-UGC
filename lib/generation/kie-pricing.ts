@@ -141,6 +141,42 @@ const KLING_30_MOTION_CONTROL_HARDCODED_PRICING: MotionControlPricing = {
   '1080p': { credits: 27, usd: 0.135 },
 }
 
+const GROK_IMAGINE_VIDEO_15_HARDCODED_ROWS: KiePricingApiRecord[] = [
+  {
+    creditPrice: '1.6',
+    modelDescription: 'grok-imagine-video-1-5-preview, image-to-video, 480p',
+    usdPrice: '0.008',
+  },
+  {
+    creditPrice: '3',
+    modelDescription: 'grok-imagine-video-1-5-preview, image-to-video, 720p',
+    usdPrice: '0.015',
+  },
+]
+
+const SEEDANCE_2_MINI_HARDCODED_ROWS: KiePricingApiRecord[] = [
+  {
+    creditPrice: '6',
+    modelDescription: 'bytedance/seedance-2-mini, 480p with video',
+    usdPrice: '0.03',
+  },
+  {
+    creditPrice: '9.5',
+    modelDescription: 'bytedance/seedance-2-mini, 480p no video',
+    usdPrice: '0.0475',
+  },
+  {
+    creditPrice: '12.5',
+    modelDescription: 'bytedance/seedance-2-mini, 720p with video',
+    usdPrice: '0.0625',
+  },
+  {
+    creditPrice: '20.5',
+    modelDescription: 'bytedance/seedance-2-mini, 720p no video',
+    usdPrice: '0.1025',
+  },
+]
+
 let cachedPricingEntry: CachedPricingEntry | null = null
 
 function normalizeDescription(value: string) {
@@ -235,7 +271,7 @@ export async function getKiePricing() {
   try {
     const [
       gptImageRecords,
-      grokRecords,
+      grokImageRecords,
       klingRecords,
       nanoRecords,
       seedanceRecords,
@@ -248,6 +284,8 @@ export async function getKiePricing() {
       fetchPricingRecords('seedance'),
       fetchPricingRecords('veo'),
     ])
+    const grokRecords = [...grokImageRecords, ...GROK_IMAGINE_VIDEO_15_HARDCODED_ROWS]
+    const mergedSeedanceRecords = [...seedanceRecords, ...SEEDANCE_2_MINI_HARDCODED_ROWS]
 
     const seedance15Override = SEEDANCE_15_HARDCODED_PRICING
     const kling30Override = KLING_30_HARDCODED_PRICING
@@ -266,7 +304,7 @@ export async function getKiePricing() {
         kling30MotionControlOverride,
         nanoRecords,
         seedance15Override,
-        seedanceRecords,
+        seedanceRecords: mergedSeedanceRecords,
         veoRecords,
       }),
       supportedImageQualities: deriveSupportedImageQualities({

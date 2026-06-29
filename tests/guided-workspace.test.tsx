@@ -73,9 +73,17 @@ describe('GuidedWorkspace', () => {
       (option) => option.textContent?.trim(),
     )
 
-    expect(options).toEqual(['Seedance 1.5 Pro', 'Seedance 2.0', 'Veo 3.1'])
-    expect(options).not.toContain('Grok Imagine')
-    expect(options).not.toContain('Kling')
+    expect(options).toHaveLength(6)
+    expect(options).toEqual(
+      expect.arrayContaining([
+        'Grok Imagine Video 1.5',
+        'Kling 3.0',
+        'Seedance 1.5 Pro',
+        'Seedance 2 Mini',
+        'Seedance 2.0',
+        'Veo 3.1',
+      ]),
+    )
   })
 
   it('translates guided analyze, plan, and results copy when the active locale is Indonesian', async () => {

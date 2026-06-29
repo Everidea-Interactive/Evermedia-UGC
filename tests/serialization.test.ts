@@ -274,6 +274,22 @@ describe('normalizeProjectConfigSnapshot', () => {
 
     expect(snapshot.videoModel).toBe('seedance-2')
   })
+
+  it('preserves Grok Imagine Video 1.5 snapshots during normalization', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      videoModel: 'grok-imagine-video-1.5' as never,
+    })
+
+    expect(snapshot.videoModel).toBe('grok-imagine-video-1.5')
+  })
+
+  it('preserves Seedance 2 Mini snapshots during normalization', () => {
+    const snapshot = normalizeProjectConfigSnapshot({
+      videoModel: 'seedance-2-mini' as never,
+    })
+
+    expect(snapshot.videoModel).toBe('seedance-2-mini')
+  })
 })
 
 describe('createGenerationRunState', () => {

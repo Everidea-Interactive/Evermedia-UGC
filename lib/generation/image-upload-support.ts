@@ -153,8 +153,12 @@ export function getImageUploadSupportProfile(
       }
     case 'video-model-image':
       switch (model) {
+        case 'grok-imagine-video-1.5':
+          return jpegPngWebpProfile
         case 'seedance-1.5-pro':
           return jpegPngWebpProfile
+        case 'seedance-2-mini':
+          return seedance2ImageProfile
         case 'seedance-2':
           return seedance2ImageProfile
         case 'kling-3.0':

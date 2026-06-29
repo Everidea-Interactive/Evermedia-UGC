@@ -275,6 +275,29 @@ describe('KIE batch submission', () => {
     expect(parsed.videoModel).toBe('seedance-2')
   })
 
+  it('accepts Grok Imagine Video 1.5 video model submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'grok-imagine-video-1.5')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.videoModel).toBe('grok-imagine-video-1.5')
+    expect(parsed.videoAudio).toBe('with-audio')
+  })
+
+  it('accepts Seedance 2 Mini video model submissions', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'seedance-2-mini')
+    formData.append('assetManifest', '[]')
+
+    const parsed = parseGenerationFormData(formData)
+
+    expect(parsed.videoModel).toBe('seedance-2-mini')
+  })
+
   it('parses motion-control submissions with manifest-backed reference inputs', () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'motion-control')
@@ -1332,6 +1355,105 @@ describe('KIE batch submission', () => {
         resolution: '1080p',
       },
     })
+  })
+
+  it('builds Grok Imagine Video 1.5 payloads with provider resolution fallback and image_urls', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'with-audio',
+      videoModel: 'grok-imagine-video-1.5',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'grok-imagine-video-1-5-preview',
+      input: {
+        aspect_ratio: '16:9',
+        duration: 8,
+        image_urls: ['https://files.example.com/ref-1.png'],
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '720p',
+      },
+    })
+  })
+
+  it('builds Seedance 2 Mini first-last payloads without mixed multimodal references', () => {
+    const submission = resolveSubmission({
+      assets: [
+        makeUploadedAsset({
+          fieldName: 'asset_firstFrame',
+          key: 'firstFrame',
+          kind: 'named',
+          label: 'First Frame',
+          order: 90,
+          remoteUrl: 'https://files.example.com/first-frame.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'video_reference_1',
+          kind: 'product',
+          label: 'Reference 1',
+          order: 0,
+          productId: 'video-reference-1',
+          remoteUrl: 'https://files.example.com/ref-1.png',
+        }),
+        makeUploadedAsset({
+          fieldName: 'asset_endFrame',
+          key: 'endFrame',
+          kind: 'named',
+          label: 'End Frame',
+          order: 100,
+          remoteUrl: 'https://files.example.com/end-frame.png',
+        }),
+      ],
+      cameraMovement: null,
+      creativeStyle: 'ugc-lifestyle',
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      prompt: 'Create a polished product motion clip.',
+      subjectMode: 'product-only',
+      videoDuration: 'base',
+      videoAudio: 'with-audio',
+      videoModel: 'seedance-2-mini',
+      workspace: 'video',
+    })
+
+    expect(submission.requestBody).toMatchObject({
+      model: 'bytedance/seedance-2-mini',
+      input: {
+        aspect_ratio: '16:9',
+        duration: 8,
+        first_frame_url: 'https://files.example.com/first-frame.png',
+        generate_audio: true,
+        last_frame_url: 'https://files.example.com/end-frame.png',
+        nsfw_checker: false,
+        prompt: 'Create a polished product motion clip.',
+        resolution: '720p',
+        return_last_frame: false,
+      },
+    })
+    expect(
+      'reference_image_urls' in
+        (submission.requestBody.input as Record<string, unknown>),
+    ).toBe(false)
   })
 
   it('caps Seedance start references to the model-supported limit', () => {

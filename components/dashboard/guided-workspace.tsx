@@ -90,7 +90,11 @@ const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'seedance-1.5-pro' || model === 'seedance-2'
+  return (
+    model === 'seedance-1.5-pro' ||
+    model === 'seedance-2-mini' ||
+    model === 'seedance-2'
+  )
 }
 
 function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null {
@@ -120,8 +124,11 @@ const imageModelLabels = {
 } as const
 
 const videoModelLabels = {
+  'grok-imagine-video-1.5': 'Grok Imagine Video 1.5',
   'seedance-2': 'Seedance 2.0',
+  'seedance-2-mini': 'Seedance 2 Mini',
   'seedance-1.5-pro': 'Seedance 1.5 Pro',
+  'kling-3.0': 'Kling 3.0',
   'veo-3.1': 'Veo 3.1',
 } as const
 

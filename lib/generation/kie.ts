@@ -23,8 +23,12 @@ import {
 } from '@/lib/generation/image-upload-support'
 import {
   getMaxVideoReferenceCount,
+  getGrokDuration,
+  getGrokResolution,
   getKling3Duration,
   getNanoBananaResolution,
+  getSeedance2MiniDuration,
+  getSeedance2MiniResolution,
   getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
@@ -845,7 +849,11 @@ function normalizeVideoAudioForModel(
   videoModel: VideoModelOption,
   videoAudio: VideoAudio,
 ): VideoAudio {
-  if (videoModel === 'seedance-1.5-pro' || videoModel === 'seedance-2') {
+  if (
+    videoModel === 'seedance-1.5-pro' ||
+    videoModel === 'seedance-2-mini' ||
+    videoModel === 'seedance-2'
+  ) {
     return videoAudio
   }
 
@@ -1216,6 +1224,27 @@ function buildVideoPayload(input: {
     },
   )
 
+  if (input.videoModel === 'grok-imagine-video-1.5') {
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'grok-imagine-video-1-5-preview',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'grok-imagine-video-1-5-preview',
+        input: {
+          prompt: input.prompt,
+          ...(orderedStartReferenceUrls.length > 0
+            ? { image_urls: orderedStartReferenceUrls }
+            : null),
+          aspect_ratio: aspectRatio,
+          resolution: getGrokResolution(input.outputQuality),
+          duration: Number.parseInt(getGrokDuration(input.videoDuration), 10),
+          nsfw_checker: false,
+        },
+      },
+    }
+  }
+
   if (input.videoModel === 'veo-3.1') {
     if (aspectRatio === '1:1') {
       throw new GenerationRequestError({
@@ -1307,6 +1336,41 @@ function buildVideoPayload(input: {
           resolution: videoResolution,
           duration: getSeedance2Duration(input.videoDuration),
           generate_audio: input.videoAudio === 'with-audio',
+          nsfw_checker: false,
+        },
+      },
+    }
+  }
+
+  if (input.videoModel === 'seedance-2-mini') {
+    const hasFirstFrame =
+      supportsVideoFirstLastFramePair(input.videoModel) &&
+      Boolean(firstFrameReference?.remoteUrl)
+    const hasLastFrame = hasFirstFrame && Boolean(endFrameReference?.remoteUrl)
+    const useFramePairMode = hasFirstFrame || hasLastFrame
+
+    return {
+      endpoint: `${KIE_API_BASE_URL}/api/v1/jobs/createTask`,
+      modelName: 'bytedance/seedance-2-mini',
+      provider: 'market' as const,
+      requestBody: {
+        model: 'bytedance/seedance-2-mini',
+        input: {
+          prompt: input.prompt,
+          ...(hasFirstFrame
+            ? { first_frame_url: firstFrameReference?.remoteUrl }
+            : null),
+          ...(hasLastFrame
+            ? { last_frame_url: endFrameReference?.remoteUrl }
+            : null),
+          ...(!useFramePairMode && orderedStartReferenceUrls.length > 0
+            ? { reference_image_urls: orderedStartReferenceUrls }
+            : null),
+          aspect_ratio: aspectRatio,
+          resolution: getSeedance2MiniResolution(input.outputQuality),
+          duration: Number.parseInt(getSeedance2MiniDuration(input.videoDuration), 10),
+          generate_audio: input.videoAudio === 'with-audio',
+          return_last_frame: false,
           nsfw_checker: false,
         },
       },
@@ -1559,7 +1623,9 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
     workspace === 'video'
       ? readEnum(formData, 'videoModel', [
           'veo-3.1',
+          'grok-imagine-video-1.5',
           'seedance-1.5-pro',
+          'seedance-2-mini',
           'seedance-2',
           'kling-3.0',
         ] as const)

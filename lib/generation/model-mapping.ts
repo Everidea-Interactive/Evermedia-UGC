@@ -51,6 +51,14 @@ export function getGrokResolution(outputQuality: OutputQuality) {
   return '480p'
 }
 
+export function getSeedance2MiniResolution(outputQuality: OutputQuality) {
+  if (outputQuality === '1080p') {
+    return '720p'
+  }
+
+  return '480p'
+}
+
 export function getImageResolution(outputQuality: OutputQuality): ImageResolution {
   if (outputQuality === '4k') {
     return '4K'
@@ -73,7 +81,9 @@ export function getVideoResolution(outputQuality: OutputQuality): VideoResolutio
 
 export function getMaxVideoReferenceCount(videoModel: VideoModelOption) {
   switch (videoModel) {
+    case 'grok-imagine-video-1.5':
     case 'seedance-1.5-pro':
+    case 'seedance-2-mini':
     case 'seedance-2':
       return 2
     case 'kling-3.0':
@@ -85,11 +95,20 @@ export function getMaxVideoReferenceCount(videoModel: VideoModelOption) {
 }
 
 export function supportsVideoEndFrameGuidance(videoModel: VideoModelOption) {
-  return videoModel === 'veo-3.1' || videoModel === 'seedance-2' || videoModel === 'kling-3.0'
+  return (
+    videoModel === 'veo-3.1' ||
+    videoModel === 'seedance-2-mini' ||
+    videoModel === 'seedance-2' ||
+    videoModel === 'kling-3.0'
+  )
 }
 
 export function supportsVideoFirstLastFramePair(videoModel: VideoModelOption) {
-  return videoModel === 'seedance-2' || videoModel === 'kling-3.0'
+  return (
+    videoModel === 'seedance-2-mini' ||
+    videoModel === 'seedance-2' ||
+    videoModel === 'kling-3.0'
+  )
 }
 
 export function getKlingDuration(videoDuration: VideoDuration) {
@@ -97,7 +116,7 @@ export function getKlingDuration(videoDuration: VideoDuration) {
 }
 
 export function getGrokDuration(videoDuration: VideoDuration) {
-  return videoDuration === 'extended' ? '10' : '6'
+  return videoDuration === 'extended' ? '15' : '8'
 }
 
 export function getSeedanceDuration(videoDuration: VideoDuration) {
@@ -106,6 +125,10 @@ export function getSeedanceDuration(videoDuration: VideoDuration) {
 
 export function getSeedance2Duration(videoDuration: VideoDuration) {
   return videoDuration === 'extended' ? '10' : '5'
+}
+
+export function getSeedance2MiniDuration(videoDuration: VideoDuration) {
+  return videoDuration === 'extended' ? '15' : '8'
 }
 
 export function getKling3Duration(videoDuration: VideoDuration) {
@@ -117,6 +140,10 @@ export function getVideoDurationSeconds(
   videoDuration: VideoDuration,
 ) {
   switch (videoModel) {
+    case 'grok-imagine-video-1.5':
+      return getGrokDuration(videoDuration)
+    case 'seedance-2-mini':
+      return getSeedance2MiniDuration(videoDuration)
     case 'seedance-2':
       return getSeedance2Duration(videoDuration)
     case 'seedance-1.5-pro':

@@ -40,10 +40,20 @@ export function getVideoModelImageUploadSupport(
   videoModel: VideoModelOption,
 ): UploadSupport {
   switch (videoModel) {
+    case 'grok-imagine-video-1.5':
+      return {
+        accept: jpegPngWebpAccept,
+        hint: 'Grok Imagine Video 1.5 supports JPEG, PNG, and WebP uploads up to 10MB per image.',
+      }
     case 'seedance-1.5-pro':
       return {
         accept: jpegPngWebpAccept,
         hint: 'Seedance 1.5 Pro supports JPEG, PNG, and WebP uploads up to 10MB per image.',
+      }
+    case 'seedance-2-mini':
+      return {
+        accept: seedance2ImageAccept,
+        hint: 'Seedance 2 Mini supports JPEG, PNG, WebP, BMP, TIFF, and GIF uploads up to 30MB per image.',
       }
     case 'seedance-2':
       return {

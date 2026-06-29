@@ -21,22 +21,12 @@ const grokRecords: KiePricingApiRecord[] = [
   },
   {
     creditPrice: '1.6',
-    modelDescription: 'grok-imagine, image-to-video, 480p',
+    modelDescription: 'grok-imagine-video-1-5-preview, image-to-video, 480p',
     usdPrice: '0.008',
   },
   {
     creditPrice: '3',
-    modelDescription: 'grok-imagine, image-to-video, 720p',
-    usdPrice: '0.015',
-  },
-  {
-    creditPrice: '1.6',
-    modelDescription: 'grok-imagine, text-to-video, 480p',
-    usdPrice: '0.008',
-  },
-  {
-    creditPrice: '3',
-    modelDescription: 'grok-imagine, text-to-video, 720p',
+    modelDescription: 'grok-imagine-video-1-5-preview, image-to-video, 720p',
     usdPrice: '0.015',
   },
 ]
@@ -182,6 +172,26 @@ const seedanceRecords: KiePricingApiRecord[] = [
     usdPrice: '0.125',
   },
   {
+    creditPrice: '6',
+    modelDescription: 'bytedance/seedance-2-mini, 480p with video',
+    usdPrice: '0.03',
+  },
+  {
+    creditPrice: '9.5',
+    modelDescription: 'bytedance/seedance-2-mini, 480p no video',
+    usdPrice: '0.0475',
+  },
+  {
+    creditPrice: '12.5',
+    modelDescription: 'bytedance/seedance-2-mini, 720p with video',
+    usdPrice: '0.0625',
+  },
+  {
+    creditPrice: '20.5',
+    modelDescription: 'bytedance/seedance-2-mini, 720p no video',
+    usdPrice: '0.1025',
+  },
+  {
     creditPrice: '41',
     modelDescription: 'bytedance/seedance-2, 720p no video input',
     usdPrice: '0.205',
@@ -280,9 +290,11 @@ describe('generation pricing', () => {
       credits: 12,
       usd: 0.06,
     })
-    expect(pricingMatrix.video['grok-imagine'].promptOnly['1080p'].extended).toEqual({
-      credits: 30,
-      usd: 0.15,
+    expect(
+      pricingMatrix.video['grok-imagine-video-1.5'].promptOnly['1080p'].base,
+    ).toEqual({
+      credits: 24,
+      usd: 0.12,
     })
     expect(pricingMatrix.video.kling.promptOnly['no-audio'].base).toEqual({
       credits: 55,
@@ -305,6 +317,12 @@ describe('generation pricing', () => {
     ).toEqual({
       credits: 744,
       usd: 3.72,
+    })
+    expect(
+      pricingMatrix.video['seedance-2-mini'].promptOnly['1080p']['with-audio'].base,
+    ).toEqual({
+      credits: 164,
+      usd: 0.82,
     })
   })
 
@@ -559,6 +577,66 @@ describe('generation pricing', () => {
       credits: 1020,
       reason: null,
       usd: 5.1,
+    })
+  })
+
+  it('estimates Grok Imagine Video 1.5 prompt-only video cost from image-to-video fallback rows', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        outputQuality: '1080p',
+        videoDuration: 'base',
+        videoModel: 'grok-imagine-video-1.5',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 24,
+      reason: null,
+      usd: 0.12,
+    })
+  })
+
+  it('estimates Seedance 2 Mini prompt-only video cost from the live pricing rows', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        outputQuality: '1080p',
+        videoDuration: 'base',
+        videoModel: 'seedance-2-mini',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 164,
+      reason: null,
+      usd: 0.82,
+    })
+  })
+
+  it('treats a Seedance 2 Mini first frame as a reference input for pricing', () => {
+    const estimate = getGenerationCostEstimate(
+      createSnapshot({
+        activeTab: 'video',
+        assets: createAssets({
+          firstFrame: createSlot('firstFrame', 'First Frame', true),
+        }),
+        outputQuality: '1080p',
+        videoDuration: 'base',
+        videoModel: 'seedance-2-mini',
+      }),
+      pricingMatrix,
+    )
+
+    expect(estimate).toEqual({
+      available: true,
+      credits: 100,
+      reason: null,
+      usd: 0.5,
     })
   })
 

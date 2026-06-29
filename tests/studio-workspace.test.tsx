@@ -665,12 +665,17 @@ describe('StudioWorkspace', () => {
     )
 
     expect(videoModels.map((model) => model.value)).toEqual([
+      'grok-imagine-video-1.5',
+      'kling-3.0',
+      'seedance-2-mini',
       'seedance-2',
       'seedance-1.5-pro',
       'veo-3.1',
     ])
-    expect(videoModels.map((model) => model.label)).not.toContain('Grok Imagine')
-    expect(videoModels.map((model) => model.label)).not.toContain('Kling')
+    expect(videoModels.map((model) => model.label)).toContain(
+      'Grok Imagine Video 1.5',
+    )
+    expect(videoModels.map((model) => model.label)).toContain('Kling 3.0')
   })
 
   it('keeps reference cards readable on mobile without wrapping the file CTA', async () => {

@@ -114,26 +114,6 @@ function createPricingFetchMock() {
               modelDescription: 'grok-imagine, text-to-image',
               usdPrice: '0.02',
             },
-            {
-              creditPrice: '1.6',
-              modelDescription: 'grok-imagine, image-to-video, 480p',
-              usdPrice: '0.008',
-            },
-            {
-              creditPrice: '3',
-              modelDescription: 'grok-imagine, image-to-video, 720p',
-              usdPrice: '0.015',
-            },
-            {
-              creditPrice: '1.6',
-              modelDescription: 'grok-imagine, text-to-video, 480p',
-              usdPrice: '0.008',
-            },
-            {
-              creditPrice: '3',
-              modelDescription: 'grok-imagine, text-to-video, 720p',
-              usdPrice: '0.015',
-            },
           ]),
         )
       case 'kling':
@@ -268,7 +248,7 @@ describe('GET /api/kie/pricing', () => {
     const response = await GET()
     const payload = (await response.json()) as {
       creditUsdRate: number
-      matrix: {
+      matrix: Record<string, unknown> & {
         image: {
           'nano-banana': {
             '2K': {
@@ -277,37 +257,13 @@ describe('GET /api/kie/pricing', () => {
             }
           }
         }
-        video: {
-          'seedance-2': {
-            withReference: {
-              '1080p': {
-                'with-audio': {
-                  extended: {
-                    credits: number
-                    usd: number
-                  }
-                }
-              }
-            }
-          }
-          'veo-3.1': {
-            promptOnly: {
-              '1080p': {
-                credits: number
-                usd: number
-              }
-              '720p': {
-                credits: number
-                usd: number
-              }
-            }
-          }
-        }
+        video: Record<string, unknown>
       }
     }
 
     expect(response.status).toBe(200)
     expect(payload.creditUsdRate).toBe(0.005)
+    const videoMatrix = payload.matrix.video as Record<string, any>
     expect(Object.keys(payload.matrix.image['nano-banana']).toSorted()).toEqual([
       '1K',
       '2K',
@@ -317,17 +273,27 @@ describe('GET /api/kie/pricing', () => {
       credits: 12,
       usd: 0.06,
     })
-    expect(payload.matrix.video['veo-3.1'].promptOnly['1080p']).toEqual({
+    expect(videoMatrix['veo-3.1'].promptOnly['1080p']).toEqual({
       credits: 65,
       usd: 0.325,
     })
-    expect(payload.matrix.video['veo-3.1'].promptOnly['720p']).toEqual({
+    expect(videoMatrix['veo-3.1'].promptOnly['720p']).toEqual({
       credits: 60,
       usd: 0.3,
     })
-    expect(payload.matrix.video['seedance-2'].withReference['1080p']['with-audio'].extended).toEqual({
+    expect(videoMatrix['seedance-2'].withReference['1080p']['with-audio'].extended).toEqual({
       credits: 620,
       usd: 3.1,
+    })
+    expect(videoMatrix['grok-imagine-video-1.5'].promptOnly['1080p'].base).toEqual({
+      credits: 24,
+      usd: 0.12,
+    })
+    expect(
+      videoMatrix['seedance-2-mini'].promptOnly['1080p']['with-audio'].base,
+    ).toEqual({
+      credits: 307.5,
+      usd: 1.537,
     })
   })
 

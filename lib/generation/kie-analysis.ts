@@ -133,10 +133,16 @@ function getVideoTargetClipInstruction(input: {
   const videoDuration = input.videoDuration ?? 'base'
   const videoModel = input.videoModel ?? 'veo-3.1'
   const modelLabel =
-    videoModel === 'seedance-1.5-pro'
+    videoModel === 'grok-imagine-video-1.5'
+      ? 'Grok Imagine Video 1.5'
+      : videoModel === 'seedance-1.5-pro'
       ? 'Seedance 1.5 Pro'
+      : videoModel === 'seedance-2-mini'
+        ? 'Seedance 2 Mini'
       : videoModel === 'seedance-2'
         ? 'Seedance 2.0'
+        : videoModel === 'kling-3.0'
+          ? 'Kling 3.0'
         : 'Veo 3.1'
 
   return `Target clip length: ${getVideoDurationSeconds(videoModel, videoDuration)} seconds for ${modelLabel}.`

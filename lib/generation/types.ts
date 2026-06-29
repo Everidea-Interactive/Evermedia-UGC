@@ -94,7 +94,9 @@ export type CameraMovement =
 export type ImageModelOption = 'nano-banana'
 export type VideoModelOption =
   | 'veo-3.1'
+  | 'grok-imagine-video-1.5'
   | 'seedance-1.5-pro'
+  | 'seedance-2-mini'
   | 'seedance-2'
   | 'kling-3.0'
 export type KieAnalysisModel =
@@ -372,7 +374,7 @@ export type KiePricingMatrix = {
     }
   }
   video: {
-    'grok-imagine': {
+    'grok-imagine-video-1.5': {
       promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
       withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
@@ -396,6 +398,16 @@ export type KiePricingMatrix = {
       withReference: Record<VideoResolution, GenerationCostRate>
     }
     'seedance-1.5-pro': {
+      promptOnly: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+      withReference: Record<
+        VideoResolution,
+        Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
+      >
+    }
+    'seedance-2-mini': {
       promptOnly: Record<
         VideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>

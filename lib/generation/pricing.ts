@@ -2,8 +2,9 @@ import {
   getImageResolution,
   getGrokDuration,
   getGrokResolution,
-
   getKlingDuration,
+  getSeedance2MiniDuration,
+  getSeedance2MiniResolution,
   getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
@@ -105,6 +106,21 @@ function findFirstRecord(
   throw new Error(
     `KIE pricing row not found for "${expectedDescriptions.join('" or "')}".`,
   )
+}
+
+function findFirstRecordByPatterns(
+  records: KiePricingApiRecord[],
+  patternSets: RegExp[][],
+) {
+  for (const patterns of patternSets) {
+    const record = findRecordByPatterns(records, patterns)
+
+    if (record) {
+      return record
+    }
+  }
+
+  return null
 }
 
 function unavailableRate(): GenerationCostRate {
@@ -221,18 +237,48 @@ export function buildKiePricingMatrix(input: {
   const grokVideoRatesByInput = {
     'image-to-video': {
       '480p': parseRate(
-        findRecord(input.grokRecords, 'grok-imagine, image-to-video, 480p'),
+        findFirstRecord(
+          input.grokRecords,
+          [
+            'grok-imagine-video-1-5-preview, image-to-video, 480p',
+            'grok-imagine, image-to-video, 480p',
+          ],
+        ),
       ),
       '720p': parseRate(
-        findRecord(input.grokRecords, 'grok-imagine, image-to-video, 720p'),
+        findFirstRecord(
+          input.grokRecords,
+          [
+            'grok-imagine-video-1-5-preview, image-to-video, 720p',
+            'grok-imagine, image-to-video, 720p',
+          ],
+        ),
       ),
     },
     'text-to-video': {
       '480p': parseRate(
-        findRecord(input.grokRecords, 'grok-imagine, text-to-video, 480p'),
+        findFirstRecordByPatterns(input.grokRecords, [
+          [/\bgrok-imagine-video-1-5-preview\b/, /\btext-to-video\b/, /\b480p\b/],
+          [/\bgrok-imagine\b/, /\btext-to-video\b/, /\b480p\b/],
+          [/\bgrok-imagine-video-1-5-preview\b/, /\bimage-to-video\b/, /\b480p\b/],
+          [/\bgrok-imagine\b/, /\bimage-to-video\b/, /\b480p\b/],
+        ]) ??
+          findFirstRecord(input.grokRecords, [
+            'grok-imagine-video-1-5-preview, image-to-video, 480p',
+            'grok-imagine, image-to-video, 480p',
+          ]),
       ),
       '720p': parseRate(
-        findRecord(input.grokRecords, 'grok-imagine, text-to-video, 720p'),
+        findFirstRecordByPatterns(input.grokRecords, [
+          [/\bgrok-imagine-video-1-5-preview\b/, /\btext-to-video\b/, /\b720p\b/],
+          [/\bgrok-imagine\b/, /\btext-to-video\b/, /\b720p\b/],
+          [/\bgrok-imagine-video-1-5-preview\b/, /\bimage-to-video\b/, /\b720p\b/],
+          [/\bgrok-imagine\b/, /\bimage-to-video\b/, /\b720p\b/],
+        ]) ??
+          findFirstRecord(input.grokRecords, [
+            'grok-imagine-video-1-5-preview, image-to-video, 720p',
+            'grok-imagine, image-to-video, 720p',
+          ]),
       ),
     },
   }
@@ -434,6 +480,48 @@ export function buildKiePricingMatrix(input: {
       },
     }
   })()
+  const seedance2MiniRatesByInput = (() => {
+    const withReference480 = input.seedanceRecords.find(
+      (candidate) =>
+        normalizeDescription(candidate.modelDescription) ===
+        normalizeDescription('bytedance/seedance-2-mini, 480p with video'),
+    )
+    const withReference720 = input.seedanceRecords.find(
+      (candidate) =>
+        normalizeDescription(candidate.modelDescription) ===
+        normalizeDescription('bytedance/seedance-2-mini, 720p with video'),
+    )
+    const promptOnly480 = input.seedanceRecords.find(
+      (candidate) =>
+        normalizeDescription(candidate.modelDescription) ===
+        normalizeDescription('bytedance/seedance-2-mini, 480p no video'),
+    )
+    const promptOnly720 = input.seedanceRecords.find(
+      (candidate) =>
+        normalizeDescription(candidate.modelDescription) ===
+        normalizeDescription('bytedance/seedance-2-mini, 720p no video'),
+    )
+
+    if (
+      !withReference480 ||
+      !withReference720 ||
+      !promptOnly480 ||
+      !promptOnly720
+    ) {
+      return null
+    }
+
+    return {
+      withReference: {
+        '480p': parseRate(withReference480),
+        '720p': parseRate(withReference720),
+      },
+      promptOnly: {
+        '480p': parseRate(promptOnly480),
+        '720p': parseRate(promptOnly720),
+      },
+    }
+  })()
 
   const videoQualities: VideoResolution[] = ['720p', '1080p']
   const videoDurations: VideoDuration[] = ['base', 'extended']
@@ -443,8 +531,10 @@ export function buildKiePricingMatrix(input: {
   }
 
   const grokVideoMatrix = {
-    promptOnly: {} as KiePricingMatrix['video']['grok-imagine']['promptOnly'],
-    withReference: {} as KiePricingMatrix['video']['grok-imagine']['withReference'],
+    promptOnly:
+      {} as KiePricingMatrix['video']['grok-imagine-video-1.5']['promptOnly'],
+    withReference:
+      {} as KiePricingMatrix['video']['grok-imagine-video-1.5']['withReference'],
   }
 
   for (const mode of ['promptOnly', 'withReference'] as const) {
@@ -479,6 +569,11 @@ export function buildKiePricingMatrix(input: {
   const seedance2Matrix = {
     promptOnly: {} as KiePricingMatrix['video']['seedance-2']['promptOnly'],
     withReference: {} as KiePricingMatrix['video']['seedance-2']['withReference'],
+  }
+  const seedance2MiniMatrix = {
+    promptOnly: {} as KiePricingMatrix['video']['seedance-2-mini']['promptOnly'],
+    withReference:
+      {} as KiePricingMatrix['video']['seedance-2-mini']['withReference'],
   }
   const kling30MotionControlMatrix =
     {} as KiePricingMatrix['video']['kling-3.0-motion-control']
@@ -623,6 +718,67 @@ export function buildKiePricingMatrix(input: {
     }
   }
 
+  if (seedance2MiniRatesByInput) {
+    for (const duration of videoDurations) {
+      const durationSeconds = Number.parseInt(getSeedance2MiniDuration(duration), 10)
+
+      for (const quality of ['720p', '1080p'] as const) {
+        const resolution = getSeedance2MiniResolution(quality)
+        const promptOnlyDurationRate = multiplyRate(
+          seedance2MiniRatesByInput.promptOnly[resolution],
+          durationSeconds,
+        )
+        const withReferenceDurationRate = multiplyRate(
+          seedance2MiniRatesByInput.withReference[resolution],
+          durationSeconds,
+        )
+        seedance2MiniMatrix.promptOnly[quality] = {
+          'no-audio': {
+            ...(seedance2MiniMatrix.promptOnly[quality]?.['no-audio'] ?? {}),
+            [duration]: promptOnlyDurationRate,
+          },
+          'with-audio': {
+            ...(seedance2MiniMatrix.promptOnly[quality]?.['with-audio'] ?? {}),
+            [duration]: promptOnlyDurationRate,
+          },
+        }
+        seedance2MiniMatrix.withReference[quality] = {
+          'no-audio': {
+            ...(seedance2MiniMatrix.withReference[quality]?.['no-audio'] ?? {}),
+            [duration]: withReferenceDurationRate,
+          },
+          'with-audio': {
+            ...(seedance2MiniMatrix.withReference[quality]?.['with-audio'] ?? {}),
+            [duration]: withReferenceDurationRate,
+          },
+        }
+      }
+    }
+  } else {
+    for (const quality of ['720p', '1080p'] as const) {
+      seedance2MiniMatrix.promptOnly[quality] = {
+        'no-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+        'with-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+      }
+      seedance2MiniMatrix.withReference[quality] = {
+        'no-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+        'with-audio': {
+          base: unavailableRate(),
+          extended: unavailableRate(),
+        },
+      }
+    }
+  }
+
   for (const duration of videoDurations) {
     const durationKey = getKlingDuration(duration)
 
@@ -724,7 +880,7 @@ export function buildKiePricingMatrix(input: {
       },
     },
     video: {
-      'grok-imagine': grokVideoMatrix,
+      'grok-imagine-video-1.5': grokVideoMatrix,
       kling: klingMatrix,
       'kling-3.0': kling30Matrix,
       'kling-3.0-motion-control': kling30MotionControlMatrix,
@@ -733,6 +889,7 @@ export function buildKiePricingMatrix(input: {
         withReference: veoRates['image-to-video'],
       },
       'seedance-1.5-pro': seedanceMatrix,
+      'seedance-2-mini': seedance2MiniMatrix,
       'seedance-2': seedance2Matrix,
     },
   }
@@ -869,7 +1026,9 @@ export function getGenerationCostEstimate(
       Boolean(snapshot.assets.firstFrame.file || snapshot.assets.firstFrame.previewUrl)) &&
     Boolean(snapshot.assets.endFrame.file || snapshot.assets.endFrame.previewUrl)
   const hasManualVideoReference =
-    snapshot.videoModel === 'seedance-2' || snapshot.videoModel === 'kling-3.0'
+    snapshot.videoModel === 'seedance-2-mini' ||
+    snapshot.videoModel === 'seedance-2' ||
+    snapshot.videoModel === 'kling-3.0'
       ? hasManualVideoStartReference || hasSupportedFirstFrame || hasSupportedEndFrame
       : hasManualVideoStartReference || hasSupportedEndFrame
 
@@ -892,6 +1051,27 @@ export function getGenerationCostEstimate(
           snapshot.videoAudio
         ][snapshot.videoDuration]
       : pricingMatrix.video['seedance-1.5-pro'].promptOnly[videoResolution][
+          snapshot.videoAudio
+        ][snapshot.videoDuration]
+  } else if (snapshot.videoModel === 'grok-imagine-video-1.5') {
+    const videoResolution = getVideoResolution(snapshot.outputQuality)
+
+    perTaskRate = hasManualVideoReference
+      ? pricingMatrix.video['grok-imagine-video-1.5'].withReference[videoResolution][
+          snapshot.videoDuration
+        ]
+      : pricingMatrix.video['grok-imagine-video-1.5'].promptOnly[videoResolution][
+          snapshot.videoDuration
+        ]
+  } else if (snapshot.videoModel === 'seedance-2-mini') {
+    const videoResolution = getVideoResolution(snapshot.outputQuality)
+    const hasReference = hasManualVideoReference
+
+    perTaskRate = hasReference
+      ? pricingMatrix.video['seedance-2-mini'].withReference[videoResolution][
+          snapshot.videoAudio
+        ][snapshot.videoDuration]
+      : pricingMatrix.video['seedance-2-mini'].promptOnly[videoResolution][
           snapshot.videoAudio
         ][snapshot.videoDuration]
   } else if (snapshot.videoModel === 'seedance-2') {

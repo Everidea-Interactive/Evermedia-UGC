@@ -167,9 +167,19 @@ export const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
+    helper: 'xAI 8s image-guided video generation with synced native audio',
+    label: 'Grok Imagine Video 1.5',
+    value: 'grok-imagine-video-1.5',
+  },
+  {
     helper: 'Kuaishou 5s or 10s video generation with native audio',
     label: 'Kling 3.0',
     value: 'kling-3.0',
+  },
+  {
+    helper: 'ByteDance 15s image or frame guided video generation',
+    label: 'Seedance 2 Mini',
+    value: 'seedance-2-mini',
   },
   {
     helper: 'ByteDance 5s or 10s video generation',
@@ -200,10 +210,24 @@ const videoDurationConfig: Record<
     options: VideoDuration[]
   }
 > = {
+  'grok-imagine-video-1.5': {
+    labels: {
+      base: 'Base (8s)',
+      extended: 'Extended (15s)',
+    },
+    options: durations,
+  },
   'kling-3.0': {
     labels: {
       base: 'Base (5s)',
       extended: 'Extended (10s)',
+    },
+    options: durations,
+  },
+  'seedance-2-mini': {
+    labels: {
+      base: 'Base (8s)',
+      extended: 'Extended (15s)',
     },
     options: durations,
   },
@@ -235,7 +259,12 @@ export function getVideoAudioLabel(videoAudio: VideoAudio) {
 }
 
 export function supportsVideoAudioSelection(model: VideoModelOption) {
-  return model === 'seedance-1.5-pro' || model === 'seedance-2' || model === 'kling-3.0'
+  return (
+    model === 'seedance-1.5-pro' ||
+    model === 'seedance-2-mini' ||
+    model === 'seedance-2' ||
+    model === 'kling-3.0'
+  )
 }
 
 export function supportsAdditionalVideoReferences(model: VideoModelOption) {
