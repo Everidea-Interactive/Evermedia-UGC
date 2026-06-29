@@ -94,9 +94,11 @@ export type VideoDuration =
   | 'base'
   | 'extended'
 export type VideoAudio = 'no-audio' | 'with-audio'
-export type OutputQuality = '720p' | '1080p' | '4k'
+export type OutputQuality = '480p' | '720p' | '1080p' | '4k'
 export type ImageResolution = '1K' | '2K' | '4K'
-export type VideoResolution = '720p' | '1080p'
+export type MarketVideoResolution = '480p' | '720p'
+export type StandardVideoResolution = '720p' | '1080p'
+export type VideoResolution = MarketVideoResolution | StandardVideoResolution
 export type OrientationPreference = 'auto' | 'portrait' | 'landscape' | 'square'
 export type BatchSize = 1 | 2 | 3 | 4
 export type CameraMovement =
@@ -390,8 +392,8 @@ export type KiePricingMatrix = {
   }
   video: {
     'grok-imagine-video-1.5': {
-      promptOnly: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
-      withReference: Record<VideoResolution, Record<VideoDuration, GenerationCostRate>>
+      promptOnly: Record<MarketVideoResolution, Record<VideoDuration, GenerationCostRate>>
+      withReference: Record<MarketVideoResolution, Record<VideoDuration, GenerationCostRate>>
     }
     kling: {
       promptOnly: Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
@@ -399,46 +401,46 @@ export type KiePricingMatrix = {
     }
     'kling-3.0': {
       promptOnly: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
       withReference: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }
-    'kling-3.0-motion-control': Record<VideoResolution, GenerationCostRate>
+    'kling-3.0-motion-control': Record<StandardVideoResolution, GenerationCostRate>
     'veo-3.1': {
-      promptOnly: Record<VideoResolution, GenerationCostRate>
-      withReference: Record<VideoResolution, GenerationCostRate>
+      promptOnly: Record<StandardVideoResolution, GenerationCostRate>
+      withReference: Record<StandardVideoResolution, GenerationCostRate>
     }
     'seedance-1.5-pro': {
       promptOnly: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
       withReference: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }
     'seedance-2-mini': {
       promptOnly: Record<
-        VideoResolution,
+        MarketVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
       withReference: Record<
-        VideoResolution,
+        MarketVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }
     'seedance-2': {
       promptOnly: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
       withReference: Record<
-        VideoResolution,
+        StandardVideoResolution,
         Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>
       >
     }

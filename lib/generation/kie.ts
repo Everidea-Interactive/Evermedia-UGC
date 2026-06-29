@@ -32,6 +32,7 @@ import {
   getSeedance2MiniResolution,
   getSeedance2Duration,
   getSeedanceDuration,
+  getSupportedVideoQualities,
   getVideoResolution,
   normalizeVideoDurationForModel,
   supportsVideoFirstLastFramePair,
@@ -1662,13 +1663,27 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
   const outputQuality = readEnum(
     formData,
     'outputQuality',
-    ['720p', '1080p', '4k'] as const,
+    ['480p', '720p', '1080p', '4k'] as const,
   )
 
   if ((workspace === 'video' || workspace === 'motion-control') && outputQuality === '4k') {
     throw new GenerationRequestError({
       code: 'invalid_input',
       message: 'Video output quality supports only 720p or 1080p.',
+      status: 400,
+    })
+  }
+
+  if (
+    workspace === 'video' &&
+    !getSupportedVideoQualities(videoModel).includes(outputQuality)
+  ) {
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message:
+        videoModel === 'grok-imagine-video-1.5'
+          ? 'Grok Imagine Video 1.5 supports only 480p or 720p in studio.'
+          : 'Seedance 2 Mini supports only 480p or 720p in studio.',
       status: 400,
     })
   }

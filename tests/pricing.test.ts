@@ -291,7 +291,7 @@ describe('generation pricing', () => {
       usd: 0.06,
     })
     expect(
-      pricingMatrix.video['grok-imagine-video-1.5'].promptOnly['1080p'].base,
+      pricingMatrix.video['grok-imagine-video-1.5'].promptOnly['720p'].base,
     ).toEqual({
       credits: 24,
       usd: 0.12,
@@ -319,7 +319,7 @@ describe('generation pricing', () => {
       usd: 3.72,
     })
     expect(
-      pricingMatrix.video['seedance-2-mini'].promptOnly['1080p']['with-audio'].base,
+      pricingMatrix.video['seedance-2-mini'].promptOnly['720p']['with-audio'].base,
     ).toEqual({
       credits: 164,
       usd: 0.82,
@@ -584,7 +584,7 @@ describe('generation pricing', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         activeTab: 'video',
-        outputQuality: '1080p',
+        outputQuality: '720p',
         videoDuration: 'base',
         videoModel: 'grok-imagine-video-1.5',
       }),
@@ -603,7 +603,7 @@ describe('generation pricing', () => {
     const estimate = getGenerationCostEstimate(
       createSnapshot({
         activeTab: 'video',
-        outputQuality: '1080p',
+        outputQuality: '720p',
         videoDuration: 'base',
         videoModel: 'seedance-2-mini',
       }),
@@ -625,7 +625,7 @@ describe('generation pricing', () => {
         assets: createAssets({
           firstFrame: createSlot('firstFrame', 'First Frame', true),
         }),
-        outputQuality: '1080p',
+        outputQuality: '720p',
         videoDuration: 'base',
         videoModel: 'seedance-2-mini',
       }),

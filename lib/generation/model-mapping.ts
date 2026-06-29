@@ -1,12 +1,13 @@
 import type {
   AssetSlot,
   ImageResolution,
+  MarketVideoResolution,
   NamedAssetSlots,
   OutputQuality,
+  StandardVideoResolution,
   SubjectMode,
   VideoDuration,
   VideoModelOption,
-  VideoResolution,
 } from '@/lib/generation/types'
 
 type NumericVideoDuration = Exclude<VideoDuration, 'base' | 'extended'>
@@ -29,6 +30,15 @@ type VideoDurationSpec = {
 export const allVideoDurations: NumericVideoDuration[] = [
   3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 ]
+
+const limitedVideoQualities: OutputQuality[] = ['480p', '720p']
+const defaultVideoQualities: OutputQuality[] = ['720p', '1080p']
+const outputQualityRank: Record<OutputQuality, number> = {
+  '480p': 480,
+  '720p': 720,
+  '1080p': 1080,
+  '4k': 2160,
+}
 
 const videoDurationSpecs: Record<VideoModelOption, VideoDurationSpec> = {
   'grok-imagine-video-1.5': {
@@ -104,20 +114,14 @@ export function hasVeoReferenceSlot(input: PrimaryReferenceInput) {
   )
 }
 
-export function getGrokResolution(outputQuality: OutputQuality) {
-  if (outputQuality === '1080p') {
-    return '720p'
-  }
-
-  return '480p'
+export function getGrokResolution(outputQuality: OutputQuality): MarketVideoResolution {
+  return outputQuality === '720p' ? '720p' : '480p'
 }
 
-export function getSeedance2MiniResolution(outputQuality: OutputQuality) {
-  if (outputQuality === '1080p') {
-    return '720p'
-  }
-
-  return '480p'
+export function getSeedance2MiniResolution(
+  outputQuality: OutputQuality,
+): MarketVideoResolution {
+  return outputQuality === '720p' ? '720p' : '480p'
 }
 
 export function getImageResolution(outputQuality: OutputQuality): ImageResolution {
@@ -136,8 +140,47 @@ export function getNanoBananaResolution(outputQuality: OutputQuality) {
   return getImageResolution(outputQuality)
 }
 
-export function getVideoResolution(outputQuality: OutputQuality): VideoResolution {
+export function getVideoResolution(
+  outputQuality: OutputQuality,
+): StandardVideoResolution {
   return outputQuality === '1080p' ? '1080p' : '720p'
+}
+
+export function getSupportedVideoQualities(videoModel: VideoModelOption): OutputQuality[] {
+  switch (videoModel) {
+    case 'grok-imagine-video-1.5':
+    case 'seedance-2-mini':
+      return limitedVideoQualities
+    default:
+      return defaultVideoQualities
+  }
+}
+
+export function normalizeVideoOutputQuality(
+  videoModel: VideoModelOption,
+  outputQuality: OutputQuality,
+): OutputQuality {
+  const normalizedQuality = outputQuality === '4k' ? '1080p' : outputQuality
+  const supportedQualities = getSupportedVideoQualities(videoModel)
+
+  if (supportedQualities.includes(normalizedQuality)) {
+    return normalizedQuality
+  }
+
+  const targetRank = outputQualityRank[normalizedQuality]
+  let closestQuality = supportedQualities[0] ?? '720p'
+  let closestDistance = Number.POSITIVE_INFINITY
+
+  for (const quality of supportedQualities) {
+    const distance = Math.abs(outputQualityRank[quality] - targetRank)
+
+    if (distance < closestDistance) {
+      closestQuality = quality
+      closestDistance = distance
+    }
+  }
+
+  return closestQuality
 }
 
 export function getMaxVideoReferenceCount(videoModel: VideoModelOption) {

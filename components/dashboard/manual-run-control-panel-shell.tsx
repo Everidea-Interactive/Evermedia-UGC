@@ -10,6 +10,7 @@ import {
   getForcedVideoAudio,
   getVideoAudioLabel,
   getVideoDurationHelperText,
+  getVideoQualityOptions,
   figureArtDirections,
   getImageQualityLabel,
   getImageQualityOptions,
@@ -19,7 +20,6 @@ import {
   shotEnvironments,
   videoModels,
   videoAudioOptions,
-  videoQualities,
 } from '@/components/dashboard/manual-workspace-config'
 import {
   GenerationEstimateStrip,
@@ -193,6 +193,7 @@ function RunControlPanel({
   const selectedImageModel = imageModels.find((model) => model.value === imageModel)
   const selectedVideoModel = videoModels.find((model) => model.value === videoModel)
   const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
+  const videoQualityOptions = getVideoQualityOptions(videoModel)
   const isImageLikeWorkspace = activeTab === 'image' || activeTab === 'carousel'
   const supportsOrientationControl = activeTab === 'video'
   const orientationOptions = useMemo(
@@ -647,7 +648,7 @@ function RunControlPanel({
                         }
                         value={outputQuality}
                       >
-                        {videoQualities.map((quality) => (
+                        {videoQualityOptions.map((quality) => (
                           <option key={quality} value={quality}>
                             {quality}
                           </option>

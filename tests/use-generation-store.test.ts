@@ -313,6 +313,36 @@ describe('useGenerationStore', () => {
     expect(state.experience).toBe('manual')
   })
 
+  it('normalizes Grok video quality to 720p when switching models in video workspace', () => {
+    const store = useGenerationStore.getState()
+
+    store.setActiveTab('video')
+    store.setOutputQuality('1080p')
+    store.setVideoModel('grok-imagine-video-1.5')
+
+    expect(useGenerationStore.getState().outputQuality).toBe('720p')
+  })
+
+  it('normalizes saved Seedance 2 Mini video configs away from 1080p', () => {
+    useGenerationStore.getState().hydrateProjectConfig({
+      activeTab: 'video',
+      batchSize: 1,
+      cameraMovement: 'orbit',
+      creativeStyle: 'ugc-lifestyle',
+      experience: 'manual',
+      guided: null,
+      imageModel: 'nano-banana',
+      outputQuality: '1080p',
+      productCategory: 'cosmetics',
+      subjectMode: 'lifestyle',
+      textPrompt: 'Legacy snapshot',
+      videoDuration: 8,
+      videoModel: 'seedance-2-mini',
+    } as never)
+
+    expect(useGenerationStore.getState().outputQuality).toBe('720p')
+  })
+
   it('tracks partial success and keeps selection on a saved variant', () => {
     const store = useGenerationStore.getState()
 

@@ -279,6 +279,7 @@ describe('KIE batch submission', () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'video')
     formData.set('videoModel', 'grok-imagine-video-1.5')
+    formData.set('outputQuality', '720p')
     formData.append('assetManifest', '[]')
 
     const parsed = parseGenerationFormData(formData)
@@ -291,11 +292,34 @@ describe('KIE batch submission', () => {
     const formData = buildBaseFormData('1')
     formData.set('workspace', 'video')
     formData.set('videoModel', 'seedance-2-mini')
+    formData.set('outputQuality', '720p')
     formData.append('assetManifest', '[]')
 
     const parsed = parseGenerationFormData(formData)
 
     expect(parsed.videoModel).toBe('seedance-2-mini')
+  })
+
+  it('rejects 1080p submissions for Grok Imagine Video 1.5', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'grok-imagine-video-1.5')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Grok Imagine Video 1.5 supports only 480p or 720p in studio.',
+    )
+  })
+
+  it('rejects 1080p submissions for Seedance 2 Mini', () => {
+    const formData = buildBaseFormData('1')
+    formData.set('workspace', 'video')
+    formData.set('videoModel', 'seedance-2-mini')
+    formData.append('assetManifest', '[]')
+
+    expect(() => parseGenerationFormData(formData)).toThrow(
+      'Seedance 2 Mini supports only 480p or 720p in studio.',
+    )
   })
 
   it('parses motion-control submissions with manifest-backed reference inputs', () => {
@@ -1372,7 +1396,7 @@ describe('KIE batch submission', () => {
       cameraMovement: null,
       creativeStyle: 'ugc-lifestyle',
       imageModel: 'nano-banana',
-      outputQuality: '1080p',
+      outputQuality: '720p',
       productCategory: 'cosmetics',
       prompt: 'Create a polished product motion clip.',
       subjectMode: 'product-only',
@@ -1426,7 +1450,7 @@ describe('KIE batch submission', () => {
       cameraMovement: null,
       creativeStyle: 'ugc-lifestyle',
       imageModel: 'nano-banana',
-      outputQuality: '1080p',
+      outputQuality: '720p',
       productCategory: 'cosmetics',
       prompt: 'Create a polished product motion clip.',
       subjectMode: 'product-only',

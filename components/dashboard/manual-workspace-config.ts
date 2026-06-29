@@ -36,6 +36,7 @@ import {
   getVideoDurationLabel,
   getVideoDurationOptions,
   getVideoDurationSpec,
+  getSupportedVideoQualities,
 } from '@/lib/generation/model-mapping'
 
 export const productCategories: Array<{
@@ -203,7 +204,6 @@ export const videoModels: Array<{
 ]
 
 export const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
-export const videoQualities: OutputQuality[] = ['720p', '1080p']
 export const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 export function getVideoAudioLabel(videoAudio: VideoAudio) {
@@ -253,6 +253,10 @@ export function getImageQualityLabel(quality: OutputQuality) {
   if (quality === '720p') return '1K'
   if (quality === '1080p') return '2K'
   return '4K'
+}
+
+export function getVideoQualityOptions(videoModel: VideoModelOption) {
+  return getSupportedVideoQualities(videoModel)
 }
 
 export const peopleReferenceCards: Array<{

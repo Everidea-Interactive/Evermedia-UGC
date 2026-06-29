@@ -285,15 +285,15 @@ describe('GET /api/kie/pricing', () => {
       credits: 620,
       usd: 3.1,
     })
-    expect(videoMatrix['grok-imagine-video-1.5'].promptOnly['1080p'].base).toEqual({
+    expect(videoMatrix['grok-imagine-video-1.5'].promptOnly['720p'].base).toEqual({
       credits: 24,
       usd: 0.12,
     })
     expect(
-      videoMatrix['seedance-2-mini'].promptOnly['1080p']['with-audio'].base,
+      videoMatrix['seedance-2-mini'].promptOnly['720p']['with-audio'].base,
     ).toEqual({
-      credits: 307.5,
-      usd: 1.537,
+      credits: 164,
+      usd: 0.82,
     })
   })
 

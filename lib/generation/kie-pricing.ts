@@ -14,9 +14,9 @@ import type {
   ImageModelOption,
   KiePricingResponse,
   OutputQuality,
+  StandardVideoResolution,
   VideoAudio,
   VideoDuration,
-  VideoResolution,
 } from '@/lib/generation/types'
 
 const KIE_PRICING_API_URL = 'https://api.kie.ai/client/v1/model-pricing/page'
@@ -34,11 +34,11 @@ type CachedPricingEntry = {
 }
 
 type SeedanceDurationPricing = {
-  promptOnly: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
-  withReference: Record<VideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
+  promptOnly: Record<StandardVideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
+  withReference: Record<StandardVideoResolution, Record<VideoAudio, Record<VideoDuration, GenerationCostRate>>>
 }
 
-type MotionControlPricing = Record<VideoResolution, GenerationCostRate>
+type MotionControlPricing = Record<StandardVideoResolution, GenerationCostRate>
 
 function createUnavailableDurationRates() {
   return {

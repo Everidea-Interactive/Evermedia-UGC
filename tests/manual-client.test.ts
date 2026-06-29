@@ -137,6 +137,19 @@ describe('manual generation client payloads', () => {
     expect(validation.reason).toContain('not square 1:1')
   })
 
+  it('blocks 1080p for Grok Imagine Video 1.5', () => {
+    const validation = getGenerationValidation(
+      createSnapshot({
+        outputQuality: '1080p',
+        textPrompt: 'Create product motion.',
+        videoModel: 'grok-imagine-video-1.5',
+      }),
+    )
+
+    expect(validation.canGenerate).toBe(false)
+    expect(validation.reason).toContain('480p or 720p')
+  })
+
   it('rejects Kling manual video generation when only generic references are present', () => {
     const snapshot = createSnapshot({
       videoModel: 'kling-3.0',

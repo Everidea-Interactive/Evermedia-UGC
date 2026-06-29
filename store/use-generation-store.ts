@@ -48,6 +48,7 @@ import type {
 import type { Locale } from '@/lib/i18n'
 import {
   getMaxVideoReferenceCount,
+  normalizeVideoOutputQuality,
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
@@ -552,6 +553,18 @@ function trimVideoReferenceSlots(
   )
 }
 
+function normalizeVideoWorkspaceQuality(
+  activeTab: WorkspaceTab,
+  videoModel: VideoModelOption,
+  outputQuality: OutputQuality,
+) {
+  if (activeTab !== 'video') {
+    return outputQuality === '4k' ? '1080p' : outputQuality
+  }
+
+  return normalizeVideoOutputQuality(videoModel, outputQuality)
+}
+
 function resolveRunStatus(variants: GenerationVariant[]): GenerationRunStatus {
   if (variants.length === 0) {
     return 'idle'
@@ -778,7 +791,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
       },
       guidedPlan: null,
       guidedVideoStageEventId: state.guidedVideoStageEventId + 1,
-      outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+      outputQuality: normalizeVideoOutputQuality(state.videoModel, state.outputQuality),
     })),
   setCarouselBaseTemplateMode: (mode) =>
     set((state) => ({
@@ -820,7 +833,7 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         activeTab: 'video',
         experience: 'manual',
         manualVideoStageEventId: state.manualVideoStageEventId + 1,
-        outputQuality: state.outputQuality === '4k' ? '1080p' : state.outputQuality,
+        outputQuality: normalizeVideoOutputQuality(state.videoModel, state.outputQuality),
         videoReferences: nextVideoReferences,
       }
     }),
@@ -902,7 +915,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
           shotCount: guidedShotCount,
         },
         guidedPlan: hydratedGuidedPlan,
-        outputQuality: normalizedConfig.outputQuality,
+        outputQuality: normalizeVideoWorkspaceQuality(
+          normalizedConfig.activeTab,
+          normalizedConfig.videoModel,
+          normalizedConfig.outputQuality,
+        ),
         orientationPreference: normalizedConfig.orientationPreference ?? 'auto',
         promptEnhancement: createInitialPromptEnhancement(),
         productCategory: normalizedConfig.productCategory,
@@ -1017,6 +1034,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
   setActiveTab: (activeTab) =>
     set((state) => ({
       activeTab: normalizeActiveTabForExperience(activeTab, state.experience),
+      outputQuality: normalizeVideoWorkspaceQuality(
+        normalizeActiveTabForExperience(activeTab, state.experience),
+        state.videoModel,
+        state.outputQuality,
+      ),
     })),
   setAnalysisError: (analysisError) => set({ analysisError }),
   setAnalysisStatus: (analysisStatus) => set({ analysisStatus }),
@@ -1303,7 +1325,14 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
         [slot]: setValidatedSlotFile(state.assets[slot], file, 'image'),
       },
     })),
-  setOutputQuality: (outputQuality) => set({ outputQuality }),
+  setOutputQuality: (outputQuality) =>
+    set((state) => ({
+      outputQuality: normalizeVideoWorkspaceQuality(
+        state.activeTab,
+        state.videoModel,
+        outputQuality,
+      ),
+    })),
   setOrientationPreference: (orientationPreference) => set({ orientationPreference }),
   setPromptEnhancement: (patch) =>
     set((state) => ({
@@ -1341,6 +1370,11 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
           ? state.assets.endFrame
           : setSlotFile(state.assets.endFrame, null),
       },
+      outputQuality: normalizeVideoWorkspaceQuality(
+        state.activeTab,
+        videoModel,
+        state.outputQuality,
+      ),
       videoModel,
       videoReferences: trimVideoReferenceSlots(state.videoReferences, videoModel),
     })),

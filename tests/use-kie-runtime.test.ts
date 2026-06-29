@@ -61,7 +61,7 @@ function createPricingResponse(credits: number) {
               base: { credits: credits + 11, usd: 12 },
               extended: { credits: credits + 12, usd: 13 },
             },
-            '1080p': {
+            '480p': {
               base: { credits: credits + 13, usd: 14 },
               extended: { credits: credits + 14, usd: 15 },
             },
@@ -71,7 +71,7 @@ function createPricingResponse(credits: number) {
               base: { credits: credits + 15, usd: 16 },
               extended: { credits: credits + 16, usd: 17 },
             },
-            '1080p': {
+            '480p': {
               base: { credits: credits + 17, usd: 18 },
               extended: { credits: credits + 18, usd: 19 },
             },
@@ -207,7 +207,7 @@ function createPricingResponse(credits: number) {
                 extended: { credits: credits + 64, usd: 65 },
               },
             },
-            '1080p': {
+            '480p': {
               'no-audio': {
                 base: { credits: credits + 65, usd: 66 },
                 extended: { credits: credits + 66, usd: 67 },
@@ -229,7 +229,7 @@ function createPricingResponse(credits: number) {
                 extended: { credits: credits + 72, usd: 73 },
               },
             },
-            '1080p': {
+            '480p': {
               'no-audio': {
                 base: { credits: credits + 73, usd: 74 },
                 extended: { credits: credits + 74, usd: 75 },

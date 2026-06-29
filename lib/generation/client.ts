@@ -22,6 +22,7 @@ import type {
 import type { Locale } from '@/lib/i18n'
 import {
   getMaxVideoReferenceCount,
+  getSupportedVideoQualities,
   normalizeVideoDurationForModel,
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
@@ -267,6 +268,16 @@ export function getGenerationValidation(snapshot: ManualGenerationSnapshot) {
     return {
       canGenerate: false,
       reason: '4K Seedance 1.5 Pro output is not supported.',
+    }
+  }
+
+  if (
+    snapshot.activeTab === 'video' &&
+    !getSupportedVideoQualities(snapshot.videoModel).includes(snapshot.outputQuality)
+  ) {
+    return {
+      canGenerate: false,
+      reason: `${snapshot.videoModel === 'grok-imagine-video-1.5' ? 'Grok Imagine Video 1.5' : 'Seedance 2 Mini'} supports only 480p or 720p in studio.`,
     }
   }
 

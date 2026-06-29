@@ -26,6 +26,7 @@ import { Select } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  getVideoQualityOptions,
   getVideoDurationHelperText,
 } from '@/components/dashboard/manual-workspace-config'
 import {
@@ -89,7 +90,6 @@ import {
 } from '@/components/dashboard/manual-workspace-ui'
 
 const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
-const videoQualities: OutputQuality[] = ['720p', '1080p']
 const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
 
 function supportsVideoAudioSelection(model: VideoModelOption) {
@@ -1297,6 +1297,7 @@ function GuidedRunPanel({
       ? estimate.reason ?? 'Live pricing unavailable.'
       : null
   const imageQualityOptions = getImageQualityOptions(imageModel, kiePricing)
+  const videoQualityOptions = getVideoQualityOptions(videoModel)
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -1516,7 +1517,7 @@ function GuidedRunPanel({
                 }
                 value={outputQuality}
               >
-                {(activeTab === 'image' ? imageQualityOptions : videoQualities).map((quality) => (
+                {(activeTab === 'image' ? imageQualityOptions : videoQualityOptions).map((quality) => (
                   <option key={quality} value={quality}>
                     {activeTab === 'image'
                       ? getImageQualityLabel(quality)
