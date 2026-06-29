@@ -50,8 +50,6 @@ export const dictionaries = {
       passwordRecovery: 'Password Recovery',
       resetCopy:
         'Request a password reset email for your Supabase account. You can return to sign in any time.',
-      resetInfo:
-        "If an account exists for the email you enter, we'll send a reset link with instructions to create a new password.",
       resetPassword: 'Reset your password',
       secureAccess: 'Secure Access',
       sendResetEmail: 'Send Reset Email',
@@ -142,8 +140,6 @@ export const dictionaries = {
       passwordRecovery: 'Pemulihan Kata Sandi',
       resetCopy:
         'Minta email reset kata sandi untuk akun Supabase Anda. Anda bisa kembali masuk kapan saja.',
-      resetInfo:
-        'Jika akun untuk email yang Anda masukkan ada, kami akan mengirim tautan reset berisi instruksi untuk membuat kata sandi baru.',
       resetPassword: 'Reset kata sandi Anda',
       secureAccess: 'Akses Aman',
       sendResetEmail: 'Kirim Email Reset',

@@ -176,10 +176,6 @@ export default async function SignInPage({
           >
             <input name="next" type="hidden" value={next} />
 
-            <div className="auth-banner auth-banner-info">
-              {copy.resetInfo}
-            </div>
-
             <div className="auth-field">
               <label className="auth-label" htmlFor="reset-email">
                 {copy.email}
