@@ -6,8 +6,11 @@ import type {
   GuidedAnalysisPlan,
   ProductCategory,
   StoryboardShot,
+  VideoDuration,
+  VideoModelOption,
 } from '@/lib/generation/types'
 import type { Locale } from '@/lib/i18n'
+import { getVideoDurationSeconds } from '@/lib/generation/model-mapping'
 
 const audienceLabels: Record<CreativeBrief['audience'], string> = {
   broad: 'broad online shoppers',
@@ -260,6 +263,66 @@ function buildSoundDirectionSummary(input: { brief: CreativeBrief }) {
   )
 }
 
+function allocateStoryboardDurations(totalSeconds: number, shotCount: number) {
+  if (shotCount <= 0) {
+    return []
+  }
+
+  const weights = Array.from({ length: shotCount }, (_, index) => {
+    if (shotCount === 1) {
+      return 1
+    }
+
+    if (index === 0 || index === shotCount - 1) {
+      return 1.15
+    }
+
+    return 1
+  })
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const rawDurations = weights.map((weight) => (totalSeconds * weight) / totalWeight)
+  const roundedDurations = rawDurations.map((value) => Math.max(1, Math.floor(value)))
+  let assignedSeconds = roundedDurations.reduce((sum, value) => sum + value, 0)
+
+  while (assignedSeconds < totalSeconds) {
+    const nextIndex = rawDurations.reduce((bestIndex, value, index) => {
+      const currentRemainder = value - roundedDurations[index]!
+      const bestRemainder = rawDurations[bestIndex]! - roundedDurations[bestIndex]!
+
+      return currentRemainder > bestRemainder ? index : bestIndex
+    }, 0)
+
+    roundedDurations[nextIndex] = (roundedDurations[nextIndex] ?? 1) + 1
+    assignedSeconds += 1
+  }
+
+  while (assignedSeconds > totalSeconds) {
+    const nextIndex = roundedDurations.reduce((bestIndex, value, index) => {
+      if (value <= 1) {
+        return bestIndex
+      }
+
+      if (roundedDurations[bestIndex]! <= 1) {
+        return index
+      }
+
+      const currentRemainder = rawDurations[index]! - value
+      const bestRemainder = rawDurations[bestIndex]! - roundedDurations[bestIndex]!
+
+      return currentRemainder < bestRemainder ? index : bestIndex
+    }, 0)
+
+    if ((roundedDurations[nextIndex] ?? 1) <= 1) {
+      break
+    }
+
+    roundedDurations[nextIndex] -= 1
+    assignedSeconds -= 1
+  }
+
+  return roundedDurations
+}
+
 function buildVoiceoverScript(input: {
   brief: CreativeBrief
   outputLanguage: Locale
@@ -370,11 +433,13 @@ function buildCtaOptions(input: {
 
 function buildStoryboardShot(input: {
   cta: CtaOption
+  durationSeconds: number
   index: number
   outputLanguage: Locale
   plan: GuidedAnalysisPlan
   brief: CreativeBrief
   messageAngle: string
+  totalDurationSeconds: number
   voiceoverLine: string
 }): StoryboardShot {
   const shot = input.plan.shots[input.index]
@@ -388,7 +453,9 @@ function buildStoryboardShot(input: {
     `${categoryEnvironmentMap[input.plan.productCategory]} Align the set dressing to the ${shot.shotEnvironment} context and keep visual clutter low.`,
   )
   const visualPrompt = normalizeSentence(
-    `${shot.prompt} ${styleDirectionMap[input.plan.creativeStyle]} Keep the frame optimized for ${platformLabels[input.brief.platform]}.`,
+    `${shot.prompt} ${styleDirectionMap[input.plan.creativeStyle]} Keep the frame optimized for ${platformLabels[input.brief.platform]}. This shot should read in about ${input.durationSeconds} second${
+      input.durationSeconds === 1 ? '' : 's'
+    } as part of a ${input.totalDurationSeconds}-second overall clip.`,
   )
   const soundPrompt = normalizeSentence(
     `${input.index === 0 ? 'Opening beat:' : 'Supporting beat:'} ${buildSoundDirectionSummary({
@@ -418,7 +485,7 @@ function buildStoryboardShot(input: {
   return {
     ...shot,
     ctaText,
-    durationSeconds: input.index === 0 ? 3 : input.index === input.plan.shots.length - 1 ? 4 : 5,
+    durationSeconds: input.durationSeconds,
     environmentPrompt,
     objective,
     prompt: renderPrompt,
@@ -433,7 +500,17 @@ export function createCreativePlan(input: {
   brief: CreativeBrief
   outputLanguage: Locale
   plan: GuidedAnalysisPlan
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
 }): CreativePlan {
+  const totalDurationSeconds = getVideoDurationSeconds(
+    input.videoModel ?? 'veo-3.1',
+    input.videoDuration ?? 8,
+  )
+  const shotDurations = allocateStoryboardDurations(
+    totalDurationSeconds,
+    input.plan.shots.length,
+  )
   const messageAngle = buildMessageAngle(input)
   const voiceoverScript = buildVoiceoverScript(input)
   const ctaOptions = buildCtaOptions({
@@ -449,10 +526,12 @@ export function createCreativePlan(input: {
     buildStoryboardShot({
       brief: input.brief,
       cta: selectedCta,
+      durationSeconds: shotDurations[index] ?? 1,
       index,
       messageAngle,
       outputLanguage: input.outputLanguage,
       plan: input.plan,
+      totalDurationSeconds,
       voiceoverLine:
         voiceoverLines[index] ??
         (input.outputLanguage === 'id'

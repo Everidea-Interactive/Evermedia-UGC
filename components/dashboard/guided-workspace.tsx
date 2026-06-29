@@ -26,8 +26,7 @@ import { Select } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  getVideoDurationLabel,
-  getVideoDurationOptions,
+  getVideoDurationHelperText,
 } from '@/components/dashboard/manual-workspace-config'
 import {
   buildGuidedAnalysisFormData,
@@ -40,7 +39,11 @@ import {
   getGuidedCreativeStyleForConcept,
   kieAnalysisModels,
 } from '@/lib/generation/guided'
-import { supportsVideoEndFrameGuidance } from '@/lib/generation/model-mapping'
+import {
+  getVideoDurationLabel,
+  getVideoDurationSpec,
+  supportsVideoEndFrameGuidance,
+} from '@/lib/generation/model-mapping'
 import {
   getGenerationCostEstimate,
   getGenerationCreditValidation,
@@ -1460,20 +1463,41 @@ function GuidedRunPanel({
                   htmlFor="guided-video-duration"
                   label="Video Duration"
                 >
-                  <Select
-                    aria-label="Video duration"
-                    id="guided-video-duration"
-                    onChange={(event) =>
-                      setVideoDuration(event.target.value as typeof videoDuration)
-                    }
-                    value={videoDuration}
-                  >
-                    {getVideoDurationOptions(videoModel).map((duration) => (
-                      <option key={duration} value={duration}>
-                        {getVideoDurationLabel(videoModel, duration)}
-                      </option>
-                    ))}
-                  </Select>
+                  {(() => {
+                    const durationSpec = getVideoDurationSpec(videoModel)
+
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm text-foreground">
+                          <span>{getVideoDurationLabel(videoDuration)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {getVideoDurationHelperText(videoModel)}
+                          </span>
+                        </div>
+                        <input
+                          aria-label="Video duration"
+                          className="h-2 w-full cursor-pointer accent-foreground"
+                          list={`guided-video-duration-marks-${videoModel}`}
+                          id="guided-video-duration"
+                          max={durationSpec.max}
+                          min={durationSpec.min}
+                          onChange={(event) =>
+                            setVideoDuration(
+                              Number.parseInt(event.target.value, 10) as typeof videoDuration,
+                            )
+                          }
+                          step={durationSpec.step}
+                          type="range"
+                          value={videoDuration}
+                        />
+                        <datalist id={`guided-video-duration-marks-${videoModel}`}>
+                          {durationSpec.marks?.map((duration) => (
+                            <option key={duration} value={duration} label={String(duration)} />
+                          ))}
+                        </datalist>
+                      </div>
+                    )
+                  })()}
                 </FieldBlock>
 
               </>

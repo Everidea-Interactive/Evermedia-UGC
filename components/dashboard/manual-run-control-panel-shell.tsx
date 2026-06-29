@@ -9,11 +9,10 @@ import {
   creativeStyles,
   getForcedVideoAudio,
   getVideoAudioLabel,
+  getVideoDurationHelperText,
   figureArtDirections,
   getImageQualityLabel,
   getImageQualityOptions,
-  getVideoDurationLabel,
-  getVideoDurationOptions,
   supportsVideoAudioSelection,
   imageModels,
   productCategories,
@@ -61,6 +60,8 @@ import type {
   WorkspaceTab,
 } from '@/lib/generation/types'
 import {
+  getVideoDurationLabel,
+  getVideoDurationSpec,
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
@@ -569,19 +570,40 @@ function RunControlPanel({
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         Clip length
                       </p>
-                      <Select
-                        aria-label="Video Duration"
-                        onChange={(event) =>
-                          setVideoDuration(event.target.value as VideoDuration)
-                        }
-                        value={videoDuration}
-                      >
-                        {getVideoDurationOptions(videoModel).map((duration) => (
-                          <option key={duration} value={duration}>
-                            {getVideoDurationLabel(videoModel, duration)}
-                          </option>
-                        ))}
-                      </Select>
+                      {(() => {
+                        const durationSpec = getVideoDurationSpec(videoModel)
+
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm text-foreground">
+                              <span>{getVideoDurationLabel(videoDuration)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {getVideoDurationHelperText(videoModel)}
+                              </span>
+                            </div>
+                            <input
+                              aria-label="Video Duration"
+                              className="h-2 w-full cursor-pointer accent-foreground"
+                              list={`video-duration-marks-${videoModel}`}
+                              max={durationSpec.max}
+                              min={durationSpec.min}
+                              onChange={(event) =>
+                                setVideoDuration(
+                                  Number.parseInt(event.target.value, 10) as VideoDuration,
+                                )
+                              }
+                              step={durationSpec.step}
+                              type="range"
+                              value={videoDuration}
+                            />
+                            <datalist id={`video-duration-marks-${videoModel}`}>
+                              {durationSpec.marks?.map((duration) => (
+                                <option key={duration} value={duration} label={String(duration)} />
+                              ))}
+                            </datalist>
+                          </div>
+                        )
+                      })()}
                       {supportsVideoAudioSelection(videoModel) ? (
                         <>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">

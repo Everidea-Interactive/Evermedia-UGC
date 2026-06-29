@@ -22,6 +22,7 @@ import type {
 import type { Locale } from '@/lib/i18n'
 import {
   getMaxVideoReferenceCount,
+  normalizeVideoDurationForModel,
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
@@ -343,7 +344,7 @@ export function buildGenerationFormData(
       workspace: snapshot.activeTab,
     }),
   )
-  formData.append('videoDuration', snapshot.videoDuration)
+  formData.append('videoDuration', String(snapshot.videoDuration))
   formData.append('videoAudio', snapshot.videoAudio)
   formData.append('outputQuality', snapshot.outputQuality)
   if (snapshot.activeTab === 'video') {
@@ -595,7 +596,10 @@ export function buildGuidedAnalysisFormData(input: {
   formData.append('productUrl', input.productUrl)
   formData.append('shotCount', String(workspace === 'video' ? 1 : input.shotCount))
   formData.append('videoModel', input.videoModel ?? 'veo-3.1')
-  formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append(
+    'videoDuration',
+    String(normalizeVideoDurationForModel(input.videoModel ?? 'veo-3.1', input.videoDuration)),
+  )
   formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   if (workspace === 'video') {
     formData.append('orientationPreference', input.orientationPreference ?? 'auto')
@@ -691,7 +695,10 @@ export function buildGuidedGenerationFormData(input: {
   formData.append('figureArtDirection', 'none')
   formData.append('batchSize', String(guidedShots.length))
   formData.append('textPrompt', '')
-  formData.append('videoDuration', input.videoDuration ?? 'base')
+  formData.append(
+    'videoDuration',
+    String(normalizeVideoDurationForModel(input.videoModel ?? 'veo-3.1', input.videoDuration)),
+  )
   formData.append('videoAudio', input.videoAudio ?? 'no-audio')
   formData.append('outputQuality', input.outputQuality)
   if (workspace === 'video') {
@@ -718,6 +725,8 @@ export function buildCreativePlanningFormData(input: {
   brief: CreativeBrief
   outputLanguage: Locale
   plan: GuidedAnalysisPlan
+  videoDuration?: VideoDuration
+  videoModel?: VideoModelOption
 }) {
   const formData = new FormData()
 
@@ -731,6 +740,11 @@ export function buildCreativePlanningFormData(input: {
   formData.append('guidedSummary', input.plan.summary)
   formData.append('guidedShots', JSON.stringify(input.plan.shots))
   formData.append('outputLanguage', input.outputLanguage)
+  formData.append('videoModel', input.videoModel ?? 'veo-3.1')
+  formData.append(
+    'videoDuration',
+    String(normalizeVideoDurationForModel(input.videoModel ?? 'veo-3.1', input.videoDuration)),
+  )
 
   return { formData }
 }

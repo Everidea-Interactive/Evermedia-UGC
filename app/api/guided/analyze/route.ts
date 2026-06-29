@@ -13,7 +13,9 @@ import {
 } from '@/lib/generation/image-upload-support'
 import { analyzeGuidedProductPlan } from '@/lib/generation/kie-analysis'
 import { getKieApiKey, uploadImageFileToKieBase64 } from '@/lib/generation/kie'
+import { normalizeVideoDurationForModel } from '@/lib/generation/model-mapping'
 import { scrapeProductPage } from '@/lib/generation/product-page'
+import type { VideoModelOption } from '@/lib/generation/types'
 import { normalizeImageFileForProfile } from '@/lib/generation/upload-normalization'
 
 export const runtime = 'nodejs'
@@ -54,6 +56,26 @@ function readOptionalEnum<T extends string>(
   }
 
   return value as T
+}
+
+function readOptionalVideoDuration(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key)
+
+  if (!value) {
+    return null
+  }
+
+  if (value === 'base' || value === 'extended') {
+    return value
+  }
+
+  const parsed = Number.parseInt(value, 10)
+
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`Invalid value for ${key}.`)
+  }
+
+  return parsed
 }
 
 function isSupportedGuidedHeroImage(file: File) {
@@ -116,9 +138,6 @@ export async function POST(request: Request) {
     const workspace =
       readOptionalEnum(formData, 'workspace', ['image', 'video'] as const) ??
       'image'
-    const videoDuration =
-      readOptionalEnum(formData, 'videoDuration', ['base', 'extended'] as const) ??
-      'base'
     const videoModel =
       readOptionalEnum(
         formData,
@@ -132,6 +151,10 @@ export async function POST(request: Request) {
           'kling-3.0',
         ] as const,
       ) ?? 'veo-3.1'
+    const videoDuration = normalizeVideoDurationForModel(
+      videoModel as VideoModelOption,
+      readOptionalVideoDuration(formData, 'videoDuration'),
+    )
     const orientationPreference = readOptionalEnum(
       formData,
       'orientationPreference',

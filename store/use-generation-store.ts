@@ -453,7 +453,7 @@ function createInitialState(): GenerationStateShape {
     textPrompt: '',
     videoReferences: createVideoReferenceSlots(),
     videoAudio: 'no-audio',
-    videoDuration: 'base',
+    videoDuration: 8,
     videoModel: 'veo-3.1',
   }
 }

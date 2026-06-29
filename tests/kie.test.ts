@@ -1189,7 +1189,7 @@ describe('KIE batch submission', () => {
       model: 'bytedance/seedance-1.5-pro',
       input: {
         aspect_ratio: '16:9',
-        duration: '12',
+        duration: 12,
         fixed_lens: false,
         generate_audio: false,
         input_urls: [
@@ -1288,7 +1288,7 @@ describe('KIE batch submission', () => {
       model: 'bytedance/seedance-2',
       input: {
         aspect_ratio: '16:9',
-        duration: '10',
+        duration: 10,
         generate_audio: true,
         reference_image_urls: [
           'https://files.example.com/product.png',
@@ -1345,7 +1345,7 @@ describe('KIE batch submission', () => {
       model: 'bytedance/seedance-2',
       input: {
         aspect_ratio: '16:9',
-        duration: '10',
+        duration: 10,
         first_frame_url: 'https://files.example.com/first-frame.png',
         generate_audio: true,
         last_frame_url: 'https://files.example.com/end-frame.png',
@@ -1607,7 +1607,7 @@ describe('KIE batch submission', () => {
       model: 'kling-3.0/video',
       input: {
         aspect_ratio: '16:9',
-        duration: '5',
+        duration: 5,
         image_urls: [
           'https://files.example.com/first-frame.png',
           'https://files.example.com/end-frame.png',

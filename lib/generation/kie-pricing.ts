@@ -4,6 +4,11 @@ import {
   KIE_PRICING_TTL_MS,
   type KiePricingApiRecord,
 } from '@/lib/generation/pricing'
+import {
+  allVideoDurations,
+  getVideoDurationOptions,
+  normalizeVideoDurationForModel,
+} from '@/lib/generation/model-mapping'
 import type {
   GenerationCostRate,
   ImageModelOption,
@@ -35,51 +40,62 @@ type SeedanceDurationPricing = {
 
 type MotionControlPricing = Record<VideoResolution, GenerationCostRate>
 
+function createUnavailableDurationRates() {
+  return {
+    ...Object.fromEntries(
+      allVideoDurations.map((duration) => [
+        duration,
+        { credits: Number.NaN, usd: Number.NaN },
+      ]),
+    ),
+    base: { credits: Number.NaN, usd: Number.NaN },
+    extended: { credits: Number.NaN, usd: Number.NaN },
+  } as Record<VideoDuration, GenerationCostRate>
+}
+
+function createDurationRates(
+  model: 'kling-3.0' | 'seedance-1.5-pro',
+  perSecondRate: GenerationCostRate,
+) {
+  const rates = createUnavailableDurationRates()
+
+  for (const duration of getVideoDurationOptions(model)) {
+    rates[duration] = {
+      credits: Number((perSecondRate.credits * duration).toFixed(3)),
+      usd: Number((perSecondRate.usd * duration).toFixed(3)),
+    }
+  }
+
+  const baseDuration = normalizeVideoDurationForModel(model, 'base')
+  const extendedDuration = normalizeVideoDurationForModel(model, 'extended')
+
+  rates.base = rates[baseDuration]
+  rates.extended = rates[extendedDuration]
+
+  return rates
+}
+
 const SEEDANCE_15_HARDCODED_PRICING: SeedanceDurationPricing = {
   // Seedance 1.5 Pro has no dedicated row in KIE model-pricing API.
   // Keep this aligned with https://kie.ai/seedance-1-5-pro.
   promptOnly: {
     '720p': {
-      'no-audio': {
-        base: { credits: 14, usd: 0.07 },
-        extended: { credits: 42, usd: 0.21 },
-      },
-      'with-audio': {
-        base: { credits: 28, usd: 0.14 },
-        extended: { credits: 84, usd: 0.42 },
-      },
+      'no-audio': createDurationRates('seedance-1.5-pro', { credits: 3.5, usd: 0.0175 }),
+      'with-audio': createDurationRates('seedance-1.5-pro', { credits: 7, usd: 0.035 }),
     },
     '1080p': {
-      'no-audio': {
-        base: { credits: 30, usd: 0.15 },
-        extended: { credits: 90, usd: 0.45 },
-      },
-      'with-audio': {
-        base: { credits: 60, usd: 0.3 },
-        extended: { credits: 180, usd: 0.9 },
-      },
+      'no-audio': createDurationRates('seedance-1.5-pro', { credits: 7.5, usd: 0.0375 }),
+      'with-audio': createDurationRates('seedance-1.5-pro', { credits: 15, usd: 0.075 }),
     },
   },
   withReference: {
     '720p': {
-      'no-audio': {
-        base: { credits: 14, usd: 0.07 },
-        extended: { credits: 42, usd: 0.21 },
-      },
-      'with-audio': {
-        base: { credits: 28, usd: 0.14 },
-        extended: { credits: 84, usd: 0.42 },
-      },
+      'no-audio': createDurationRates('seedance-1.5-pro', { credits: 3.5, usd: 0.0175 }),
+      'with-audio': createDurationRates('seedance-1.5-pro', { credits: 7, usd: 0.035 }),
     },
     '1080p': {
-      'no-audio': {
-        base: { credits: 30, usd: 0.15 },
-        extended: { credits: 90, usd: 0.45 },
-      },
-      'with-audio': {
-        base: { credits: 60, usd: 0.3 },
-        extended: { credits: 180, usd: 0.9 },
-      },
+      'no-audio': createDurationRates('seedance-1.5-pro', { credits: 7.5, usd: 0.0375 }),
+      'with-audio': createDurationRates('seedance-1.5-pro', { credits: 15, usd: 0.075 }),
     },
   },
 }
@@ -91,46 +107,22 @@ const KLING_30_HARDCODED_PRICING: SeedanceDurationPricing = {
   // 4K mode not supported
   promptOnly: {
     '720p': {
-      'no-audio': {
-        base: { credits: 70, usd: 0.35 },
-        extended: { credits: 140, usd: 0.70 },
-      },
-      'with-audio': {
-        base: { credits: 100, usd: 0.50 },
-        extended: { credits: 200, usd: 1.00 },
-      },
+      'no-audio': createDurationRates('kling-3.0', { credits: 14, usd: 0.07 }),
+      'with-audio': createDurationRates('kling-3.0', { credits: 20, usd: 0.1 }),
     },
     '1080p': {
-      'no-audio': {
-        base: { credits: 90, usd: 0.45 },
-        extended: { credits: 180, usd: 0.90 },
-      },
-      'with-audio': {
-        base: { credits: 135, usd: 0.675 },
-        extended: { credits: 270, usd: 1.35 },
-      },
+      'no-audio': createDurationRates('kling-3.0', { credits: 18, usd: 0.09 }),
+      'with-audio': createDurationRates('kling-3.0', { credits: 27, usd: 0.135 }),
     },
   },
   withReference: {
     '720p': {
-      'no-audio': {
-        base: { credits: 70, usd: 0.35 },
-        extended: { credits: 140, usd: 0.70 },
-      },
-      'with-audio': {
-        base: { credits: 100, usd: 0.50 },
-        extended: { credits: 200, usd: 1.00 },
-      },
+      'no-audio': createDurationRates('kling-3.0', { credits: 14, usd: 0.07 }),
+      'with-audio': createDurationRates('kling-3.0', { credits: 20, usd: 0.1 }),
     },
     '1080p': {
-      'no-audio': {
-        base: { credits: 90, usd: 0.45 },
-        extended: { credits: 180, usd: 0.90 },
-      },
-      'with-audio': {
-        base: { credits: 135, usd: 0.675 },
-        extended: { credits: 270, usd: 1.35 },
-      },
+      'no-audio': createDurationRates('kling-3.0', { credits: 18, usd: 0.09 }),
+      'with-audio': createDurationRates('kling-3.0', { credits: 27, usd: 0.135 }),
     },
   },
 }

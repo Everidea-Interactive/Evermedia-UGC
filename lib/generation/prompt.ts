@@ -151,6 +151,18 @@ function finalizePrompt(parts: string[]) {
   return parts.join(' ').replace(/\s+/g, ' ').trim()
 }
 
+function buildClipIntentInstruction(input: {
+  videoDuration: VideoDuration
+  videoModel?: VideoModelOption
+}) {
+  const durationSeconds = getVideoDurationSeconds(
+    input.videoModel ?? 'veo-3.1',
+    input.videoDuration,
+  )
+
+  return `Clip intent: build a complete ${durationSeconds}-second arc with clear opening, middle development, and closing payoff. Keep pacing scoped to ${durationSeconds} seconds exactly.`
+}
+
 function buildSharedCampaignContext(input: CompileGenerationPromptInput) {
   return [
     `Art direction: ${stylePhrases[input.creativeStyle]}.`,
@@ -384,12 +396,7 @@ function compileVideoPrompt(input: CompileGenerationPromptInput) {
     }
   }
 
-  promptParts.push(
-    `Clip intent: ${getVideoDurationSeconds(
-      input.videoModel ?? 'veo-3.1',
-      input.videoDuration,
-    )}-second pacing.`,
-  )
+  promptParts.push(buildClipIntentInstruction(input))
   promptParts.push(
     `Target delivery: ${input.outputQuality} output where the selected model supports it.`,
   )

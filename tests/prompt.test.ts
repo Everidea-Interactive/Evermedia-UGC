@@ -487,9 +487,16 @@ describe('video duration prompt wording', () => {
       workspace: 'video',
     })
 
-    expect(basePrompt).toContain('Clip intent: 8-second pacing.')
-    expect(extendedPrompt).toContain('Clip intent: 12-second pacing.')
-    expect(veoExtendedPrompt).toContain('Clip intent: 8-second pacing.')
+    expect(basePrompt).toContain(
+      'Clip intent: build a complete 8-second arc with clear opening, middle development, and closing payoff.',
+    )
+    expect(basePrompt).toContain('Keep pacing scoped to 8 seconds exactly.')
+    expect(extendedPrompt).toContain(
+      'Clip intent: build a complete 12-second arc with clear opening, middle development, and closing payoff.',
+    )
+    expect(veoExtendedPrompt).toContain(
+      'Clip intent: build a complete 8-second arc with clear opening, middle development, and closing payoff.',
+    )
   })
 
   it('uses Seedance 2.0 clip lengths in video prompts', () => {
@@ -527,8 +534,12 @@ describe('video duration prompt wording', () => {
       workspace: 'video',
     })
 
-    expect(basePrompt).toContain('Clip intent: 5-second pacing.')
-    expect(extendedPrompt).toContain('Clip intent: 10-second pacing.')
+    expect(basePrompt).toContain(
+      'Clip intent: build a complete 5-second arc with clear opening, middle development, and closing payoff.',
+    )
+    expect(extendedPrompt).toContain(
+      'Clip intent: build a complete 10-second arc with clear opening, middle development, and closing payoff.',
+    )
   })
 
   it('omits end-frame wording for video models that do not support it', () => {

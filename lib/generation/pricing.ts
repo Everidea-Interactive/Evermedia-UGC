@@ -1,12 +1,14 @@
 import {
+  allVideoDurations,
   getImageResolution,
   getGrokDuration,
   getGrokResolution,
-  getKlingDuration,
   getSeedance2MiniDuration,
   getSeedance2MiniResolution,
   getSeedance2Duration,
   getSeedanceDuration,
+  normalizeVideoDurationForModel,
+  getVideoDurationOptions,
   getVideoResolution,
   supportsVideoEndFrameGuidance,
   supportsVideoFirstLastFramePair,
@@ -21,7 +23,10 @@ import type {
   VideoAudio,
   VideoResolution,
   VideoDuration,
+  VideoModelOption,
 } from '@/lib/generation/types'
+
+type NumericVideoDuration = Exclude<VideoDuration, 'base' | 'extended'>
 
 export const KIE_CREDIT_USD_RATE = 0.005
 export const KIE_PRICING_TTL_MS = 15 * 60_000
@@ -127,6 +132,71 @@ function unavailableRate(): GenerationCostRate {
   return {
     credits: Number.NaN,
     usd: Number.NaN,
+  }
+}
+
+function createUnavailableDurationRates() {
+  return {
+    ...Object.fromEntries(
+      allVideoDurations.map((duration) => [duration, unavailableRate()]),
+    ),
+    base: unavailableRate(),
+    extended: unavailableRate(),
+  } as Record<VideoDuration, GenerationCostRate>
+}
+
+function createDurationRates(
+  model: VideoModelOption,
+  resolveRate: (duration: NumericVideoDuration) => GenerationCostRate,
+) {
+  const durationRates = createUnavailableDurationRates()
+  const durations = getVideoDurationOptions(model)
+
+  for (const duration of durations) {
+    durationRates[duration] = resolveRate(duration)
+  }
+
+  const baseDuration = normalizeVideoDurationForModel(model, 'base')
+  const extendedDuration = normalizeVideoDurationForModel(model, 'extended')
+
+  durationRates.base = durationRates[baseDuration]
+  durationRates.extended = durationRates[extendedDuration]
+
+  return durationRates
+}
+
+function derivePerSecondRate(
+  durations: NumericVideoDuration[],
+  resolveRate: (duration: NumericVideoDuration) => GenerationCostRate,
+) {
+  const perSecondRates = durations
+    .map((duration) => {
+      const rate = resolveRate(duration)
+
+      return Number.isFinite(rate.credits) && Number.isFinite(rate.usd)
+        ? {
+            credits: rate.credits / duration,
+            usd: rate.usd / duration,
+          }
+        : null
+    })
+    .filter((rate): rate is GenerationCostRate => rate !== null)
+
+  if (perSecondRates.length === 0) {
+    return null
+  }
+
+  const totals = perSecondRates.reduce(
+    (sum, rate) => ({
+      credits: sum.credits + rate.credits,
+      usd: sum.usd + rate.usd,
+    }),
+    { credits: 0, usd: 0 },
+  )
+
+  return {
+    credits: totals.credits / perSecondRates.length,
+    usd: totals.usd / perSecondRates.length,
   }
 }
 
@@ -524,7 +594,6 @@ export function buildKiePricingMatrix(input: {
   })()
 
   const videoQualities: VideoResolution[] = ['720p', '1080p']
-  const videoDurations: VideoDuration[] = ['base', 'extended']
   const grokPricingByInputMode = {
     promptOnly: grokVideoRatesByInput['text-to-video'],
     withReference: grokVideoRatesByInput['image-to-video'],
@@ -541,16 +610,10 @@ export function buildKiePricingMatrix(input: {
     for (const quality of videoQualities) {
       const resolution = getGrokResolution(quality)
       const perSecondRate = grokPricingByInputMode[mode][resolution]
-      grokVideoMatrix[mode][quality] = {
-        base: multiplyRate(
-          perSecondRate,
-          Number.parseInt(getGrokDuration('base'), 10),
-        ),
-        extended: multiplyRate(
-          perSecondRate,
-          Number.parseInt(getGrokDuration('extended'), 10),
-        ),
-      }
+      grokVideoMatrix[mode][quality] = createDurationRates(
+        'grok-imagine-video-1.5',
+        (duration) => multiplyRate(perSecondRate, getGrokDuration(duration)),
+      )
     }
   }
 
@@ -597,38 +660,22 @@ export function buildKiePricingMatrix(input: {
   } as const
 
   if (!input.seedance15Override && seedanceRatesByInput) {
-    for (const duration of videoDurations) {
-      const durationSeconds = Number.parseInt(getSeedanceDuration(duration), 10)
-
-      for (const quality of ['720p', '1080p'] as const) {
-        const promptOnlyDurationRate = multiplyRate(
-          seedanceRatesByInput.promptOnly[quality],
-          durationSeconds,
-        )
-        const withReferenceDurationRate = multiplyRate(
-          seedanceRatesByInput.withReference[quality],
-          durationSeconds,
-        )
-        seedanceMatrix.promptOnly[quality] = {
-          'no-audio': {
-            ...(seedanceMatrix.promptOnly[quality]?.['no-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-          'with-audio': {
-            ...(seedanceMatrix.promptOnly[quality]?.['with-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-        }
-        seedanceMatrix.withReference[quality] = {
-          'no-audio': {
-            ...(seedanceMatrix.withReference[quality]?.['no-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-          'with-audio': {
-            ...(seedanceMatrix.withReference[quality]?.['with-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-        }
+    for (const quality of ['720p', '1080p'] as const) {
+      seedanceMatrix.promptOnly[quality] = {
+        'no-audio': createDurationRates('seedance-1.5-pro', (duration) =>
+          multiplyRate(seedanceRatesByInput.promptOnly[quality], getSeedanceDuration(duration)),
+        ),
+        'with-audio': createDurationRates('seedance-1.5-pro', (duration) =>
+          multiplyRate(seedanceRatesByInput.promptOnly[quality], getSeedanceDuration(duration)),
+        ),
+      }
+      seedanceMatrix.withReference[quality] = {
+        'no-audio': createDurationRates('seedance-1.5-pro', (duration) =>
+          multiplyRate(seedanceRatesByInput.withReference[quality], getSeedanceDuration(duration)),
+        ),
+        'with-audio': createDurationRates('seedance-1.5-pro', (duration) =>
+          multiplyRate(seedanceRatesByInput.withReference[quality], getSeedanceDuration(duration)),
+        ),
       }
     }
   }
@@ -636,221 +683,204 @@ export function buildKiePricingMatrix(input: {
   if (!input.seedance15Override && !seedanceRatesByInput) {
     for (const quality of ['720p', '1080p'] as const) {
       seedanceMatrix.promptOnly[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
       seedanceMatrix.withReference[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
     }
   }
 
   if (seedance2RatesByInput) {
-    for (const duration of videoDurations) {
-      const durationSeconds = Number.parseInt(getSeedance2Duration(duration), 10)
-
-      for (const quality of ['720p', '1080p'] as const) {
-        const promptOnlyDurationRate = multiplyRate(
-          seedance2RatesByInput.promptOnly[quality],
-          durationSeconds,
-        )
-        const withReferenceDurationRate = multiplyRate(
-          seedance2RatesByInput.withReference[quality],
-          durationSeconds,
-        )
-        seedance2Matrix.promptOnly[quality] = {
-          'no-audio': {
-            ...(seedance2Matrix.promptOnly[quality]?.['no-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-          'with-audio': {
-            ...(seedance2Matrix.promptOnly[quality]?.['with-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-        }
-        seedance2Matrix.withReference[quality] = {
-          'no-audio': {
-            ...(seedance2Matrix.withReference[quality]?.['no-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-          'with-audio': {
-            ...(seedance2Matrix.withReference[quality]?.['with-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-        }
+    for (const quality of ['720p', '1080p'] as const) {
+      seedance2Matrix.promptOnly[quality] = {
+        'no-audio': createDurationRates('seedance-2', (duration) =>
+          multiplyRate(seedance2RatesByInput.promptOnly[quality], getSeedance2Duration(duration)),
+        ),
+        'with-audio': createDurationRates('seedance-2', (duration) =>
+          multiplyRate(seedance2RatesByInput.promptOnly[quality], getSeedance2Duration(duration)),
+        ),
+      }
+      seedance2Matrix.withReference[quality] = {
+        'no-audio': createDurationRates('seedance-2', (duration) =>
+          multiplyRate(seedance2RatesByInput.withReference[quality], getSeedance2Duration(duration)),
+        ),
+        'with-audio': createDurationRates('seedance-2', (duration) =>
+          multiplyRate(seedance2RatesByInput.withReference[quality], getSeedance2Duration(duration)),
+        ),
       }
     }
   } else {
     for (const quality of ['720p', '1080p'] as const) {
       seedance2Matrix.promptOnly[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
       seedance2Matrix.withReference[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
     }
   }
 
   if (seedance2MiniRatesByInput) {
-    for (const duration of videoDurations) {
-      const durationSeconds = Number.parseInt(getSeedance2MiniDuration(duration), 10)
+    for (const quality of ['720p', '1080p'] as const) {
+      const resolution = getSeedance2MiniResolution(quality)
 
-      for (const quality of ['720p', '1080p'] as const) {
-        const resolution = getSeedance2MiniResolution(quality)
-        const promptOnlyDurationRate = multiplyRate(
-          seedance2MiniRatesByInput.promptOnly[resolution],
-          durationSeconds,
-        )
-        const withReferenceDurationRate = multiplyRate(
-          seedance2MiniRatesByInput.withReference[resolution],
-          durationSeconds,
-        )
-        seedance2MiniMatrix.promptOnly[quality] = {
-          'no-audio': {
-            ...(seedance2MiniMatrix.promptOnly[quality]?.['no-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-          'with-audio': {
-            ...(seedance2MiniMatrix.promptOnly[quality]?.['with-audio'] ?? {}),
-            [duration]: promptOnlyDurationRate,
-          },
-        }
-        seedance2MiniMatrix.withReference[quality] = {
-          'no-audio': {
-            ...(seedance2MiniMatrix.withReference[quality]?.['no-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-          'with-audio': {
-            ...(seedance2MiniMatrix.withReference[quality]?.['with-audio'] ?? {}),
-            [duration]: withReferenceDurationRate,
-          },
-        }
+      seedance2MiniMatrix.promptOnly[quality] = {
+        'no-audio': createDurationRates('seedance-2-mini', (duration) =>
+          multiplyRate(
+            seedance2MiniRatesByInput.promptOnly[resolution],
+            getSeedance2MiniDuration(duration),
+          ),
+        ),
+        'with-audio': createDurationRates('seedance-2-mini', (duration) =>
+          multiplyRate(
+            seedance2MiniRatesByInput.promptOnly[resolution],
+            getSeedance2MiniDuration(duration),
+          ),
+        ),
+      }
+      seedance2MiniMatrix.withReference[quality] = {
+        'no-audio': createDurationRates('seedance-2-mini', (duration) =>
+          multiplyRate(
+            seedance2MiniRatesByInput.withReference[resolution],
+            getSeedance2MiniDuration(duration),
+          ),
+        ),
+        'with-audio': createDurationRates('seedance-2-mini', (duration) =>
+          multiplyRate(
+            seedance2MiniRatesByInput.withReference[resolution],
+            getSeedance2MiniDuration(duration),
+          ),
+        ),
       }
     }
   } else {
     for (const quality of ['720p', '1080p'] as const) {
       seedance2MiniMatrix.promptOnly[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
       seedance2MiniMatrix.withReference[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
     }
   }
 
-  for (const duration of videoDurations) {
-    const durationKey = getKlingDuration(duration)
+  const klingPromptOnlyNoAudioPerSecond = derivePerSecondRate(
+    [5, 10],
+    (duration) => klingRatesByInput['text-to-video'][String(duration) as '5' | '10']['no-audio'],
+  )
+  const klingPromptOnlyWithAudioPerSecond = derivePerSecondRate(
+    [5, 10],
+    (duration) => klingRatesByInput['text-to-video'][String(duration) as '5' | '10']['with-audio'],
+  )
+  const klingWithReferenceNoAudioPerSecond = derivePerSecondRate(
+    [5, 10],
+    (duration) => klingRatesByInput['image-to-video'][String(duration) as '5' | '10']['no-audio'],
+  )
+  const klingWithReferenceWithAudioPerSecond = derivePerSecondRate(
+    [5, 10],
+    (duration) => klingRatesByInput['image-to-video'][String(duration) as '5' | '10']['with-audio'],
+  )
 
-    klingMatrix.promptOnly['no-audio'] = {
-      ...(klingMatrix.promptOnly['no-audio'] ?? {}),
-      [duration]: klingRatesByInput['text-to-video'][durationKey]['no-audio'],
-    }
-    klingMatrix.promptOnly['with-audio'] = {
-      ...(klingMatrix.promptOnly['with-audio'] ?? {}),
-      [duration]: klingRatesByInput['text-to-video'][durationKey]['with-audio'],
-    }
-    klingMatrix.withReference['no-audio'] = {
-      ...(klingMatrix.withReference['no-audio'] ?? {}),
-      [duration]: klingRatesByInput['image-to-video'][durationKey]['no-audio'],
-    }
-    klingMatrix.withReference['with-audio'] = {
-      ...(klingMatrix.withReference['with-audio'] ?? {}),
-      [duration]: klingRatesByInput['image-to-video'][durationKey]['with-audio'],
-    }
-  }
+  klingMatrix.promptOnly['no-audio'] = createDurationRates(
+    'kling-3.0',
+    (duration) =>
+      klingPromptOnlyNoAudioPerSecond
+        ? multiplyRate(klingPromptOnlyNoAudioPerSecond, duration)
+        : unavailableRate(),
+  )
+  klingMatrix.promptOnly['with-audio'] = createDurationRates(
+    'kling-3.0',
+    (duration) =>
+      klingPromptOnlyWithAudioPerSecond
+        ? multiplyRate(klingPromptOnlyWithAudioPerSecond, duration)
+        : unavailableRate(),
+  )
+  klingMatrix.withReference['no-audio'] = createDurationRates(
+    'kling-3.0',
+    (duration) =>
+      klingWithReferenceNoAudioPerSecond
+        ? multiplyRate(klingWithReferenceNoAudioPerSecond, duration)
+        : unavailableRate(),
+  )
+  klingMatrix.withReference['with-audio'] = createDurationRates(
+    'kling-3.0',
+    (duration) =>
+      klingWithReferenceWithAudioPerSecond
+        ? multiplyRate(klingWithReferenceWithAudioPerSecond, duration)
+        : unavailableRate(),
+  )
 
   // Kling 3.0 uses hardcoded pricing (similar to Seedance 1.5 Pro).
   if (input.kling30Override) {
-    for (const duration of videoDurations) {
-      for (const quality of ['720p', '1080p'] as const) {
-        // Kling 3.0 hardcoded pricing already contains final totals (no multiplication needed)
-        const promptOnlyRate = input.kling30Override.promptOnly[quality]
-        const withReferenceRate = input.kling30Override.withReference[quality]
+    for (const quality of ['720p', '1080p'] as const) {
+      const promptOnlyRate = input.kling30Override.promptOnly[quality]
+      const withReferenceRate = input.kling30Override.withReference[quality]
+      const promptOnlyNoAudioPerSecond = derivePerSecondRate(
+        [5, 10],
+        (duration) => promptOnlyRate['no-audio'][duration],
+      )
+      const promptOnlyWithAudioPerSecond = derivePerSecondRate(
+        [5, 10],
+        (duration) => promptOnlyRate['with-audio'][duration],
+      )
+      const withReferenceNoAudioPerSecond = derivePerSecondRate(
+        [5, 10],
+        (duration) => withReferenceRate['no-audio'][duration],
+      )
+      const withReferenceWithAudioPerSecond = derivePerSecondRate(
+        [5, 10],
+        (duration) => withReferenceRate['with-audio'][duration],
+      )
 
-        kling30Matrix.promptOnly[quality] = {
-          'no-audio': {
-            ...(kling30Matrix.promptOnly[quality]?.['no-audio'] ?? {}),
-            [duration]: promptOnlyRate['no-audio'][duration],
-          },
-          'with-audio': {
-            ...(kling30Matrix.promptOnly[quality]?.['with-audio'] ?? {}),
-            [duration]: promptOnlyRate['with-audio'][duration],
-          },
-        }
-        kling30Matrix.withReference[quality] = {
-          'no-audio': {
-            ...(kling30Matrix.withReference[quality]?.['no-audio'] ?? {}),
-            [duration]: withReferenceRate['no-audio'][duration],
-          },
-          'with-audio': {
-            ...(kling30Matrix.withReference[quality]?.['with-audio'] ?? {}),
-            [duration]: withReferenceRate['with-audio'][duration],
-          },
-        }
+      kling30Matrix.promptOnly[quality] = {
+        'no-audio': createDurationRates(
+          'kling-3.0',
+          (duration) =>
+            promptOnlyNoAudioPerSecond
+              ? multiplyRate(promptOnlyNoAudioPerSecond, duration)
+              : unavailableRate(),
+        ),
+        'with-audio': createDurationRates(
+          'kling-3.0',
+          (duration) =>
+            promptOnlyWithAudioPerSecond
+              ? multiplyRate(promptOnlyWithAudioPerSecond, duration)
+              : unavailableRate(),
+        ),
+      }
+      kling30Matrix.withReference[quality] = {
+        'no-audio': createDurationRates(
+          'kling-3.0',
+          (duration) =>
+            withReferenceNoAudioPerSecond
+              ? multiplyRate(withReferenceNoAudioPerSecond, duration)
+              : unavailableRate(),
+        ),
+        'with-audio': createDurationRates(
+          'kling-3.0',
+          (duration) =>
+            withReferenceWithAudioPerSecond
+              ? multiplyRate(withReferenceWithAudioPerSecond, duration)
+              : unavailableRate(),
+        ),
       }
     }
   } else {
     for (const quality of ['720p', '1080p'] as const) {
       kling30Matrix.promptOnly[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
       kling30Matrix.withReference[quality] = {
-        'no-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
-        'with-audio': {
-          base: unavailableRate(),
-          extended: unavailableRate(),
-        },
+        'no-audio': createUnavailableDurationRates(),
+        'with-audio': createUnavailableDurationRates(),
       }
     }
   }
@@ -1039,9 +1069,13 @@ export function getGenerationCostEstimate(
     perTaskRate = pricingMatrix.image['nano-banana'][imageResolution] ?? null
   } else if (snapshot.videoModel === 'veo-3.1') {
     const videoResolution = getVideoResolution(snapshot.outputQuality)
-    perTaskRate = hasManualVideoReference
+    const baseRate = hasManualVideoReference
       ? pricingMatrix.video['veo-3.1'].withReference[videoResolution]
       : pricingMatrix.video['veo-3.1'].promptOnly[videoResolution]
+    perTaskRate = multiplyRate(
+      baseRate,
+      normalizeVideoDurationForModel(snapshot.videoModel, snapshot.videoDuration) / 8,
+    )
   } else if (snapshot.videoModel === 'seedance-1.5-pro') {
     const videoResolution = getVideoResolution(snapshot.outputQuality)
     const hasReference = hasManualVideoReference

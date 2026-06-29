@@ -26,6 +26,8 @@ function buildBaseFormData() {
   formData.append('productCategory', 'cosmetics')
   formData.append('guidedSummary', 'Show the product benefit from hook to CTA.')
   formData.append('outputLanguage', 'en')
+  formData.append('videoModel', 'seedance-2')
+  formData.append('videoDuration', '10')
   formData.append(
     'guidedShots',
     JSON.stringify([
@@ -68,7 +70,12 @@ describe('POST /api/guided/creative-plan', () => {
     const payload = (await response.json()) as {
       creativePlan?: {
         ctaOptions: Array<{ id: string }>
-        storyboard: Array<{ renderPrompt: string; slug: string; voiceoverLine: string }>
+        storyboard: Array<{
+          durationSeconds: number
+          renderPrompt: string
+          slug: string
+          voiceoverLine: string
+        }>
         voiceoverScript: string
       }
     }
@@ -80,6 +87,9 @@ describe('POST /api/guided/creative-plan', () => {
     expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
       'Include clear spoken voiceover that says exactly: "Here is the product that delivers hydrating finish and easy application."',
     )
+    expect(payload.creativePlan?.storyboard[0]?.renderPrompt).toContain(
+      'This shot should read in about 5 seconds as part of a 10-second overall clip.',
+    )
     expect(payload.creativePlan?.storyboard[1]?.renderPrompt).toContain(
       'End with a spoken CTA that says exactly: "Shop now on TikTok".',
     )
@@ -90,6 +100,7 @@ describe('POST /api/guided/creative-plan', () => {
       'Avoid foreign-language characters, translated captions, extra UI text, logos, or watermarks.',
     )
     expect(payload.creativePlan?.voiceoverScript).not.toContain('Hook the viewer fast')
+    expect(payload.creativePlan?.storyboard.map((shot) => shot.durationSeconds)).toEqual([5, 5])
     expect(payload.creativePlan?.storyboard[0]?.voiceoverLine).toBe(
       'Here is the product that delivers hydrating finish and easy application.',
     )

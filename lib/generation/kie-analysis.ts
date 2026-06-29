@@ -130,7 +130,7 @@ function getVideoTargetClipInstruction(input: {
   videoDuration?: VideoDuration
   videoModel?: VideoModelOption
 }) {
-  const videoDuration = input.videoDuration ?? 'base'
+  const videoDuration = input.videoDuration ?? 8
   const videoModel = input.videoModel ?? 'veo-3.1'
   const modelLabel =
     videoModel === 'grok-imagine-video-1.5'

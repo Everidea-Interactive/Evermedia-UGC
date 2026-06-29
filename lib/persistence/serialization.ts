@@ -1,4 +1,5 @@
 import { normalizeKieAnalysisModel } from '@/lib/generation/guided'
+import { normalizeVideoDurationForModel } from '@/lib/generation/model-mapping'
 import type {
   CarouselBaseTemplateMode,
   CarouselDraft,
@@ -38,7 +39,7 @@ export const defaultProjectConfigSnapshot: GenerationConfigSnapshot = {
   subjectMode: 'lifestyle',
   textPrompt: '',
   videoAudio: 'no-audio',
-  videoDuration: 'base',
+  videoDuration: 8,
   videoModel: 'veo-3.1',
 }
 
@@ -434,6 +435,11 @@ export function normalizeProjectConfigSnapshot(
       defaultProjectConfigSnapshot.orientationPreference ?? 'auto',
     ),
   }
+
+  mergedSnapshot.videoDuration = normalizeVideoDurationForModel(
+    mergedSnapshot.videoModel,
+    snapshot.videoDuration,
+  )
 
   if (mergedSnapshot.subjectMode === 'lifestyle') {
     return mergedSnapshot

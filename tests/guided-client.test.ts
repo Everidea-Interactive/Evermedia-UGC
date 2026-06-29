@@ -80,14 +80,14 @@ describe('guided generation client payloads', () => {
       productUrl: '',
       shotCount: 2,
       videoModel: 'seedance-1.5-pro',
-      videoDuration: 'extended',
+      videoDuration: 12,
       workspace: 'video',
     })
 
     expect(formData.get('workspace')).toBe('video')
     expect(formData.get('shotCount')).toBe('1')
     expect(formData.get('videoModel')).toBe('seedance-1.5-pro')
-    expect(formData.get('videoDuration')).toBe('extended')
+    expect(formData.get('videoDuration')).toBe('12')
     expect(formData.get('videoAudio')).toBe('no-audio')
     expect(formData.get('orientationPreference')).toBe('portrait')
     expect(formData.get('cameraMovement')).toBe('macro')
@@ -108,14 +108,14 @@ describe('guided generation client payloads', () => {
       productUrl: '',
       shotCount: 3,
       videoModel: 'seedance-2',
-      videoDuration: 'extended',
+      videoDuration: 10,
       workspace: 'video',
     })
 
     expect(formData.get('workspace')).toBe('video')
     expect(formData.get('shotCount')).toBe('1')
     expect(formData.get('videoModel')).toBe('seedance-2')
-    expect(formData.get('videoDuration')).toBe('extended')
+    expect(formData.get('videoDuration')).toBe('10')
   })
 
   it('keeps guided image generation payloads image-oriented by default', () => {
@@ -140,7 +140,7 @@ describe('guided generation client payloads', () => {
     expect(formData.get('workspace')).toBe('image')
     expect(formData.get('imageModel')).toBe('nano-banana')
     expect(formData.get('videoModel')).toBe('veo-3.1')
-    expect(formData.get('videoDuration')).toBe('base')
+    expect(formData.get('videoDuration')).toBe('8')
     expect(formData.get('videoAudio')).toBe('no-audio')
     expect(formData.get('cameraMovement')).toBe('')
     expect(formData.get('orientationPreference')).toBeNull()
@@ -284,7 +284,7 @@ describe('guided generation client payloads', () => {
       outputQuality: '1080p',
       plan: multiShotGuidedPlan,
       productUrl: 'https://example.com/product',
-      videoDuration: 'extended',
+      videoDuration: 10,
       videoAudio: 'with-audio',
       videoModel: 'seedance-2',
       workspace: 'video',
@@ -292,7 +292,7 @@ describe('guided generation client payloads', () => {
 
     expect(formData.get('workspace')).toBe('video')
     expect(formData.get('videoModel')).toBe('seedance-2')
-    expect(formData.get('videoDuration')).toBe('extended')
+    expect(formData.get('videoDuration')).toBe('10')
     expect(formData.get('videoAudio')).toBe('with-audio')
     expect(formData.get('cameraMovement')).toBe('dolly')
     expect(formData.get('batchSize')).toBe('1')

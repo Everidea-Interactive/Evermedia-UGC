@@ -28,11 +28,15 @@ import type {
   ProductCategory,
   ShotEnvironment,
   SubjectMode,
-  VideoDuration,
   VideoAudio,
   VideoModelOption,
 } from '@/lib/generation/types'
-import { getMaxVideoReferenceCount } from '@/lib/generation/model-mapping'
+import {
+  getMaxVideoReferenceCount,
+  getVideoDurationLabel,
+  getVideoDurationOptions,
+  getVideoDurationSpec,
+} from '@/lib/generation/model-mapping'
 
 export const productCategories: Array<{
   icon: LucideIcon
@@ -167,32 +171,32 @@ export const videoModels: Array<{
   value: VideoModelOption
 }> = [
   {
-    helper: 'xAI 8s image-guided video generation with synced native audio',
+    helper: 'xAI 3s-15s image-guided video generation with synced native audio',
     label: 'Grok Imagine Video 1.5',
     value: 'grok-imagine-video-1.5',
   },
   {
-    helper: 'Kuaishou 5s or 10s video generation with native audio',
+    helper: 'Kuaishou 3s-15s video generation with native audio',
     label: 'Kling 3.0',
     value: 'kling-3.0',
   },
   {
-    helper: 'ByteDance 15s image or frame guided video generation',
+    helper: 'ByteDance 4s-15s image or frame guided video generation',
     label: 'Seedance 2 Mini',
     value: 'seedance-2-mini',
   },
   {
-    helper: 'ByteDance 5s or 10s video generation',
+    helper: 'ByteDance 4s-15s video generation',
     label: 'Seedance 2.0',
     value: 'seedance-2',
   },
   {
-    helper: 'ByteDance 8s or 12s pro video generation',
+    helper: 'ByteDance 4s-12s pro video generation',
     label: 'Seedance 1.5 Pro',
     value: 'seedance-1.5-pro',
   },
   {
-    helper: 'Reference and end-frame video renders',
+    helper: 'Veo 3.1 generation at 4s, 6s, or 8s',
     label: 'Veo 3.1',
     value: 'veo-3.1',
   },
@@ -200,59 +204,7 @@ export const videoModels: Array<{
 
 export const imageQualities: OutputQuality[] = ['720p', '1080p', '4k']
 export const videoQualities: OutputQuality[] = ['720p', '1080p']
-export const durations: VideoDuration[] = ['base', 'extended']
 export const videoAudioOptions: VideoAudio[] = ['no-audio', 'with-audio']
-
-const videoDurationConfig: Record<
-  VideoModelOption,
-  {
-    labels: Record<VideoDuration, string>
-    options: VideoDuration[]
-  }
-> = {
-  'grok-imagine-video-1.5': {
-    labels: {
-      base: 'Base (8s)',
-      extended: 'Extended (15s)',
-    },
-    options: durations,
-  },
-  'kling-3.0': {
-    labels: {
-      base: 'Base (5s)',
-      extended: 'Extended (10s)',
-    },
-    options: durations,
-  },
-  'seedance-2-mini': {
-    labels: {
-      base: 'Base (8s)',
-      extended: 'Extended (15s)',
-    },
-    options: durations,
-  },
-  'seedance-2': {
-    labels: {
-      base: 'Base (5s)',
-      extended: 'Extended (10s)',
-    },
-    options: durations,
-  },
-  'seedance-1.5-pro': {
-    labels: {
-      base: 'Base (8s)',
-      extended: 'Extended (12s)',
-    },
-    options: durations,
-  },
-  'veo-3.1': {
-    labels: {
-      base: '8s',
-      extended: '8s',
-    },
-    options: ['base'],
-  },
-}
 
 export function getVideoAudioLabel(videoAudio: VideoAudio) {
   return videoAudio === 'with-audio' ? 'With audio' : 'No audio'
@@ -279,15 +231,15 @@ export function getForcedVideoAudio(model: VideoModelOption): VideoAudio | null 
   return 'with-audio'
 }
 
-export function getVideoDurationLabel(
-  model: VideoModelOption,
-  duration: VideoDuration,
-) {
-  return videoDurationConfig[model]?.labels[duration] ?? videoDurationConfig['veo-3.1'].labels.base
-}
+export function getVideoDurationHelperText(model: VideoModelOption) {
+  const spec = getVideoDurationSpec(model)
+  const options = getVideoDurationOptions(model)
 
-export function getVideoDurationOptions(model: VideoModelOption): VideoDuration[] {
-  return videoDurationConfig[model]?.options ?? videoDurationConfig['veo-3.1'].options
+  if (spec.marks) {
+    return `Allowed lengths: ${options.map(getVideoDurationLabel).join(', ')}`
+  }
+
+  return `Allowed range: ${getVideoDurationLabel(spec.min)}-${getVideoDurationLabel(spec.max)}`
 }
 
 export function getImageQualityOptions(

@@ -22,6 +22,7 @@ import {
   isConvertibleUploadImage,
 } from '@/lib/generation/image-upload-support'
 import {
+  assertVideoDurationForModel,
   getMaxVideoReferenceCount,
   getGrokDuration,
   getGrokResolution,
@@ -32,6 +33,7 @@ import {
   getSeedance2Duration,
   getSeedanceDuration,
   getVideoResolution,
+  normalizeVideoDurationForModel,
   supportsVideoFirstLastFramePair,
 } from '@/lib/generation/model-mapping'
 import { normalizeImageFileForProfile } from '@/lib/generation/upload-normalization'
@@ -260,6 +262,30 @@ function readOptionalPositiveNumber(formData: FormData, key: string) {
   const parsed = Number(value)
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new GenerationRequestError({
+      code: 'invalid_input',
+      message: `Invalid value for ${key}.`,
+      status: 400,
+    })
+  }
+
+  return parsed
+}
+
+function readOptionalVideoDuration(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key)
+
+  if (!value) {
+    return null
+  }
+
+  if (value === 'base' || value === 'extended') {
+    return value
+  }
+
+  const parsed = Number.parseInt(value, 10)
+
+  if (!Number.isInteger(parsed)) {
     throw new GenerationRequestError({
       code: 'invalid_input',
       message: `Invalid value for ${key}.`,
@@ -1238,7 +1264,7 @@ function buildVideoPayload(input: {
             : null),
           aspect_ratio: aspectRatio,
           resolution: getGrokResolution(input.outputQuality),
-          duration: Number.parseInt(getGrokDuration(input.videoDuration), 10),
+          duration: getGrokDuration(input.videoDuration),
           nsfw_checker: false,
         },
       },
@@ -1274,6 +1300,7 @@ function buildVideoPayload(input: {
         imageUrls,
         model: VEO_DEFAULT_MODEL,
         aspect_ratio: aspectRatio,
+        duration: input.videoDuration,
         enableFallback: false,
         enableTranslation: false,
         generationType:
@@ -1368,7 +1395,7 @@ function buildVideoPayload(input: {
             : null),
           aspect_ratio: aspectRatio,
           resolution: getSeedance2MiniResolution(input.outputQuality),
-          duration: Number.parseInt(getSeedance2MiniDuration(input.videoDuration), 10),
+          duration: getSeedance2MiniDuration(input.videoDuration),
           generate_audio: input.videoAudio === 'with-audio',
           return_last_frame: false,
           nsfw_checker: false,
@@ -1929,10 +1956,12 @@ export function parseGenerationFormData(formData: FormData): ParsedGenerationReq
             ['product-only', 'lifestyle'] as const,
           ),
     textPrompt: readString(formData, 'textPrompt'),
-    videoDuration: readEnum(
-      formData,
-      'videoDuration',
-      ['base', 'extended'] as const,
+    videoDuration: assertVideoDurationForModel(
+      videoModel,
+      normalizeVideoDurationForModel(
+        videoModel,
+        readOptionalVideoDuration(formData, 'videoDuration'),
+      ),
     ),
     videoAudio: normalizedVideoAudio,
     videoModel,

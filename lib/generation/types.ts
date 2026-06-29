@@ -77,7 +77,22 @@ export type CharacterAgeGroup =
   | 'middle-aged'
   | 'senior'
 export type FigureArtDirection = 'none' | 'curvaceous-editorial'
-export type VideoDuration = 'base' | 'extended'
+export type VideoDuration =
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 14
+  | 15
+  | 'base'
+  | 'extended'
 export type VideoAudio = 'no-audio' | 'with-audio'
 export type OutputQuality = '720p' | '1080p' | '4k'
 export type ImageResolution = '1K' | '2K' | '4K'

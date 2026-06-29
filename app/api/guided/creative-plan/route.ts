@@ -3,7 +3,13 @@ import { NextResponse } from 'next/server'
 import { getOptionalAuthenticatedUser } from '@/lib/auth/session'
 import { createCreativePlan } from '@/lib/generation/creative-planning'
 import { normalizeGuidedAnalysisPlan } from '@/lib/generation/guided'
-import type { CreativeBrief, GuidedAnalysisPlan } from '@/lib/generation/types'
+import { normalizeVideoDurationForModel } from '@/lib/generation/model-mapping'
+import type {
+  CreativeBrief,
+  GuidedAnalysisPlan,
+  VideoDuration,
+  VideoModelOption,
+} from '@/lib/generation/types'
 import { normalizeLocale, type Locale } from '@/lib/i18n'
 
 export const runtime = 'nodejs'
@@ -16,6 +22,26 @@ function readString(formData: FormData, key: string) {
   }
 
   return value
+}
+
+function readOptionalString(formData: FormData, key: string) {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value : null
+}
+
+function readOptionalVideoDuration(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key)?.trim()
+
+  if (!value) {
+    return null
+  }
+
+  if (value === 'base' || value === 'extended') {
+    return value as VideoDuration
+  }
+
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function readCreativeBrief(formData: FormData): CreativeBrief {
@@ -77,6 +103,23 @@ function readOutputLanguage(formData: FormData): Locale {
   return normalizeLocale(readString(formData, 'outputLanguage'))
 }
 
+function readVideoModel(formData: FormData): VideoModelOption {
+  const value = readOptionalString(formData, 'videoModel')
+
+  if (
+    value === 'grok-imagine-video-1.5' ||
+    value === 'kling-3.0' ||
+    value === 'seedance-1.5-pro' ||
+    value === 'seedance-2' ||
+    value === 'seedance-2-mini' ||
+    value === 'veo-3.1'
+  ) {
+    return value
+  }
+
+  return 'veo-3.1'
+}
+
 export async function POST(request: Request) {
   const user = await getOptionalAuthenticatedUser()
 
@@ -89,10 +132,17 @@ export async function POST(request: Request) {
     const brief = readCreativeBrief(formData)
     const plan = readGuidedPlan(formData)
     const outputLanguage = readOutputLanguage(formData)
+    const videoModel = readVideoModel(formData)
+    const videoDuration = normalizeVideoDurationForModel(
+      videoModel,
+      readOptionalVideoDuration(formData, 'videoDuration'),
+    )
     const creativePlan = createCreativePlan({
       brief,
       outputLanguage,
       plan,
+      videoDuration,
+      videoModel,
     })
 
     return NextResponse.json({

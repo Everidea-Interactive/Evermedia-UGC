@@ -113,7 +113,7 @@ describe('POST /api/guided/analyze', () => {
     formData.append('workspace', 'video')
     formData.set('shotCount', '3')
     formData.append('videoModel', 'seedance-1.5-pro')
-    formData.append('videoDuration', 'extended')
+    formData.append('videoDuration', '12')
     formData.append('orientationPreference', 'portrait')
     formData.append('cameraMovement', 'dolly')
 
@@ -126,7 +126,7 @@ describe('POST /api/guided/analyze', () => {
         orientationPreference: 'portrait',
         shotCount: 1,
         videoModel: 'seedance-1.5-pro',
-        videoDuration: 'extended',
+        videoDuration: 12,
         workspace: 'video',
       }),
     )
