@@ -55,9 +55,7 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
   const videoReferenceLimit = getMaxVideoReferenceCount(videoModel)
   const isKlingVideoModel = videoModel === 'kling-3.0'
   const showDedicatedFramePair = supportsVideoFirstLastFramePair(videoModel)
-  const showEndFrameReference =
-    supportsVideoEndFrameGuidance(videoModel) &&
-    (!showDedicatedFramePair || Boolean(assets.firstFrame.file))
+  const showEndFrameReference = supportsVideoEndFrameGuidance(videoModel)
   const visibleVideoReferenceCount = Math.min(
     videoReferenceLimit,
     Math.max(
@@ -104,41 +102,57 @@ export function ReferenceWorkspaceSection({ className }: { className?: string })
 
         {activeTab === 'video' ? (
           <ReferenceCardGroup title="References">
-            {isKlingVideoModel
-              ? null
-              : visibleVideoReferences.map((referenceSlot) => (
-                  <ReferenceCard
-                    accept={imageAccept}
-                    emptyStateLabel={imageEmptyState}
-                    icon={Image}
-                    inputId={referenceSlot.id}
-                    key={referenceSlot.id}
-                    onClear={() => clearVideoReference(referenceSlot.id)}
-                    onSelect={(file) => setVideoReferenceFile(referenceSlot.id, file)}
-                    slot={referenceSlot}
-                  />
-                ))}
-            {showDedicatedFramePair ? (
-              <ReferenceCard
-                accept={imageAccept}
-                emptyStateLabel={imageEmptyState}
-                icon={Image}
-                inputId="asset-first-frame"
-                onClear={() => clearNamedAsset('firstFrame')}
-                onSelect={(file) => setNamedAssetFile('firstFrame', file)}
-                slot={assets.firstFrame}
-              />
-            ) : null}
-            {showEndFrameReference ? (
-              <ReferenceCard
-                accept={imageAccept}
-                emptyStateLabel={imageEmptyState}
-                icon={ScanLine}
-                inputId="asset-end-frame"
-                onClear={() => clearNamedAsset('endFrame')}
-                onSelect={(file) => setNamedAssetFile('endFrame', file)}
-                slot={assets.endFrame}
-              />
+            <div className="sm:col-span-2">
+              <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+                {isKlingVideoModel
+                  ? null
+                  : visibleVideoReferences.map((referenceSlot) => (
+                    <ReferenceCard
+                      accept={imageAccept}
+                      className="min-h-[10.5rem] sm:aspect-[4/3]"
+                      emptyStateLabel={imageEmptyState}
+                      icon={Image}
+                      inputId={referenceSlot.id}
+                        key={referenceSlot.id}
+                        onClear={() => clearVideoReference(referenceSlot.id)}
+                        onSelect={(file) => setVideoReferenceFile(referenceSlot.id, file)}
+                        slot={referenceSlot}
+                      />
+                    ))}
+              </div>
+            </div>
+            {showDedicatedFramePair || showEndFrameReference ? (
+              <div className="sm:col-span-2">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Frames
+                </p>
+                <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+                  {showDedicatedFramePair ? (
+                    <ReferenceCard
+                      accept={imageAccept}
+                      className="min-h-[10.5rem] sm:aspect-[4/3]"
+                      emptyStateLabel={imageEmptyState}
+                      icon={Image}
+                      inputId="asset-first-frame"
+                      onClear={() => clearNamedAsset('firstFrame')}
+                      onSelect={(file) => setNamedAssetFile('firstFrame', file)}
+                      slot={assets.firstFrame}
+                    />
+                  ) : null}
+                  {showEndFrameReference ? (
+                    <ReferenceCard
+                      accept={imageAccept}
+                      className="min-h-[10.5rem] sm:aspect-[4/3]"
+                      emptyStateLabel={imageEmptyState}
+                      icon={ScanLine}
+                      inputId="asset-end-frame"
+                      onClear={() => clearNamedAsset('endFrame')}
+                      onSelect={(file) => setNamedAssetFile('endFrame', file)}
+                      slot={assets.endFrame}
+                    />
+                  ) : null}
+                </div>
+              </div>
             ) : null}
           </ReferenceCardGroup>
         ) : (
